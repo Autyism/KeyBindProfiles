@@ -28,10 +28,12 @@ public abstract class HudMixin {
             int screenWidth = context.getScaledWindowWidth();
             int screenHeight = context.getScaledWindowHeight();
 
+            // над хотбаром
             int x = (screenWidth - textRenderer.getWidth(message)) / 2;
             int y = screenHeight - 59;
 
-            context.drawTextWithShadow(textRenderer, message, x, y, 0x55FF55);
+            // 0xFF55FF55 = ARGB формат (FF = альфа, 55FF55 = зелёный)
+            context.drawTextWithShadow(textRenderer, message, x, y, 0xFF55FF55);
         }
     }
 }

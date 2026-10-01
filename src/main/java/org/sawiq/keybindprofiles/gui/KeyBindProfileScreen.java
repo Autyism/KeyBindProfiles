@@ -1,11 +1,13 @@
 package org.sawiq.keybindprofiles.gui;
 
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gui.Click;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.screen.option.KeybindsScreen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.TextFieldWidget;
+import net.minecraft.client.input.KeyInput;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
 import net.minecraft.text.Text;
@@ -199,7 +201,7 @@ public class KeyBindProfileScreen extends Screen {
 
         if (Objects.equals(KeyBindProfiles.getCurrentProfile(), oldName)) {
             KeyBindProfiles.saveCurrentProfile(newName);
-            this.init(client, this.width, this.height);
+            this.init(this.width, this.height);
         }
     }
 
@@ -212,7 +214,7 @@ public class KeyBindProfileScreen extends Screen {
     }
 
     private void applySavedKey(KeyBinding binding, Map<String, String> keyMap) {
-        String savedKey = keyMap.get(binding.getTranslationKey());
+        String savedKey = keyMap.get(binding.getId());
         if (savedKey == null) {
             return;
         }
@@ -250,7 +252,7 @@ public class KeyBindProfileScreen extends Screen {
         showStatus("keybindprofiles.status.profile_deleted", deletedProfile);
 
         if (Objects.equals(KeyBindProfiles.getCurrentProfile(), deletedProfile)) {
-            this.init(client, this.width, this.height);
+            this.init(this.width, this.height);
         }
     }
 
@@ -266,7 +268,7 @@ public class KeyBindProfileScreen extends Screen {
         }
 
         KeybindsScreenNavigation.refreshControlsList(keybindsScreen);
-        this.init(client, this.width, this.height);
+        this.init(this.width, this.height);
     }
 
     private void returnToParent() {
@@ -378,30 +380,31 @@ public class KeyBindProfileScreen extends Screen {
     }
 
     @Override
-    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+    public boolean keyPressed(KeyInput input) {
+        int keyCode = input.key();
         if (keyCode == InputUtil.GLFW_KEY_ENTER && serverInputField != null && serverInputField.isFocused()) {
             addServerToSelectedProfile();
             return true;
         }
         if (keyCode == InputUtil.GLFW_KEY_ENTER && profileNameField != null && profileNameField.isFocused()) {
-            createButton.onPress();
+            createProfile();
             return true;
         }
 
-        if (hotkeyCapture.handleKeyPressed(keyCode, scanCode)) {
+        if (hotkeyCapture.handleKeyPressed(input)) {
             refreshProfileList();
             return true;
         }
-        return super.keyPressed(keyCode, scanCode, modifiers);
+        return super.keyPressed(input);
     }
 
     @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (hotkeyCapture.handleMouseClicked(button)) {
+    public boolean mouseClicked(Click click, boolean bl) {
+        if (hotkeyCapture.handleMouseClicked(click.button())) {
             refreshProfileList();
             return true;
         }
-        return super.mouseClicked(mouseX, mouseY, button);
+        return super.mouseClicked(click, bl);
     }
 
     public void refreshProfileList() {
@@ -462,29 +465,29 @@ public class KeyBindProfileScreen extends Screen {
         } else {
             fullProfileText = Text.translatable("keybindprofiles.applied_profile", Text.translatable("options.off"));
         }
-        context.drawText(textRenderer, fullProfileText, 10, 10, 0xFFFFFF, false);
-        context.drawText(textRenderer, Text.translatable("keybindprofiles.profile_name"), profileNameField.getX(), profileNameField.getY() - 11, 0xA0A0A0, false);
-        context.drawText(textRenderer, Text.translatable("keybindprofiles.search"), searchField.getX(), searchField.getY() - 11, 0xA0A0A0, false);
-        context.drawText(textRenderer, Text.translatable("keybindprofiles.server_address"), serverInputField.getX(), serverInputField.getY() - 11, 0xA0A0A0, false);
-        context.drawText(textRenderer, Text.translatable("keybindprofiles.auto_switch_servers"), layout.rightPanelX(), layout.serverListTop() - 11, 0xA0A0A0, false);
+        context.drawText(textRenderer, fullProfileText, 10, 10, 0xFFFFFFFF, false);
+        context.drawText(textRenderer, Text.translatable("keybindprofiles.profile_name"), profileNameField.getX(), profileNameField.getY() - 11, 0xFFA0A0A0, false);
+        context.drawText(textRenderer, Text.translatable("keybindprofiles.search"), searchField.getX(), searchField.getY() - 11, 0xFFA0A0A0, false);
+        context.drawText(textRenderer, Text.translatable("keybindprofiles.server_address"), serverInputField.getX(), serverInputField.getY() - 11, 0xFFA0A0A0, false);
+        context.drawText(textRenderer, Text.translatable("keybindprofiles.auto_switch_servers"), layout.rightPanelX(), layout.serverListTop() - 11, 0xFFA0A0A0, false);
 
         if (selectedProfile != null) {
             List<String> servers = KeyBindProfiles.getProfileAutoSwitchServers(selectedProfile);
             if (servers == null || servers.isEmpty()) {
-                context.drawText(textRenderer, Text.translatable("keybindprofiles.no_servers"), layout.rightPanelX(), layout.serverListTop() + 5, 0x777777, false);
+                context.drawText(textRenderer, Text.translatable("keybindprofiles.no_servers"), layout.rightPanelX(), layout.serverListTop() + 5, 0xFF777777, false);
             }
         }
 
         Text statusText = statusMessage.getVisibleText();
         if (statusText != null) {
             int statusX = (width - textRenderer.getWidth(statusText)) / 2;
-            context.drawTextWithShadow(textRenderer, statusText, statusX, 24, 0xFFFF55);
+            context.drawTextWithShadow(textRenderer, statusText, statusX, 24, 0xFFFFFF55);
         }
 
         if (hotkeyCapture.isCapturing()) {
             Text hint = Text.translatable("keybindprofiles.hotkey_hint");
             int hintX = (width - textRenderer.getWidth(hint)) / 2;
-            context.drawText(textRenderer, hint, hintX, layout.listBottom() - 12, 0xFFFF55, true);
+            context.drawText(textRenderer, hint, hintX, layout.listBottom() - 12, 0xFFFFFF55, true);
         }
     }
 }

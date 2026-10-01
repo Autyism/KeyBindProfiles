@@ -1,5 +1,6 @@
 package org.sawiq.keybindprofiles.gui;
 
+import net.minecraft.client.input.KeyInput;
 import net.minecraft.client.util.InputUtil;
 import net.minecraft.text.Text;
 import org.sawiq.keybindprofiles.KeyBindProfiles;
@@ -41,11 +42,12 @@ final class ProfileHotkeyCapture {
         capturedKeys.clear();
     }
 
-    boolean handleKeyPressed(int keyCode, int scanCode) {
+    boolean handleKeyPressed(KeyInput input) {
         if (!isCapturing()) {
             return false;
         }
 
+        int keyCode = input.key();
         if (keyCode == InputUtil.GLFW_KEY_ESCAPE) {
             clear();
             return true;
@@ -63,7 +65,7 @@ final class ProfileHotkeyCapture {
             return true;
         }
 
-        addCapturedKey(InputUtil.fromKeyCode(keyCode, scanCode).getTranslationKey());
+        addCapturedKey(InputUtil.fromKeyCode(input).getTranslationKey());
         return true;
     }
 
