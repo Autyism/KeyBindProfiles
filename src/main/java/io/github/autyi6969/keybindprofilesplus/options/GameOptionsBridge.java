@@ -6,8 +6,12 @@ import com.google.gson.JsonParser;
 import com.mojang.serialization.JsonOps;
 import io.github.autyi6969.keybindprofilesplus.KeyBindProfilesPlus;
 import net.minecraft.client.option.GameOptions;
+import io.github.autyi6969.keybindprofilesplus.keys.KeyLabels;
 import net.minecraft.client.option.SimpleOption;
+import net.minecraft.screen.ScreenTexts;
 import net.minecraft.text.Text;
+import net.minecraft.text.TranslatableTextContent;
+import net.minecraft.util.Language;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -39,18 +43,28 @@ public final class GameOptionsBridge {
      */
     public record Entry(String key, String rawValue, SimpleOption<?> option) {
         public Text name() {
-            if (option != null) {
+            // A few options carry a name the game has no text for (it only ever shows their value).
+            if (option != null && !(option.text.getContent() instanceof TranslatableTextContent translatable
+                    && !Language.getInstance().hasTranslation(translatable.getKey()))) {
                 return option.text;
             }
             if (key.startsWith(MODEL_PART_PREFIX)) {
                 return Text.translatable("options.modelPart." + key.substring(MODEL_PART_PREFIX.length()));
             }
-            return Text.literal(key);
+            // These have no name in the game's own language files.
+            String translationKey = "keybindprofilesplus.option." + key;
+            return Language.getInstance().hasTranslation(translationKey) ? Text.translatable(translationKey) : Text.literal(KeyLabels.humanize(key));
         }
 
         /** Formats a stored raw value of this setting for display, e.g. "0.5" -> "50%". */
         public Text describe(String rawValue) {
-            return option == null ? Text.literal(rawValue) : describeOption(option, rawValue);
+            if (option != null) {
+                return describeOption(option, rawValue, name().getString());
+            }
+            if ("true".equals(rawValue) || "false".equals(rawValue)) {
+                return ScreenTexts.onOrOff(Boolean.parseBoolean(rawValue));
+            }
+            return Text.literal(rawValue);
         }
     }
 
@@ -182,7 +196,7 @@ public final class GameOptionsBridge {
         });
     }
 
-    private static <T> Text describeOption(SimpleOption<T> option, String rawValue) {
+    private static <T> Text describeOption(SimpleOption<T> option, String rawValue, String name) {
         try {
             JsonElement json = JsonParser.parseString(rawValue.isEmpty() ? "\"\"" : rawValue);
             Optional<T> value = option.getCodec().parse(JsonOps.INSTANCE, json).result();
@@ -192,7 +206,6 @@ public final class GameOptionsBridge {
 
             // Many options format their value as "Name: value"; only the value part is wanted here.
             String full = option.textGetter.apply(value.get()).getString();
-            String name = option.text.getString();
             Matcher labelled = LABELLED_VALUE.matcher(full);
             if (labelled.matches()) {
                 // The label is the option name or a shortened form of it ("Chunk Fade: 0.75 s").

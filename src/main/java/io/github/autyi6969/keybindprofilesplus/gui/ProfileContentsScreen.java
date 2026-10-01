@@ -2,8 +2,10 @@ package io.github.autyi6969.keybindprofilesplus.gui;
 
 import io.github.autyi6969.keybindprofilesplus.keys.KeyCombo;
 import io.github.autyi6969.keybindprofilesplus.keys.KeyCombos;
+import io.github.autyi6969.keybindprofilesplus.keys.KeyLabels;
 import io.github.autyi6969.keybindprofilesplus.options.GameOptionsBridge;
 import io.github.autyi6969.keybindprofilesplus.options.OptionCatalog;
+import io.github.autyi6969.keybindprofilesplus.profile.ProfileNames;
 import io.github.autyi6969.keybindprofilesplus.profile.ProfileService;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
@@ -42,19 +44,25 @@ import java.util.function.Function;
  */
 public class ProfileContentsScreen extends Screen {
     private static final int HEADER_HEIGHT = 58;
+    private static final int HEADER_HEIGHT_NEW = 82;
     private static final int ROW_HEIGHT = 18;
     private static final int INDENT = 12;
     private static final int ARROW_WIDTH = 10;
 
     private final Screen parent;
     private final ProfileService service;
+    /** Null while a new profile is being put together: it only exists once Done is pressed. */
     private final String profileName;
+    private final boolean creating;
     private final Consumer<String> onSaved;
-    private final ThreePartsLayoutWidget layout = new ThreePartsLayoutWidget(this, HEADER_HEIGHT, 33);
+    private final ThreePartsLayoutWidget layout;
     private final Group root = new Group("root", Text.empty());
     private final Map<String, Node> nodesById = new HashMap<>();
 
     private TextFieldWidget searchField;
+    private TextFieldWidget nameField;
+    private String newName = "";
+    private Text error;
     private TreeList list;
     private String query = "";
     private Text summary = Text.empty();
@@ -64,11 +72,27 @@ public class ProfileContentsScreen extends Screen {
      * @param onSaved called with the profile name after Done stored the new contents
      */
     public ProfileContentsScreen(Screen parent, ProfileService service, String profileName, Consumer<String> onSaved) {
-        super(Text.translatable("keybindprofilesplus.contents.title", profileName));
+        this(parent, service, profileName, false, onSaved);
+    }
+
+    /**
+     * The same tree for a profile that does not exist yet: a name field on top, every key binding
+     * ticked to begin with, and the profile is created when Done is pressed.
+     *
+     * @param onCreated called with the name of the new profile
+     */
+    public static ProfileContentsScreen forNewProfile(Screen parent, ProfileService service, Consumer<String> onCreated) {
+        return new ProfileContentsScreen(parent, service, null, true, onCreated);
+    }
+
+    private ProfileContentsScreen(Screen parent, ProfileService service, String profileName, boolean creating, Consumer<String> onSaved) {
+        super(creating ? Text.translatable("keybindprofilesplus.new.title") : Text.translatable("keybindprofilesplus.contents.title", profileName));
         this.parent = parent;
         this.service = service;
         this.profileName = profileName;
+        this.creating = creating;
         this.onSaved = onSaved;
+        this.layout = new ThreePartsLayoutWidget(this, creating ? HEADER_HEIGHT_NEW : HEADER_HEIGHT, 33);
     }
 
     @Override
@@ -81,6 +105,21 @@ public class ProfileContentsScreen extends Screen {
         DirectionalLayoutWidget header = layout.addHeader(DirectionalLayoutWidget.vertical().spacing(4));
         header.getMainPositioner().alignHorizontalCenter();
         header.add(new TextWidget(title, textRenderer));
+        if (creating) {
+            // The field has the focus from the start, which hides a hint inside it: so the label sits beside it.
+            Text nameLabel = Text.translatable("keybindprofilesplus.profile_name");
+            int rowWidth = Math.max(100, Math.min(260, width - 40));
+            DirectionalLayoutWidget nameRow = header.add(DirectionalLayoutWidget.horizontal().spacing(6));
+            nameRow.getMainPositioner().alignVerticalCenter();
+            nameRow.add(new TextWidget(nameLabel, textRenderer));
+            nameField = nameRow.add(new TextFieldWidget(textRenderer, Math.max(60, rowWidth - textRenderer.getWidth(nameLabel) - 6), 20, nameLabel));
+            nameField.setMaxLength(ProfileNames.MAX_LENGTH);
+            nameField.setText(newName);
+            nameField.setChangedListener(value -> {
+                newName = value;
+                error = null;
+            });
+        }
         searchField = header.add(new TextFieldWidget(textRenderer, Math.max(100, Math.min(260, width - 40)), 20,
                 Text.translatable("keybindprofilesplus.contents.search")));
         searchField.setMaxLength(64);
@@ -97,11 +136,16 @@ public class ProfileContentsScreen extends Screen {
 
         DirectionalLayoutWidget footer = layout.addFooter(DirectionalLayoutWidget.horizontal().spacing(8));
         int buttonWidth = Math.max(70, Math.min(150, (width - 40) / 3));
-        footer.add(ButtonWidget.builder(Text.translatable("keybindprofilesplus.contents.recapture"), button -> recapture())
-                .width(buttonWidth)
-                .tooltip(Tooltip.of(Text.translatable("keybindprofilesplus.contents.recapture.tooltip")))
-                .build());
-        footer.add(ButtonWidget.builder(ScreenTexts.DONE, button -> save()).width(buttonWidth).build());
+        if (creating) {
+            // A new profile always takes the values the game has right now, so there is nothing to "use current values" for.
+            footer.add(ButtonWidget.builder(Text.translatable("keybindprofilesplus.new.create"), button -> save()).width(buttonWidth).build());
+        } else {
+            footer.add(ButtonWidget.builder(Text.translatable("keybindprofilesplus.contents.recapture"), button -> recapture())
+                    .width(buttonWidth)
+                    .tooltip(Tooltip.of(Text.translatable("keybindprofilesplus.contents.recapture.tooltip")))
+                    .build());
+            footer.add(ButtonWidget.builder(ScreenTexts.DONE, button -> save()).width(buttonWidth).build());
+        }
         footer.add(ButtonWidget.builder(ScreenTexts.CANCEL, button -> close()).width(buttonWidth).build());
 
         layout.forEachChild(this::addDrawableChild);
@@ -125,7 +169,17 @@ public class ProfileContentsScreen extends Screen {
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float deltaTicks) {
         super.render(context, mouseX, mouseY, deltaTicks);
-        context.drawCenteredTextWithShadow(textRenderer, summary, width / 2, searchField.getY() + 24, GuiUtil.GRAY);
+        context.drawCenteredTextWithShadow(textRenderer, error != null ? error : summary, width / 2, searchField.getY() + 24,
+                error != null ? GuiUtil.RED : GuiUtil.GRAY);
+    }
+
+    @Override
+    protected void setInitialFocus() {
+        if (creating) {
+            setInitialFocus(nameField);
+        } else {
+            super.setInitialFocus();
+        }
     }
 
     // ------------------------------------------------------------------ actions (also used by the self-test)
@@ -140,6 +194,29 @@ public class ProfileContentsScreen extends Screen {
                 (item.keyBinding ? keyBindings : options).put(item.key, value);
             }
         });
+        if (creating) {
+            String name = newName.trim();
+            String problem = ProfileNames.validate(name);
+            if (problem == null && ProfileNames.containsIgnoreCase(service.profiles().keySet(), name)) {
+                error = Text.translatable("keybindprofilesplus.status.profile_exists", name);
+                return;
+            }
+            if (problem != null) {
+                error = Text.translatable(problem);
+                return;
+            }
+            if (!service.createProfile(name, keyBindings, options)) {
+                error = Text.translatable("keybindprofilesplus.status.profile_exists", name);
+                return;
+            }
+            client.setScreen(parent);
+            onSaved.accept(name);
+            if (parent instanceof KeyBindProfileScreen main) {
+                main.showStatus("keybindprofilesplus.status.profile_created", name);
+            }
+            return;
+        }
+
         service.setProfileContents(profileName, keyBindings, options);
         client.setScreen(parent);
         onSaved.accept(profileName);
@@ -179,6 +256,18 @@ public class ProfileContentsScreen extends Screen {
         searchField.setText(query);
     }
 
+    /** Types into the name field of a new profile. */
+    public void setProfileName(String name) {
+        if (nameField != null) {
+            nameField.setText(name);
+        }
+    }
+
+    /** The message shown instead of the summary when Done was refused, or null. */
+    public String errorText() {
+        return error == null ? null : error.getString();
+    }
+
     public int checkedCount(boolean keyBindings) {
         int[] count = new int[1];
         forEachItem(root, item -> {
@@ -213,8 +302,8 @@ public class ProfileContentsScreen extends Screen {
     // ------------------------------------------------------------------ tree model
 
     private void buildTree() {
-        Map<String, String> savedKeys = service.profiles().getOrDefault(profileName, Map.of());
-        Map<String, String> savedOptions = service.getProfileOptions(profileName);
+        Map<String, String> savedKeys = creating ? Map.of() : service.profiles().getOrDefault(profileName, Map.of());
+        Map<String, String> savedOptions = creating ? Map.of() : service.getProfileOptions(profileName);
 
         Group keys = addGroup(root, "keys", Text.translatable("keybindprofilesplus.contents.keys"));
         keys.expanded = true;
@@ -223,15 +312,19 @@ public class ProfileContentsScreen extends Screen {
         Map<String, String> unknownKeys = new LinkedHashMap<>(savedKeys);
         for (KeyBinding binding : bindings) {
             String categoryId = "keys/" + binding.getCategory().id();
-            Group category = nodesById.get(categoryId) instanceof Group existing ? existing : addGroup(keys, categoryId, binding.getCategory().getLabel());
-            addItem(category, "key:" + binding.getId(), Text.translatable(binding.getId()), true, binding.getId(),
+            Group category = nodesById.get(categoryId) instanceof Group existing ? existing : addGroup(keys, categoryId, KeyLabels.category(binding.getCategory()));
+            addItem(category, "key:" + binding.getId(), KeyLabels.name(binding), true, binding.getId(),
                     savedKeys.get(binding.getId()), KeyCombos.valueOf(binding), ProfileContentsScreen::describeKey);
+            if (creating) {
+                // A new profile starts out saving every key binding, like profiles always did.
+                nodesById.get("key:" + binding.getId()).setChecked(true);
+            }
             unknownKeys.remove(binding.getId());
         }
         if (!unknownKeys.isEmpty()) {
             // Saved for a mod that is not installed right now; kept so nothing is lost silently.
             Group missing = addGroup(keys, "keys/missing", Text.translatable("keybindprofilesplus.contents.keys_missing"));
-            unknownKeys.forEach((id, key) -> addItem(missing, "key:" + id, Text.literal(id), true, id, key, null, ProfileContentsScreen::describeKey));
+            unknownKeys.forEach((id, key) -> addItem(missing, "key:" + id, KeyLabels.name(id), true, id, key, null, ProfileContentsScreen::describeKey));
         }
 
         Group settings = addGroup(root, "options", Text.translatable("keybindprofilesplus.contents.settings"));

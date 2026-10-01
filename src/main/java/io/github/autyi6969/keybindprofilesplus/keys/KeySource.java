@@ -15,11 +15,17 @@ public record KeySource(Kind kind, String modId, String name) {
     public enum Kind {
         VANILLA,
         MOD,
-        UNKNOWN
+        UNKNOWN,
+        /** A hotkey another mod manages on its own (Meteor, malilib), read from its config file. */
+        EXTERNAL
     }
 
     public static KeySource mod(String modId, String name) {
         return new KeySource(Kind.MOD, modId, name);
+    }
+
+    public static KeySource external(String sourceId, String groupName) {
+        return new KeySource(Kind.EXTERNAL, sourceId, groupName);
     }
 
     public static KeySource unknown(String hint) {
@@ -34,7 +40,7 @@ public record KeySource(Kind kind, String modId, String name) {
     public Text label() {
         return switch (kind) {
             case VANILLA -> Text.translatable("keybindprofilesplus.source.vanilla");
-            case MOD -> Text.literal(name);
+            case MOD, EXTERNAL -> Text.literal(name);
             case UNKNOWN -> modId == null
                     ? Text.translatable("keybindprofilesplus.source.unknown")
                     : Text.translatable("keybindprofilesplus.source.unknown_hint", modId);
@@ -50,6 +56,7 @@ public record KeySource(Kind kind, String modId, String name) {
         return switch (kind) {
             case VANILLA -> 0xFF9A9A9A;
             case MOD -> 0xFF7FD4FF;
+            case EXTERNAL -> 0xFFFFB060;
             case UNKNOWN -> 0xFFE0C060;
         };
     }

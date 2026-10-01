@@ -6,6 +6,7 @@ import net.minecraft.client.util.InputUtil;
 import io.github.autyi6969.keybindprofilesplus.KeyBindProfilesPlus;
 import io.github.autyi6969.keybindprofilesplus.keys.KeyCombo;
 import io.github.autyi6969.keybindprofilesplus.keys.KeyCombos;
+import io.github.autyi6969.keybindprofilesplus.keys.KeyLabels;
 import io.github.autyi6969.keybindprofilesplus.options.GameOptionsBridge;
 import io.github.autyi6969.keybindprofilesplus.options.OptionCatalog;
 import io.github.autyi6969.keybindprofilesplus.storage.ProfileFileStore;
@@ -199,7 +200,7 @@ public final class ProfileService {
             if (savedKey == null || savedKey.equals(KeyCombos.valueOf(binding)) || KeyCombo.parse(savedKey).inputKey() == null) {
                 continue;
             }
-            changes.add(new ProfileChange(ProfileChange.Kind.KEY_BINDING, binding.getId(), Text.translatable(binding.getId()),
+            changes.add(new ProfileChange(ProfileChange.Kind.KEY_BINDING, binding.getId(), KeyLabels.name(binding),
                     binding.getBoundKeyLocalizedText(), KeyCombo.describe(savedKey)));
         }
 

@@ -1,10 +1,15 @@
 package io.github.autyi6969.keybindprofilesplus.gui;
 
+import io.github.autyi6969.keybindprofilesplus.KeyBindProfilesPlus;
+import io.github.autyi6969.keybindprofilesplus.external.ExternalBinding;
+import io.github.autyi6969.keybindprofilesplus.external.ExternalKeys;
 import io.github.autyi6969.keybindprofilesplus.keys.KeyConflicts;
+import io.github.autyi6969.keybindprofilesplus.keys.KeyLabels;
 import io.github.autyi6969.keybindprofilesplus.keys.KeySource;
 import io.github.autyi6969.keybindprofilesplus.keys.KeySourceResolver;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
+import net.minecraft.client.gui.Click;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.Element;
 import net.minecraft.client.gui.Selectable;
@@ -24,17 +29,29 @@ import net.minecraft.util.Formatting;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
 
 /**
- * Read-only overview of every key binding registered with the game (vanilla and mods alike),
- * grouped by category, with the mod each one comes from. Searchable and filterable by source.
+ * Read-only overview of every key in play: all key bindings registered with the game (vanilla and
+ * mods alike) with the mod each one comes from, plus the hotkeys Meteor and malilib mods manage
+ * on their own when those mods are installed. Searchable, filterable by source, groupable by
+ * category or by source, with conflicts marked.
  */
 public class KeyOverviewScreen extends Screen {
-    private static final int HEADER_HEIGHT = 58;
+    /** Filter values that are not the name of a particular source. */
+    public static final String FILTER_ALL = "";
+    public static final String FILTER_VANILLA = "#vanilla";
+    public static final String FILTER_MODS = "#mods";
+
+    private static final int HEADER_HEIGHT = 82;
     private static final int ROW_HEIGHT = 20;
-    private static final int KEY_BOX_WIDTH = 86;
+    private static final int KEY_BOX_WIDTH = 96;
     private static final int MAX_SOURCE_WIDTH = 110;
 
     private final Screen parent;
@@ -42,14 +59,17 @@ public class KeyOverviewScreen extends Screen {
     private final List<Row> rows = new ArrayList<>();
 
     private TextFieldWidget searchField;
-    private CyclingButtonWidget<SourceFilter> filterButton;
+    private CyclingButtonWidget<String> filterButton;
+    private CyclingButtonWidget<Boolean> groupButton;
     private CyclingButtonWidget<Boolean> conflictsButton;
-    private boolean conflictsOnly;
-    private KeyConflicts.Summary conflictSummary = new KeyConflicts.Summary(0, 0);
     private KeyList list;
-    private SourceFilter filter = SourceFilter.ALL;
+    private List<String> filterValues = List.of(FILTER_ALL);
+    private String filter = FILTER_ALL;
+    private boolean groupBySource;
+    private boolean conflictsOnly;
     private String query = "";
     private Text summary = Text.empty();
+    private KeyConflicts.Summary conflictSummary = new KeyConflicts.Summary(0, 0);
     private Row hoveredRow;
 
     public KeyOverviewScreen(Screen parent) {
@@ -59,17 +79,16 @@ public class KeyOverviewScreen extends Screen {
 
     @Override
     protected void init() {
+        ExternalKeys.refresh();
         collectRows();
 
         DirectionalLayoutWidget header = layout.addHeader(DirectionalLayoutWidget.vertical().spacing(4));
         header.getMainPositioner().alignHorizontalCenter();
         header.add(new TextWidget(title, textRenderer));
 
-        DirectionalLayoutWidget controls = header.add(DirectionalLayoutWidget.horizontal().spacing(4));
-        int filterWidth = Math.max(70, Math.min(130, (width - 24) / 4));
-        int conflictsWidth = Math.max(80, Math.min(150, (width - 24) / 3));
-        int searchWidth = Math.max(60, Math.min(220, width - filterWidth - conflictsWidth - 28));
-        searchField = controls.add(new TextFieldWidget(textRenderer, searchWidth, 20, Text.translatable("keybindprofilesplus.overview.search")));
+        int half = Math.max(90, Math.min(190, (width - 24) / 2));
+        DirectionalLayoutWidget first = header.add(DirectionalLayoutWidget.horizontal().spacing(4));
+        searchField = first.add(new TextFieldWidget(textRenderer, half, 20, Text.translatable("keybindprofilesplus.overview.search")));
         searchField.setMaxLength(64);
         searchField.setText(query);
         searchField.setPlaceholder(Text.translatable("keybindprofilesplus.overview.search").setStyle(TextFieldWidget.SEARCH_STYLE));
@@ -77,15 +96,27 @@ public class KeyOverviewScreen extends Screen {
             query = value;
             refreshList();
         });
-        filterButton = controls.add(CyclingButtonWidget.<SourceFilter>builder(SourceFilter::label, filter)
-                .values(SourceFilter.values())
-                .build(0, 0, filterWidth, 20, Text.translatable("keybindprofilesplus.overview.filter"), (button, value) -> {
+        conflictsButton = first.add(CyclingButtonWidget.onOffBuilder(conflictsOnly)
+                .build(0, 0, half, 20, Text.translatable("keybindprofilesplus.overview.conflicts_only"), (button, value) -> {
+                    conflictsOnly = value;
+                    refreshList();
+                }));
+
+        DirectionalLayoutWidget second = header.add(DirectionalLayoutWidget.horizontal().spacing(4));
+        if (!filterValues.contains(filter)) {
+            filter = FILTER_ALL;
+        }
+        filterButton = second.add(CyclingButtonWidget.<String>builder(KeyOverviewScreen::filterLabel, filter)
+                .values(filterValues)
+                .build(0, 0, half, 20, Text.translatable("keybindprofilesplus.overview.filter"), (button, value) -> {
                     filter = value;
                     refreshList();
                 }));
-        conflictsButton = controls.add(CyclingButtonWidget.onOffBuilder(conflictsOnly)
-                .build(0, 0, conflictsWidth, 20, Text.translatable("keybindprofilesplus.overview.conflicts_only"), (button, value) -> {
-                    conflictsOnly = value;
+        groupButton = second.add(CyclingButtonWidget.<Boolean>builder(bySource -> Text.translatable(
+                        bySource ? "keybindprofilesplus.overview.group.source" : "keybindprofilesplus.overview.group.category"), groupBySource)
+                .values(Boolean.FALSE, Boolean.TRUE)
+                .build(0, 0, half, 20, Text.translatable("keybindprofilesplus.overview.group"), (button, value) -> {
+                    groupBySource = value;
                     refreshList();
                 }));
         // Placeholder line: the summary text is drawn here by render().
@@ -122,33 +153,48 @@ public class KeyOverviewScreen extends Screen {
         hoveredRow = null;
         super.render(context, mouseX, mouseY, deltaTicks);
 
+        int summaryY = filterButton.getY() + 24;
         if (conflictSummary.isEmpty()) {
-            context.drawCenteredTextWithShadow(textRenderer, summary, width / 2, searchField.getY() + 24, 0xFFA0A0A0);
+            context.drawCenteredTextWithShadow(textRenderer, summary, width / 2, summaryY, GuiUtil.GRAY);
         } else {
             Text conflicts = ConflictSummaryOverlay.text(conflictSummary);
             int total = textRenderer.getWidth(summary) + 10 + textRenderer.getWidth(conflicts);
             int x = (width - total) / 2;
-            context.drawTextWithShadow(textRenderer, summary, x, searchField.getY() + 24, 0xFFA0A0A0);
-            context.drawTextWithShadow(textRenderer, conflicts, x + textRenderer.getWidth(summary) + 10, searchField.getY() + 24,
+            context.drawTextWithShadow(textRenderer, summary, x, summaryY, GuiUtil.GRAY);
+            context.drawTextWithShadow(textRenderer, conflicts, x + textRenderer.getWidth(summary) + 10, summaryY,
                     (conflictSummary.hard() > 0 ? KeyConflicts.Level.HARD : KeyConflicts.Level.SOFT).color());
         }
-        if (list.children().isEmpty()) {
+        if (visibleBindingCount() == 0) {
             context.drawCenteredTextWithShadow(textRenderer, Text.translatable("keybindprofilesplus.overview.empty"),
-                    width / 2, layout.getHeaderHeight() + layout.getContentHeight() / 2 - 4, 0xFFA0A0A0);
+                    width / 2, layout.getHeaderHeight() + layout.getContentHeight() / 2 - 4, GuiUtil.GRAY);
         }
         if (hoveredRow != null) {
             context.drawTooltip(textRenderer, hoveredRow.tooltip(), mouseX, mouseY);
         }
     }
 
-    /** For the self-test and other screens: the text typed into the search box. */
+    // ------------------------------------------------------------------ also used by the self-test
+
     public void setQuery(String query) {
         searchField.setText(query);
     }
 
-    public void setSourceFilter(SourceFilter filter) {
-        this.filter = filter;
-        filterButton.setValue(filter);
+    /** {@link #FILTER_ALL}, {@link #FILTER_VANILLA}, {@link #FILTER_MODS}, or the name of one source. */
+    public void setSourceFilter(String filter) {
+        if (filterValues.contains(filter)) {
+            this.filter = filter;
+            filterButton.setValue(filter);
+            refreshList();
+        }
+    }
+
+    public List<String> sourceFilterValues() {
+        return filterValues;
+    }
+
+    public void setGroupBySource(boolean groupBySource) {
+        this.groupBySource = groupBySource;
+        groupButton.setValue(groupBySource);
         refreshList();
     }
 
@@ -162,14 +208,62 @@ public class KeyOverviewScreen extends Screen {
         return (int) list.children().stream().filter(entry -> entry instanceof KeyList.BindingEntry).count();
     }
 
+    /** The group headings currently shown, in order. */
+    public List<String> groupHeadings() {
+        List<String> headings = new ArrayList<>();
+        for (KeyList.Entry entry : list.children()) {
+            if (entry instanceof KeyList.GroupEntry group) {
+                headings.add(group.heading);
+            }
+        }
+        return headings;
+    }
+
+    /**
+     * Switches a mod key binding between "works during play" and "only works in screens", the way
+     * a click on its row does. Returns the new setting ("general", "screen") or null for "automatic".
+     */
+    public String cycleScope(String bindingId) {
+        KeyBinding binding = KeyBinding.byId(bindingId);
+        KeySourceResolver sources = KeyConflicts.sources(client.options);
+        if (binding == null || !KeyConflicts.canOverrideScope(binding, sources)) {
+            return null;
+        }
+        String current = KeyBindProfilesPlus.settings().scopeOverride(bindingId);
+        String next = current == null ? KeyConflicts.OVERRIDE_GENERAL
+                : current.equals(KeyConflicts.OVERRIDE_GENERAL) ? KeyConflicts.OVERRIDE_SCREEN : null;
+        KeyBindProfilesPlus.settings().setScopeOverride(bindingId, next);
+        collectRows();
+        refreshList();
+        return next;
+    }
+
+    // ------------------------------------------------------------------ data
+
     private void collectRows() {
         rows.clear();
-        KeySourceResolver resolver = new KeySourceResolver(client.options);
+        KeySourceResolver resolver = KeyConflicts.sources(client.options);
         KeyBinding[] bindings = client.options.allKeys.clone();
         Arrays.sort(bindings);
         for (KeyBinding binding : bindings) {
-            rows.add(new Row(binding, Text.translatable(binding.getId()), resolver.resolve(binding), KeyConflicts.conflictsOf(binding, client.options)));
+            rows.add(Row.of(binding, resolver, KeyConflicts.conflictsOf(binding, client.options)));
         }
+        for (ExternalBinding external : ExternalKeys.all()) {
+            rows.add(Row.of(external, KeyConflicts.conflictsOf(external, client.options)));
+        }
+
+        Set<String> sources = new LinkedHashSet<>();
+        for (Row row : rows) {
+            if (!row.source().isVanilla()) {
+                sources.add(row.source().label().getString());
+            }
+        }
+        List<String> values = new ArrayList<>(List.of(FILTER_ALL, FILTER_VANILLA));
+        if (!sources.isEmpty()) {
+            values.add(FILTER_MODS);
+            values.addAll(sources);
+        }
+        filterValues = values;
     }
 
     private void refreshList() {
@@ -183,15 +277,17 @@ public class KeyOverviewScreen extends Screen {
             if (!row.source().isVanilla()) {
                 fromMods++;
             }
-            if (row.binding().isUnbound()) {
+            if (row.unbound()) {
                 unbound++;
             }
-            if (row.level() == KeyConflicts.Level.HARD) {
-                hard++;
-            } else if (row.level() == KeyConflicts.Level.SOFT) {
-                soft++;
+            if (row.binding() != null) {
+                if (row.level() == KeyConflicts.Level.HARD) {
+                    hard++;
+                } else if (row.level() == KeyConflicts.Level.SOFT) {
+                    soft++;
+                }
             }
-            if (filter.accepts(row.source()) && row.matches(needle) && (!conflictsOnly || row.level() != KeyConflicts.Level.NONE)) {
+            if (accepts(row) && row.matches(needle) && (!conflictsOnly || row.level() != KeyConflicts.Level.NONE)) {
                 visible.add(row);
             }
         }
@@ -201,31 +297,44 @@ public class KeyOverviewScreen extends Screen {
         conflictSummary = new KeyConflicts.Summary(hard, soft);
     }
 
-    public enum SourceFilter {
-        ALL("all"),
-        VANILLA("vanilla"),
-        MODS("mods");
-
-        private final String key;
-
-        SourceFilter(String key) {
-            this.key = key;
-        }
-
-        Text label() {
-            return Text.translatable("keybindprofilesplus.overview.filter." + key);
-        }
-
-        boolean accepts(KeySource source) {
-            return switch (this) {
-                case ALL -> true;
-                case VANILLA -> source.isVanilla();
-                case MODS -> !source.isVanilla();
-            };
-        }
+    private boolean accepts(Row row) {
+        return switch (filter) {
+            case FILTER_ALL -> true;
+            case FILTER_VANILLA -> row.source().isVanilla();
+            case FILTER_MODS -> !row.source().isVanilla();
+            default -> row.source().label().getString().equals(filter);
+        };
     }
 
-    private record Row(KeyBinding binding, Text name, KeySource source, List<KeyConflicts.Conflict> conflicts) {
+    private static Text filterLabel(String value) {
+        return switch (value) {
+            case FILTER_ALL -> Text.translatable("keybindprofilesplus.overview.filter.all");
+            case FILTER_VANILLA -> Text.translatable("keybindprofilesplus.overview.filter.vanilla");
+            case FILTER_MODS -> Text.translatable("keybindprofilesplus.overview.filter.mods");
+            default -> Text.literal(value);
+        };
+    }
+
+    /**
+     * One line of the overview: a game key binding ({@code binding}) or a hotkey another mod
+     * manages itself ({@code external}).
+     */
+    private record Row(KeyBinding binding, ExternalBinding external, Text name, Text category, KeySource source, Text keyText,
+                       boolean unbound, boolean changed, KeyConflicts.Scope scope, boolean scopeAdjustable, boolean scopeOverridden,
+                       List<KeyConflicts.Conflict> conflicts) {
+        static Row of(KeyBinding binding, KeySourceResolver resolver, List<KeyConflicts.Conflict> conflicts) {
+            boolean adjustable = KeyConflicts.canOverrideScope(binding, resolver);
+            return new Row(binding, null, KeyLabels.name(binding), KeyLabels.category(binding.getCategory()), resolver.resolve(binding),
+                    binding.getBoundKeyLocalizedText(), binding.isUnbound(), !binding.isDefault(), KeyConflicts.scopeOf(binding, resolver),
+                    adjustable, adjustable && KeyBindProfilesPlus.settings().scopeOverride(binding.getId()) != null, conflicts);
+        }
+
+        static Row of(ExternalBinding external, List<KeyConflicts.Conflict> conflicts) {
+            return new Row(null, external, Text.literal(external.name()), external.group(),
+                    KeySource.external(external.sourceId(), external.group().getString()), external.keyText(), false, false,
+                    external.screenOnly() ? KeyConflicts.Scope.SCREEN_ONLY : KeyConflicts.Scope.GENERAL, false, false, conflicts);
+        }
+
         KeyConflicts.Level level() {
             return KeyConflicts.worst(conflicts);
         }
@@ -235,23 +344,40 @@ public class KeyOverviewScreen extends Screen {
                 return true;
             }
             return contains(name.getString(), needle)
-                    || contains(binding.getBoundKeyLocalizedText().getString(), needle)
+                    || contains(keyText.getString(), needle)
                     || contains(source.description().getString(), needle)
-                    || contains(binding.getCategory().getLabel().getString(), needle)
-                    || contains(binding.getId(), needle);
+                    || contains(category.getString(), needle)
+                    || (binding != null && contains(binding.getId(), needle));
         }
 
         List<Text> tooltip() {
             List<Text> lines = new ArrayList<>();
             lines.add(name);
             lines.add(Text.translatable("keybindprofilesplus.overview.tooltip.source", source.description()).formatted(Formatting.GRAY));
-            lines.add(Text.translatable("keybindprofilesplus.overview.tooltip.category", binding.getCategory().getLabel()).formatted(Formatting.GRAY));
-            lines.add(Text.translatable("keybindprofilesplus.overview.tooltip.default", binding.getDefaultKey().getLocalizedText()).formatted(Formatting.GRAY));
-            if (!binding.isDefault()) {
-                lines.add(Text.translatable("keybindprofilesplus.overview.tooltip.changed").formatted(Formatting.GRAY));
+            if (binding != null) {
+                lines.add(Text.translatable("keybindprofilesplus.overview.tooltip.category", category).formatted(Formatting.GRAY));
+                lines.add(Text.translatable("keybindprofilesplus.overview.tooltip.default", binding.getDefaultKey().getLocalizedText()).formatted(Formatting.GRAY));
+                if (changed) {
+                    lines.add(Text.translatable("keybindprofilesplus.overview.tooltip.changed").formatted(Formatting.GRAY));
+                }
+                if (scopeAdjustable) {
+                    lines.add(Text.translatable(scopeOverridden ? "keybindprofilesplus.overview.tooltip.scope_set" : "keybindprofilesplus.overview.tooltip.scope_guessed",
+                            scope.label()).formatted(Formatting.GRAY));
+                    lines.add(Text.translatable("keybindprofilesplus.overview.tooltip.scope_click").formatted(Formatting.DARK_AQUA));
+                }
+            } else {
+                if (external.screenOnly()) {
+                    lines.add(Text.translatable("keybindprofilesplus.overview.tooltip.scope_set", scope.label()).formatted(Formatting.GRAY));
+                }
+                lines.add(Text.translatable("keybindprofilesplus.external.readonly", external.file()).formatted(Formatting.GOLD));
+                if (!external.active()) {
+                    lines.add(Text.translatable("keybindprofilesplus.external.inactive").formatted(Formatting.GRAY));
+                }
             }
             lines.addAll(KeyConflicts.describe(conflicts));
-            lines.add(Text.literal(binding.getId()).formatted(Formatting.DARK_GRAY));
+            if (binding != null) {
+                lines.add(Text.literal(binding.getId()).formatted(Formatting.DARK_GRAY));
+            }
             return lines;
         }
 
@@ -267,22 +393,28 @@ public class KeyOverviewScreen extends Screen {
 
         void setRows(List<Row> visible) {
             clearEntries();
-            KeyBinding.Category category = null;
+            // Insertion order keeps the game's category order (or, by source: Minecraft, mods, external).
+            Map<String, List<Row>> groups = new LinkedHashMap<>();
             for (Row row : visible) {
-                if (row.binding().getCategory() != category) {
-                    category = row.binding().getCategory();
-                    KeyBinding.Category current = category;
-                    long count = visible.stream().filter(other -> other.binding().getCategory() == current).count();
-                    addEntry(new CategoryEntry(category.getLabel(), (int) count));
+                String heading = (groupBySource ? row.source().label() : row.category()).getString();
+                groups.computeIfAbsent(heading, key -> new ArrayList<>()).add(row);
+            }
+            for (Map.Entry<String, List<Row>> group : groups.entrySet()) {
+                List<Row> members = group.getValue();
+                if (groupBySource) {
+                    members.sort(Comparator.comparing(row -> row.name().getString(), String.CASE_INSENSITIVE_ORDER));
                 }
-                addEntry(new BindingEntry(row));
+                addEntry(new GroupEntry(group.getKey(), members.size()));
+                for (Row row : members) {
+                    addEntry(new BindingEntry(row));
+                }
             }
             setScrollY(0);
         }
 
         @Override
         public int getRowWidth() {
-            return Math.max(200, Math.min(420, width - 40));
+            return Math.max(220, Math.min(440, width - 40));
         }
 
         private abstract static class Entry extends ElementListWidget.Entry<Entry> {
@@ -297,16 +429,18 @@ public class KeyOverviewScreen extends Screen {
             }
         }
 
-        private final class CategoryEntry extends Entry {
+        private final class GroupEntry extends Entry {
+            private final String heading;
             private final Text label;
 
-            CategoryEntry(Text categoryLabel, int count) {
-                this.label = Text.empty().append(categoryLabel).append(Text.literal(" (" + count + ")").formatted(Formatting.GRAY));
+            GroupEntry(String heading, int count) {
+                this.heading = heading;
+                this.label = Text.literal(heading).append(Text.literal(" (" + count + ")").formatted(Formatting.GRAY));
             }
 
             @Override
             public void render(DrawContext context, int mouseX, int mouseY, boolean hovered, float deltaTicks) {
-                context.drawCenteredTextWithShadow(textRenderer, label, KeyList.this.width / 2, getContentBottomEnd() - textRenderer.fontHeight - 1, 0xFFFFFFFF);
+                context.drawCenteredTextWithShadow(textRenderer, label, KeyList.this.width / 2, getContentBottomEnd() - textRenderer.fontHeight - 1, GuiUtil.WHITE);
             }
         }
 
@@ -315,6 +449,15 @@ public class KeyOverviewScreen extends Screen {
 
             BindingEntry(Row row) {
                 this.row = row;
+            }
+
+            @Override
+            public boolean mouseClicked(Click click, boolean doubled) {
+                if (click.button() == 0 && row.scopeAdjustable()) {
+                    cycleScope(row.binding().getId());
+                    return true;
+                }
+                return false;
             }
 
             @Override
@@ -327,35 +470,33 @@ public class KeyOverviewScreen extends Screen {
                 int textY = getContentMiddleY() - font.fontHeight / 2;
 
                 if (hovered) {
-                    context.fill(left - 2, top - 1, right + 2, bottom + 1, 0x30FFFFFF);
+                    context.fill(left - 2, top - 1, right + 2, bottom + 1, GuiUtil.ROW_HOVER);
                     hoveredRow = row;
                 }
 
                 int keyLeft = right - KEY_BOX_WIDTH;
-                context.fill(keyLeft, top, right, bottom, 0x80000000);
-                boolean unbound = row.binding().isUnbound();
-                String keyText = font.trimToWidth(row.binding().getBoundKeyLocalizedText().getString(), KEY_BOX_WIDTH - 6);
+                context.fill(keyLeft, top, right, bottom, GuiUtil.VALUE_BOX);
                 KeyConflicts.Level level = row.level();
                 if (level != KeyConflicts.Level.NONE) {
                     context.fill(keyLeft - 4, top, keyLeft - 1, bottom, level.color());
                 }
-                context.drawCenteredTextWithShadow(font, keyText, keyLeft + KEY_BOX_WIDTH / 2, textY,
-                        unbound ? 0xFF808080 : level != KeyConflicts.Level.NONE ? level.color() : row.binding().isDefault() ? 0xFFFFFFFF : 0xFFB8E0FF);
+                String keyText = GuiUtil.ellipsize(font, row.keyText().getString(), KEY_BOX_WIDTH - 6);
+                int keyColor = row.unbound() ? 0xFF808080
+                        : level != KeyConflicts.Level.NONE ? level.color()
+                        : row.external() != null && !row.external().active() ? GuiUtil.GRAY
+                        : row.changed() ? 0xFFB8E0FF : GuiUtil.WHITE;
+                context.drawCenteredTextWithShadow(font, keyText, keyLeft + KEY_BOX_WIDTH / 2, textY, keyColor);
 
                 int sourceRight = keyLeft - 9;
                 int available = sourceRight - left;
-                int sourceBudget = Math.min(MAX_SOURCE_WIDTH, available / 2);
-                String sourceText = ellipsize(font, row.source().label().getString(), sourceBudget);
+                // Grouped by source, the heading already says where the keys come from.
+                String sourceText = groupBySource ? "" : GuiUtil.ellipsize(font, row.source().label().getString(), Math.min(MAX_SOURCE_WIDTH, available / 2));
                 int sourceWidth = font.getWidth(sourceText);
                 context.drawTextWithShadow(font, sourceText, sourceRight - sourceWidth, textY, row.source().color());
 
-                String nameText = ellipsize(font, row.name().getString(), available - sourceWidth - 8);
-                context.drawTextWithShadow(font, nameText, left, textY, 0xFFFFFFFF);
+                String nameText = GuiUtil.ellipsize(font, row.name().getString(), available - sourceWidth - 8);
+                context.drawTextWithShadow(font, nameText, left, textY, GuiUtil.WHITE);
             }
         }
-    }
-
-    private static String ellipsize(TextRenderer font, String text, int maxWidth) {
-        return GuiUtil.ellipsize(font, text, maxWidth);
     }
 }
