@@ -54,7 +54,7 @@ final class ProfileListWidget {
         int listX = layout.leftPanelX();
         ButtonWidget profileButton = ButtonWidget.builder(Text.literal(profileName), button -> {
             request.selectProfile().accept(profileName);
-            setActiveProfile(request.selectedProfile());
+            setActiveProfile(profileName);
             request.refreshServerList().run();
             request.updateActionButtons().run();
         }).dimensions(listX, rowY, KeyBindProfileScreenLayout.PROFILE_BUTTON_WIDTH, KeyBindProfileScreenLayout.BUTTON_HEIGHT).build();

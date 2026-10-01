@@ -3,7 +3,7 @@
   "package": "io.github.autyi6969.keybindprofilesplus.mixin",
   "compatibilityLevel": "JAVA_21",
   "client": [
-    "HudMixin"
+    "KeyDisplayNameMixin"
   ],
   "injectors": {
     "defaultRequire": 1

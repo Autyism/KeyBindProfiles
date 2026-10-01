@@ -32,5 +32,8 @@
   "keybindprofilesplus.status.server_list_trimmed": "Показано %s из %s серверов",
   "keybindprofilesplus.status.folder_opened": "Папка с профилями открыта",
   "keybindprofilesplus.status.folder_open_failed": "Не удалось открыть папку с профилями",
-  "keybindprofilesplus.hotkey_hint": "Нажмите 1-2 клавиши, затем ENTER для сохранения, BACKSPACE для очистки, ESC для отмены"
+  "keybindprofilesplus.hotkey_hint": "Нажмите 1-2 клавиши, затем ENTER для сохранения, BACKSPACE для очистки, ESC для отмены",
+  "keybindprofilesplus.open_folder": "Открыть папку",
+  "keybindprofilesplus.hud.profile_applied": "Профиль \"%s\" применён",
+  "keybindprofilesplus.key.keypad": "Num %s"
 }
