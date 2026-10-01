@@ -372,6 +372,9 @@ final class ScreenChecks {
             t.check("overview: attack and use, which only share the mouse buttons with Litematica's tool, are not marked",
                     !t.hasWidget("[ " + SelfTestRunner.keyLabel("key.attack") + " ]") && !t.hasWidget("[ " + SelfTestRunner.keyLabel("key.use") + " ]"));
             t.check("overview: combinations are shown as such", t.hasWidget("Ctrl + F16"));
+            String modDebugKey = SelfTestRunner.keyLabel(LogicChecks.DEMO_DEBUG_BINDING);
+            t.check("overview: a mod's F3 combination on " + modDebugKey + " is not marked although a Meteor module is on " + modDebugKey,
+                    KeyConflicts.conflictsOf(SelfTestRunner.binding(LogicChecks.DEMO_DEBUG_BINDING), client().options).isEmpty());
             KeyConflicts.Summary summary = KeyConflicts.summarize(client().options);
             t.check("overview: summary counts them (" + summary.hard() + " conflicts, " + summary.soft() + " possible)", summary.hard() >= 3 && summary.soft() >= 2);
         });
@@ -406,7 +409,7 @@ final class ScreenChecks {
             t.step("overview: one source only", 3, () -> {
                 KeyOverviewScreen overview = t.screen(KeyOverviewScreen.class);
                 overview.setSourceFilter("Meteor");
-                t.check("overview: filtering by Meteor shows its 8 hotkeys, got " + overview.visibleBindingCount(), overview.visibleBindingCount() == 8);
+                t.check("overview: filtering by Meteor shows its 9 hotkeys, got " + overview.visibleBindingCount(), overview.visibleBindingCount() == 9);
             });
             t.shot(tag + "_overview_meteor_only");
             t.step("overview: all mods", 3, () -> {

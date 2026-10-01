@@ -38,6 +38,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import static io.github.autyi6969.keybindprofilesplus.selftest.LogicChecks.DEMO_DEBUG_BINDING;
 import static io.github.autyi6969.keybindprofilesplus.selftest.LogicChecks.DEMO_MOD_BINDING;
 import static io.github.autyi6969.keybindprofilesplus.selftest.LogicChecks.DEMO_SCREEN_BINDING;
 import static io.github.autyi6969.keybindprofilesplus.selftest.LogicChecks.DEMO_UNKNOWN_BINDING;
@@ -98,17 +99,18 @@ public final class SelfTest extends SelfTestRunner {
     }
 
     /**
-     * Three fake key bindings so the dev client (which has no other mods) can exercise the rules
-     * for mod keys: one that looks like it belongs to Fabric API, one whose name says it is for an
-     * inventory screen, and one from a mod that cannot be identified. They only exist while the
-     * self-test is running. Their creator is forgotten on purpose so the naming rules are used.
+     * Four fake key bindings so the dev client (which has hardly any other mods) can exercise the
+     * rules for mod keys: one that looks like it belongs to Fabric API, one whose name says it is
+     * for an inventory screen, one from a mod that cannot be identified, and one a mod put into
+     * the Debug category (an F3 combination of its own). They only exist while the self-test is running. Their creator is forgotten on purpose so the naming rules are used.
      */
     private static void registerDemoBindings() {
         List<KeyBinding> demo = List.of(
                 new KeyBinding(DEMO_MOD_BINDING, InputUtil.Type.KEYSYM, InputUtil.GLFW_KEY_KP_5, KeyBinding.Category.MISC),
                 new KeyBinding(DEMO_SCREEN_BINDING, InputUtil.Type.KEYSYM, InputUtil.UNKNOWN_KEY.getCode(), KeyBinding.Category.MISC),
                 new KeyBinding(DEMO_UNKNOWN_BINDING, InputUtil.Type.KEYSYM, InputUtil.UNKNOWN_KEY.getCode(),
-                        KeyBinding.Category.create(Identifier.of("selftestmod", "demo"))));
+                        KeyBinding.Category.create(Identifier.of("selftestmod", "demo"))),
+                new KeyBinding(DEMO_DEBUG_BINDING, InputUtil.Type.KEYSYM, InputUtil.GLFW_KEY_J, KeyBinding.Category.DEBUG));
         for (KeyBinding binding : demo) {
             KeyBindingHelper.registerKeyBinding(binding);
             KeyOrigins.forget(binding);

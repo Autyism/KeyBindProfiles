@@ -138,8 +138,8 @@ public final class KeyConflicts {
 
     public static Scope scopeOf(KeyBinding binding, KeySourceResolver sources) {
         String id = binding.getId();
-        // The debug keys first, by the game's own category: whatever else is known or guessed about a
-        // binding, an F3 combination never turns into an ordinary key.
+        // The debug keys first, by the game's own category: an F3 combination stays one whoever
+        // registered it. Mods add their own (Language Reload's F3+J), and those are not "vanilla".
         if (DEBUG_BASE_IDS.contains(id)) {
             return Scope.DEBUG_BASE;
         }
