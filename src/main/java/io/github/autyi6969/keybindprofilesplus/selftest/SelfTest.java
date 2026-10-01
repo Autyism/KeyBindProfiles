@@ -5,7 +5,9 @@ import com.google.gson.JsonParser;
 import io.github.autyi6969.keybindprofilesplus.KeyBindProfilesPlus;
 import io.github.autyi6969.keybindprofilesplus.gui.ApplyConfirmScreen;
 import io.github.autyi6969.keybindprofilesplus.gui.KeyBindProfileScreen;
+import io.github.autyi6969.keybindprofilesplus.gui.ProfileCompareScreen;
 import io.github.autyi6969.keybindprofilesplus.gui.ProfileContentsScreen;
+import io.github.autyi6969.keybindprofilesplus.profile.ProfileComparison;
 import io.github.autyi6969.keybindprofilesplus.options.GameOptionsBridge;
 import io.github.autyi6969.keybindprofilesplus.options.OptionCatalog;
 import io.github.autyi6969.keybindprofilesplus.profile.ProfileChange;
@@ -22,6 +24,7 @@ import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.SharedConstants;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.Framebuffer;
+import net.minecraft.client.gui.Click;
 import net.minecraft.client.gui.Element;
 import net.minecraft.client.gui.ParentElement;
 import net.minecraft.client.gui.screen.Screen;
@@ -29,6 +32,7 @@ import net.minecraft.client.gui.screen.option.KeybindsScreen;
 import net.minecraft.client.gui.widget.ClickableWidget;
 import net.minecraft.client.gui.widget.PressableWidget;
 import net.minecraft.client.input.KeyInput;
+import net.minecraft.client.input.MouseInput;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
 import net.minecraft.client.util.ScreenshotRecorder;
@@ -248,6 +252,7 @@ public final class SelfTest {
         step("profile: rename", 0, this::profileRename);
         step("profile: reload from disk", 0, this::profileReload);
         step("contents: game options and partial profiles", 0, () -> checkProfileContents(client));
+        step("compare: model", 0, () -> checkComparison(client));
 
         screenTour(client, "en");
         applyAndContentsFlow(client);
@@ -340,10 +345,51 @@ public final class SelfTest {
             check("contents: cancel returns to the profile screen", client.currentScreen instanceof KeyBindProfileScreen);
         });
 
+        step("click compare", SCREEN_SETTLE_TICKS, () -> {
+            click(client, Text.translatable("keybindprofilesplus.compare.open").getString());
+            check("compare button opens the compare screen with the selected profile on the left",
+                    client.currentScreen instanceof ProfileCompareScreen compare && PROFILE_A.equals(compare.leftSide()) && compare.rightSide() == null);
+        });
+        step("compare: two profiles", 4, () -> ((ProfileCompareScreen) client.currentScreen).setSides(PROFILE_A, PROFILE_C));
+        shot(client, tag + "_compare_all");
+        if (tag.equals("en")) {
+            step("compare: only differences", 4, () -> {
+                ProfileCompareScreen compare = (ProfileCompareScreen) client.currentScreen;
+                compare.setOnlyDifferences(true);
+                check("compare: only-differences shows exactly the differing rows (" + compare.visibleRowCount() + " of " + compare.differenceCount() + ")",
+                        compare.differenceCount() >= 1 && compare.visibleRowCount() == compare.differenceCount());
+            });
+            shot(client, tag + "_compare_only_differences");
+            step("compare: identical sides", 4, () -> {
+                ProfileCompareScreen compare = (ProfileCompareScreen) client.currentScreen;
+                compare.setSides(PROFILE_C, PROFILE_C);
+                check("compare: a profile against itself has no differences", compare.differenceCount() == 0 && compare.visibleRowCount() == 0);
+            });
+            shot(client, tag + "_compare_no_differences");
+        }
+        step("compare: done", SCREEN_SETTLE_TICKS, () -> {
+            click(client, Text.translatable("gui.done").getString());
+            check("compare: done returns to the profile screen", client.currentScreen instanceof KeyBindProfileScreen);
+        });
+
         open(client, "vanilla key binds screen", () -> new KeybindsScreen(homeScreen, client.options));
         step("manage button present", 0, () -> check("vanilla Key Binds screen has the '" + manageLabel() + "' button",
                 findWidget(client.currentScreen, manageLabel()) != null));
         shot(client, tag + "_vanilla_keybinds_with_manage_button");
+        step("compare button on the vanilla screen", SCREEN_SETTLE_TICKS, () -> {
+            String compareLabel = Text.translatable("keybindprofilesplus.compare.open_short").getString();
+            check("vanilla Key Binds screen has the compare button", findWidget(client.currentScreen, compareLabel) != null);
+            click(client, compareLabel);
+            check("it opens the compare screen against the current settings",
+                    client.currentScreen instanceof ProfileCompareScreen compare && compare.rightSide() == null);
+        });
+        if (tag.equals("en")) {
+            shot(client, tag + "_compare_from_keybinds");
+        }
+        step("compare: done (back to vanilla)", SCREEN_SETTLE_TICKS, () -> {
+            click(client, Text.translatable("gui.done").getString());
+            check("compare: done returns to the vanilla Key Binds screen", client.currentScreen instanceof KeybindsScreen);
+        });
         step("click manage button", SCREEN_SETTLE_TICKS, () -> {
             click(client, manageLabel());
             check("manage button opens the profile screen", client.currentScreen instanceof KeyBindProfileScreen);
@@ -555,6 +601,29 @@ public final class SelfTest {
                         && changes.stream().filter(change -> change.kind() == ProfileChange.Kind.OPTION).count() == 2);
     }
 
+    private void checkComparison(MinecraftClient client) {
+        int savedByC = service.profiles().get(PROFILE_C).size();
+        ProfileComparison.Result partial = ProfileComparison.compare(service, client.options, PROFILE_A, PROFILE_C);
+        check("compare: " + PROFILE_A + " vs " + PROFILE_C + " differ only in the jump key, got " + partial.different(), partial.different() == 1);
+        check("compare: items saved by one side only are counted separately (" + partial.oneSided() + ")",
+                partial.oneSided() == savedByC - 1 + 2);
+
+        ProfileComparison.Result live = ProfileComparison.compare(service, client.options, PROFILE_C, null);
+        check("compare: the applied profile matches the current settings", live.different() == 0 && live.oneSided() == 0);
+        setLiveKey(requireBinding(), PROFILE_A_KEY);
+        check("compare: changing a key in the game shows up as 1 difference",
+                ProfileComparison.compare(service, client.options, PROFILE_C, null).different() == 1);
+        setLiveKey(requireBinding(), TEST_KEY);
+    }
+
+    private void mouseClick(MinecraftClient client, int[] point) {
+        if (point == null || client.currentScreen == null) {
+            fail("nothing to click at");
+            return;
+        }
+        client.currentScreen.mouseClicked(new Click(point[0], point[1], new MouseInput(0, 0)), false);
+    }
+
     /** Puts the live game back into a state where applying selftest_a changes exactly its 3 items. */
     private void makeGameDifferFromProfileA(MinecraftClient client) {
         setLiveKey(requireBinding(), TEST_KEY);
@@ -625,6 +694,31 @@ public final class SelfTest {
         step("flow: open contents", SCREEN_SETTLE_TICKS, () -> {
             click(client, Text.translatable("keybindprofilesplus.contents.open").getString());
             check("flow: contents screen is shown", client.currentScreen instanceof ProfileContentsScreen);
+        });
+        // Real mouse clicks, one per step so the rows are laid out again in between.
+        step("flow: click a group label", 4, () -> {
+            mouseClick(client, ((ProfileContentsScreen) client.currentScreen).hitPoint("options/video", false));
+            check("flow: clicking a group label expands it", ((ProfileContentsScreen) client.currentScreen).isExpanded("options/video"));
+        });
+        step("flow: click a check box", 4, () -> {
+            mouseClick(client, ((ProfileContentsScreen) client.currentScreen).hitPoint("opt:ao", true));
+            check("flow: clicking a check box ticks the item", ((ProfileContentsScreen) client.currentScreen).isChecked("opt:ao"));
+        });
+        step("flow: click an item label", 4, () -> {
+            mouseClick(client, ((ProfileContentsScreen) client.currentScreen).hitPoint("opt:ao", false));
+            check("flow: clicking the item again unticks it", !((ProfileContentsScreen) client.currentScreen).isChecked("opt:ao"));
+        });
+        step("flow: click a group check box", 4, () -> {
+            ProfileContentsScreen contents = (ProfileContentsScreen) client.currentScreen;
+            mouseClick(client, contents.hitPoint("keys/minecraft:multiplayer", true));
+            check("flow: clicking a group check box ticks the whole group and does not expand it",
+                    contents.checkedCount(true) == 5 && !contents.isExpanded("keys/minecraft:multiplayer"));
+        });
+        step("flow: click the group check box again", 4, () -> {
+            ProfileContentsScreen contents = (ProfileContentsScreen) client.currentScreen;
+            mouseClick(client, contents.hitPoint("keys/minecraft:multiplayer", true));
+            check("flow: clicking it again unticks the group", contents.checkedCount(true) == 1);
+            contents.setExpanded("options/video", false);
         });
         step("flow: tick more items", 4, () -> {
             ProfileContentsScreen contents = (ProfileContentsScreen) client.currentScreen;

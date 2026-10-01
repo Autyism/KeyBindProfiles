@@ -173,6 +173,16 @@ public class KeyBindProfilesPlus implements ClientModInitializer {
         ScreenEvents.AFTER_INIT.register((client, screen, scaledWidth, scaledHeight) -> {
             if (screen instanceof KeybindsScreen) {
                 ControlsScreenProfileButton.addOrReplace(screen, scaledWidth, scaledHeight);
+                // The vanilla screen moves its own buttons back on a window resize without
+                // re-initialising, so lay the row out again whenever the size has changed.
+                int[] lastSize = {scaledWidth, scaledHeight};
+                ScreenEvents.beforeRender(screen).register((current, context, mouseX, mouseY, tickDelta) -> {
+                    if (current.width != lastSize[0] || current.height != lastSize[1]) {
+                        lastSize[0] = current.width;
+                        lastSize[1] = current.height;
+                        ControlsScreenProfileButton.addOrReplace(current, current.width, current.height);
+                    }
+                });
             }
         });
     }

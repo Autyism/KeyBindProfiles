@@ -192,6 +192,23 @@ public class ProfileContentsScreen extends Screen {
         return list.children().size();
     }
 
+    /**
+     * Screen coordinates {x, y} of a visible row, either on its check box or on its label.
+     * Null when the row is not shown. Lets the self-test click rows the way a mouse would.
+     */
+    public int[] hitPoint(String nodeId, boolean onCheckbox) {
+        return list.hitPoint(nodeId, onCheckbox);
+    }
+
+    public boolean isChecked(String nodeId) {
+        Node node = nodesById.get(nodeId);
+        return node != null && node.checkState() == GuiUtil.CheckState.CHECKED;
+    }
+
+    public boolean isExpanded(String nodeId) {
+        return nodesById.get(nodeId) instanceof Group group && group.expanded;
+    }
+
     // ------------------------------------------------------------------ tree model
 
     private void buildTree() {
@@ -417,6 +434,16 @@ public class ProfileContentsScreen extends Screen {
         @Override
         public int getRowWidth() {
             return Math.max(220, Math.min(460, width - 40));
+        }
+
+        int[] hitPoint(String nodeId, boolean onCheckbox) {
+            for (Entry entry : children()) {
+                if (entry.node.id.equals(nodeId)) {
+                    int x = onCheckbox ? entry.checkboxX() + GuiUtil.CHECKBOX_SIZE / 2 : entry.checkboxX() + GuiUtil.CHECKBOX_SIZE + 30;
+                    return new int[]{x, entry.getContentMiddleY()};
+                }
+            }
+            return null;
         }
 
         private final class Entry extends ElementListWidget.Entry<Entry> {

@@ -107,6 +107,10 @@ public class KeyBindProfileScreen extends Screen {
                 .build();
         addDrawableChild(contentsButton);
 
+        addDrawableChild(ButtonWidget.builder(Text.translatable("keybindprofilesplus.compare.open"), button -> openCompare())
+                .dimensions(rightX + halfWidth + 4, KeyBindProfileScreenLayout.CONTENT_TOP + KeyBindProfileScreenLayout.BUTTON_SPACING * 3, halfWidth, KeyBindProfileScreenLayout.BUTTON_HEIGHT)
+                .build());
+
         int toggleWidth = 170;
         addDrawableChild(CyclingButtonWidget.onOffBuilder(KeyBindProfilesPlus.settings().confirmApply())
                 .build(width - 10 - toggleWidth, layout.doneButtonY(), toggleWidth, KeyBindProfileScreenLayout.BUTTON_HEIGHT,
@@ -184,6 +188,12 @@ public class KeyBindProfileScreen extends Screen {
         KeyBindProfilesPlus.applyProfile(name);
         refreshParentKeybindsScreen();
         showStatus("keybindprofilesplus.status.profile_applied", name);
+    }
+
+    /** Compares the selected profile (or the applied one) with the game's current settings. */
+    private void openCompare() {
+        String leftSide = selectedProfile != null ? selectedProfile : KeyBindProfilesPlus.getCurrentProfile();
+        client.setScreen(new ProfileCompareScreen(this, KeyBindProfilesPlus.profileService(), leftSide, null));
     }
 
     private void editSelectedProfileContents() {
