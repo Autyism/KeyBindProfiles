@@ -41,7 +41,7 @@ public class KeyBindProfilesPlus implements ClientModInitializer {
     private static final ProfileService PROFILE_SERVICE = new ProfileService(new ProfileFileStore());
     private static final ModSettings SETTINGS = new ModSettings(PROFILE_SERVICE::profilesDirectory);
     private static final ProfileHotkeyController HOTKEY_CONTROLLER = new ProfileHotkeyController(PROFILE_SERVICE, NOTIFICATION);
-    private static final ServerAutoSwitchController AUTO_SWITCH_CONTROLLER = new ServerAutoSwitchController(PROFILE_SERVICE, NOTIFICATION);
+    private static final ServerAutoSwitchController AUTO_SWITCH_CONTROLLER = new ServerAutoSwitchController(PROFILE_SERVICE, NOTIFICATION, SETTINGS::autoSwitch);
 
     public static final Map<String, Map<String, String>> PROFILES = PROFILE_SERVICE.profiles();
     public static final Map<String, List<String>> PROFILE_HOTKEYS = PROFILE_SERVICE.profileHotkeys();
@@ -72,6 +72,10 @@ public class KeyBindProfilesPlus implements ClientModInitializer {
 
     public static ModSettings settings() {
         return SETTINGS;
+    }
+
+    public static ServerAutoSwitchController autoSwitchController() {
+        return AUTO_SWITCH_CONTROLLER;
     }
 
     public static void openConfigScreen(Screen parent) {

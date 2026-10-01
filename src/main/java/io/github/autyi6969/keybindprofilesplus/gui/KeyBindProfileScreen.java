@@ -13,10 +13,11 @@ import net.minecraft.client.util.InputUtil;
 import net.minecraft.text.Text;
 import io.github.autyi6969.keybindprofilesplus.KeyBindProfilesPlus;
 import io.github.autyi6969.keybindprofilesplus.profile.ProfileChange;
+import io.github.autyi6969.keybindprofilesplus.server.ServerProfileMatcher;
+import net.minecraft.client.gui.tooltip.Tooltip;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Objects;
 
 public class KeyBindProfileScreen extends Screen {
@@ -33,6 +34,9 @@ public class KeyBindProfileScreen extends Screen {
     private ButtonWidget contentsButton;
     private ButtonWidget openFolderButton;
     private ButtonWidget addServerButton;
+    private ButtonWidget addSingleplayerButton;
+    private ButtonWidget addCurrentServerButton;
+    private boolean hasSuggestedServer;
     private String selectedProfile = null;
     private int scrollOffset = 0;
     private final ScreenStatusMessage statusMessage = new ScreenStatusMessage();
@@ -125,6 +129,37 @@ public class KeyBindProfileScreen extends Screen {
             addServerToSelectedProfile();
         }).dimensions(rightX + 204, layout.serverInputY(), 96, KeyBindProfileScreenLayout.BUTTON_HEIGHT).build();
         addDrawableChild(addServerButton);
+
+        int quickWidth = (KeyBindProfileScreenLayout.RIGHT_PANEL_WIDTH - 4) / 2;
+        addSingleplayerButton = ButtonWidget.builder(Text.translatable("keybindprofilesplus.server.add_singleplayer"),
+                        button -> addServerRule(ServerProfileMatcher.SINGLEPLAYER))
+                .dimensions(rightX, layout.quickAddY(), quickWidth, KeyBindProfileScreenLayout.BUTTON_HEIGHT)
+                .tooltip(Tooltip.of(Text.translatable("keybindprofilesplus.server.help")))
+                .build();
+        addDrawableChild(addSingleplayerButton);
+
+        String suggested = suggestedServerAddress();
+        Text suggestedLabel = suggested == null
+                ? Text.translatable("keybindprofilesplus.server.add_current_none")
+                : Text.translatable("keybindprofilesplus.server.add_current", suggested);
+        addCurrentServerButton = ButtonWidget.builder(suggestedLabel, button -> {
+                    if (suggested != null) {
+                        addServerRule(suggested);
+                    }
+                })
+                .dimensions(rightX + quickWidth + 4, layout.quickAddY(), quickWidth, KeyBindProfileScreenLayout.BUTTON_HEIGHT)
+                .tooltip(Tooltip.of(Text.translatable("keybindprofilesplus.server.help")))
+                .build();
+        addDrawableChild(addCurrentServerButton);
+        hasSuggestedServer = suggested != null;
+
+        int autoSwitchWidth = 150;
+        addDrawableChild(CyclingButtonWidget.onOffBuilder(KeyBindProfilesPlus.settings().autoSwitch())
+                .build(10, layout.doneButtonY(), autoSwitchWidth, KeyBindProfileScreenLayout.BUTTON_HEIGHT,
+                        Text.translatable("keybindprofilesplus.server.auto_switch_toggle"), (button, value) -> {
+                            KeyBindProfilesPlus.settings().setAutoSwitch(value);
+                            KeyBindProfilesPlus.autoSwitchController().reset();
+                        }));
 
         ButtonWidget doneButton = ButtonWidget.builder(Text.translatable("gui.done"), button -> returnToParent())
                 .dimensions(layout.doneButtonX(), layout.doneButtonY(), 200, KeyBindProfileScreenLayout.BUTTON_HEIGHT)
@@ -312,9 +347,19 @@ public class KeyBindProfileScreen extends Screen {
             return;
         }
 
-        String server = serverInputField.getText().trim();
-        if (server.isEmpty()) {
-            showStatus("keybindprofilesplus.status.server_required");
+        addServerRule(serverInputField.getText().trim());
+    }
+
+    /** Adds an auto-switch rule (an address, a wildcard, or singleplayer / lan / realms) to the selected profile. */
+    private void addServerRule(String server) {
+        if (selectedProfile == null) {
+            showStatus("keybindprofilesplus.status.select_profile");
+            return;
+        }
+
+        String problem = ServerProfileMatcher.validate(server);
+        if (problem != null) {
+            showStatus(problem);
             return;
         }
 
@@ -324,9 +369,9 @@ public class KeyBindProfileScreen extends Screen {
             servers.addAll(existingServers);
         }
 
-        String normalizedServer = normalizeServer(server);
+        String normalizedServer = ServerProfileMatcher.normalizeRule(server);
         for (String existingServer : servers) {
-            if (normalizeServer(existingServer).equals(normalizedServer)) {
+            if (ServerProfileMatcher.normalizeRule(existingServer).equals(normalizedServer)) {
                 showStatus("keybindprofilesplus.status.server_exists", server);
                 return;
             }
@@ -336,11 +381,38 @@ public class KeyBindProfileScreen extends Screen {
         KeyBindProfilesPlus.setProfileAutoSwitchServers(selectedProfile, servers);
         serverInputField.setText("");
         refreshServerList();
-        showStatus("keybindprofilesplus.status.server_added", server);
+
+        List<String> alsoUsedBy = ServerProfileMatcher.profilesUsingRule(server, KeyBindProfilesPlus.PROFILE_AUTO_SWITCH_SERVERS, selectedProfile);
+        if (alsoUsedBy.isEmpty()) {
+            showStatus("keybindprofilesplus.status.server_added", server);
+        } else {
+            showStatus("keybindprofilesplus.status.server_added_shared", server, String.join(", ", alsoUsedBy));
+        }
     }
 
-    private String normalizeServer(String server) {
-        return server.trim().toLowerCase(Locale.ROOT);
+    /** While in a world: which profile the auto-switch rules pick for this place. Null on the main menu. */
+    private Text whereAmIText() {
+        ServerProfileMatcher.Location location = ServerProfileMatcher.currentLocation(client);
+        if (location == null) {
+            return null;
+        }
+        if (!KeyBindProfilesPlus.settings().autoSwitch()) {
+            return Text.translatable("keybindprofilesplus.server.here_off");
+        }
+        ServerProfileMatcher.Match match = KeyBindProfilesPlus.autoSwitchController().match(location);
+        return match == null
+                ? Text.translatable("keybindprofilesplus.server.here_none", location.describe())
+                : Text.translatable("keybindprofilesplus.server.here_match", location.describe(), match.profile());
+    }
+
+    /** The server the player is on, or failing that the last one joined; null when there is none. */
+    private String suggestedServerAddress() {
+        ServerProfileMatcher.Location location = ServerProfileMatcher.currentLocation(client);
+        if (location != null && location.address() != null) {
+            return location.address();
+        }
+        String last = client.options.lastServer;
+        return last == null || last.isBlank() ? null : last;
     }
 
     private void removeServerFromSelectedProfile(String server) {
@@ -386,6 +458,12 @@ public class KeyBindProfileScreen extends Screen {
         }
         serverInputField.active = hasSelectedProfile;
         addServerButton.active = hasSelectedProfile;
+        if (addSingleplayerButton != null) {
+            addSingleplayerButton.active = hasSelectedProfile;
+        }
+        if (addCurrentServerButton != null) {
+            addCurrentServerButton.active = hasSelectedProfile && hasSuggestedServer;
+        }
     }
 
     private void showStatus(String translationKey, Object... args) {
@@ -483,6 +561,13 @@ public class KeyBindProfileScreen extends Screen {
         context.drawText(textRenderer, Text.translatable("keybindprofilesplus.search"), searchField.getX(), searchField.getY() - 11, 0xFFA0A0A0, false);
         context.drawText(textRenderer, Text.translatable("keybindprofilesplus.server_address"), serverInputField.getX(), serverInputField.getY() - 11, 0xFFA0A0A0, false);
         context.drawText(textRenderer, Text.translatable("keybindprofilesplus.auto_switch_servers"), layout.rightPanelX(), layout.serverListTop() - 11, 0xFFA0A0A0, false);
+        Text hereText = whereAmIText();
+        if (hereText != null) {
+            int titleWidth = textRenderer.getWidth(Text.translatable("keybindprofilesplus.auto_switch_servers"));
+            String here = GuiUtil.ellipsize(textRenderer, hereText.getString(), KeyBindProfileScreenLayout.RIGHT_PANEL_WIDTH - titleWidth - 10);
+            context.drawText(textRenderer, here, layout.rightPanelX() + KeyBindProfileScreenLayout.RIGHT_PANEL_WIDTH - textRenderer.getWidth(here),
+                    layout.serverListTop() - 11, 0xFF7FD4FF, false);
+        }
 
         if (selectedProfile != null) {
             List<String> servers = KeyBindProfilesPlus.getProfileAutoSwitchServers(selectedProfile);

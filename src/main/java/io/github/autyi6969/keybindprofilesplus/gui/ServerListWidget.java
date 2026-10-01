@@ -2,7 +2,11 @@ package io.github.autyi6969.keybindprofilesplus.gui;
 
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.TextFieldWidget;
+import net.minecraft.client.gui.tooltip.Tooltip;
+import net.minecraft.text.MutableText;
 import net.minecraft.text.Text;
+import net.minecraft.util.Formatting;
+import io.github.autyi6969.keybindprofilesplus.server.ServerProfileMatcher;
 import io.github.autyi6969.keybindprofilesplus.KeyBindProfilesPlus;
 
 import java.util.ArrayList;
@@ -54,9 +58,18 @@ final class ServerListWidget {
     }
 
     private void addRow(RefreshRequest request, String server, int rowX, int rowY) {
-        ButtonWidget serverButton = ButtonWidget.builder(Text.literal(server), button -> {
+        // What the rule means, plus a warning when another profile has the very same rule.
+        MutableText explanation = Text.translatable("keybindprofilesplus.server.rule." + ServerProfileMatcher.ruleKind(server));
+        List<String> alsoUsedBy = ServerProfileMatcher.profilesUsingRule(server, KeyBindProfilesPlus.PROFILE_AUTO_SWITCH_SERVERS, request.selectedProfile());
+        MutableText label = Text.literal(server);
+        if (!alsoUsedBy.isEmpty()) {
+            label.formatted(Formatting.YELLOW);
+            explanation.append("\n").append(Text.translatable("keybindprofilesplus.server.rule.shared", String.join(", ", alsoUsedBy)).formatted(Formatting.YELLOW));
+        }
+
+        ButtonWidget serverButton = ButtonWidget.builder(label, button -> {
             request.serverInputField().setText(server);
-        }).dimensions(rowX, rowY, 196, KeyBindProfileScreenLayout.SERVER_ROW_HEIGHT).build();
+        }).dimensions(rowX, rowY, 196, KeyBindProfileScreenLayout.SERVER_ROW_HEIGHT).tooltip(Tooltip.of(explanation)).build();
 
         ButtonWidget removeButton = ButtonWidget.builder(Text.translatable("keybindprofilesplus.remove_server"), button -> {
             request.removeServer().accept(server);
