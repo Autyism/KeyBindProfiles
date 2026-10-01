@@ -86,5 +86,16 @@
   "keybindprofilesplus.compare.only_differences": "只看差异",
   "keybindprofilesplus.compare.summary": "%s / %s 项不同 - %s 项只有一边保存",
   "keybindprofilesplus.compare.no_differences": "没有差异",
-  "keybindprofilesplus.compare.group_differs": "（%s 项不同）"
+  "keybindprofilesplus.compare.group_differs": "（%s 项不同）",
+  "keybindprofilesplus.overview.conflicts_only": "只看冲突",
+  "keybindprofilesplus.conflict.hard": "和这些键冲突：",
+  "keybindprofilesplus.conflict.soft": "可能和这些键冲突：",
+  "keybindprofilesplus.conflict.line": " - %s（%s）",
+  "keybindprofilesplus.conflict.reason.general": "正常游戏时是同一个键",
+  "keybindprofilesplus.conflict.reason.debug": "都是这个键上的 F3 组合键",
+  "keybindprofilesplus.conflict.reason.creative": "只在创造模式下",
+  "keybindprofilesplus.conflict.reason.spectator": "只在旁观模式下",
+  "keybindprofilesplus.conflict.reason.creative_both": "都在创造模式下使用",
+  "keybindprofilesplus.conflict.reason.spectator_both": "都在旁观模式下使用",
+  "keybindprofilesplus.conflict.summary": "%s 个冲突，%s 个可能冲突"
 }

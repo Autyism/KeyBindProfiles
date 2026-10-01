@@ -1,5 +1,6 @@
 package io.github.autyi6969.keybindprofilesplus.gui;
 
+import io.github.autyi6969.keybindprofilesplus.keys.KeyConflicts;
 import io.github.autyi6969.keybindprofilesplus.keys.KeySource;
 import io.github.autyi6969.keybindprofilesplus.keys.KeySourceResolver;
 import net.minecraft.client.MinecraftClient;
@@ -42,6 +43,9 @@ public class KeyOverviewScreen extends Screen {
 
     private TextFieldWidget searchField;
     private CyclingButtonWidget<SourceFilter> filterButton;
+    private CyclingButtonWidget<Boolean> conflictsButton;
+    private boolean conflictsOnly;
+    private KeyConflicts.Summary conflictSummary = new KeyConflicts.Summary(0, 0);
     private KeyList list;
     private SourceFilter filter = SourceFilter.ALL;
     private String query = "";
@@ -62,8 +66,9 @@ public class KeyOverviewScreen extends Screen {
         header.add(new TextWidget(title, textRenderer));
 
         DirectionalLayoutWidget controls = header.add(DirectionalLayoutWidget.horizontal().spacing(4));
-        int filterWidth = 130;
-        int searchWidth = Math.max(80, Math.min(220, width - filterWidth - 24));
+        int filterWidth = Math.max(70, Math.min(130, (width - 24) / 4));
+        int conflictsWidth = Math.max(80, Math.min(150, (width - 24) / 3));
+        int searchWidth = Math.max(60, Math.min(220, width - filterWidth - conflictsWidth - 28));
         searchField = controls.add(new TextFieldWidget(textRenderer, searchWidth, 20, Text.translatable("keybindprofilesplus.overview.search")));
         searchField.setMaxLength(64);
         searchField.setText(query);
@@ -76,6 +81,11 @@ public class KeyOverviewScreen extends Screen {
                 .values(SourceFilter.values())
                 .build(0, 0, filterWidth, 20, Text.translatable("keybindprofilesplus.overview.filter"), (button, value) -> {
                     filter = value;
+                    refreshList();
+                }));
+        conflictsButton = controls.add(CyclingButtonWidget.onOffBuilder(conflictsOnly)
+                .build(0, 0, conflictsWidth, 20, Text.translatable("keybindprofilesplus.overview.conflicts_only"), (button, value) -> {
+                    conflictsOnly = value;
                     refreshList();
                 }));
         // Placeholder line: the summary text is drawn here by render().
@@ -112,7 +122,16 @@ public class KeyOverviewScreen extends Screen {
         hoveredRow = null;
         super.render(context, mouseX, mouseY, deltaTicks);
 
-        context.drawCenteredTextWithShadow(textRenderer, summary, width / 2, searchField.getY() + 24, 0xFFA0A0A0);
+        if (conflictSummary.isEmpty()) {
+            context.drawCenteredTextWithShadow(textRenderer, summary, width / 2, searchField.getY() + 24, 0xFFA0A0A0);
+        } else {
+            Text conflicts = ConflictSummaryOverlay.text(conflictSummary);
+            int total = textRenderer.getWidth(summary) + 10 + textRenderer.getWidth(conflicts);
+            int x = (width - total) / 2;
+            context.drawTextWithShadow(textRenderer, summary, x, searchField.getY() + 24, 0xFFA0A0A0);
+            context.drawTextWithShadow(textRenderer, conflicts, x + textRenderer.getWidth(summary) + 10, searchField.getY() + 24,
+                    (conflictSummary.hard() > 0 ? KeyConflicts.Level.HARD : KeyConflicts.Level.SOFT).color());
+        }
         if (list.children().isEmpty()) {
             context.drawCenteredTextWithShadow(textRenderer, Text.translatable("keybindprofilesplus.overview.empty"),
                     width / 2, layout.getHeaderHeight() + layout.getContentHeight() / 2 - 4, 0xFFA0A0A0);
@@ -133,6 +152,12 @@ public class KeyOverviewScreen extends Screen {
         refreshList();
     }
 
+    public void setConflictsOnly(boolean conflictsOnly) {
+        this.conflictsOnly = conflictsOnly;
+        conflictsButton.setValue(conflictsOnly);
+        refreshList();
+    }
+
     public int visibleBindingCount() {
         return (int) list.children().stream().filter(entry -> entry instanceof KeyList.BindingEntry).count();
     }
@@ -143,7 +168,7 @@ public class KeyOverviewScreen extends Screen {
         KeyBinding[] bindings = client.options.allKeys.clone();
         Arrays.sort(bindings);
         for (KeyBinding binding : bindings) {
-            rows.add(new Row(binding, Text.translatable(binding.getId()), resolver.resolve(binding)));
+            rows.add(new Row(binding, Text.translatable(binding.getId()), resolver.resolve(binding), KeyConflicts.conflictsOf(binding, client.options)));
         }
     }
 
@@ -152,6 +177,8 @@ public class KeyOverviewScreen extends Screen {
         List<Row> visible = new ArrayList<>();
         int fromMods = 0;
         int unbound = 0;
+        int hard = 0;
+        int soft = 0;
         for (Row row : rows) {
             if (!row.source().isVanilla()) {
                 fromMods++;
@@ -159,13 +186,19 @@ public class KeyOverviewScreen extends Screen {
             if (row.binding().isUnbound()) {
                 unbound++;
             }
-            if (filter.accepts(row.source()) && row.matches(needle)) {
+            if (row.level() == KeyConflicts.Level.HARD) {
+                hard++;
+            } else if (row.level() == KeyConflicts.Level.SOFT) {
+                soft++;
+            }
+            if (filter.accepts(row.source()) && row.matches(needle) && (!conflictsOnly || row.level() != KeyConflicts.Level.NONE)) {
                 visible.add(row);
             }
         }
 
         list.setRows(visible);
         summary = Text.translatable("keybindprofilesplus.overview.summary", visible.size(), rows.size(), fromMods, unbound);
+        conflictSummary = new KeyConflicts.Summary(hard, soft);
     }
 
     public enum SourceFilter {
@@ -192,7 +225,11 @@ public class KeyOverviewScreen extends Screen {
         }
     }
 
-    private record Row(KeyBinding binding, Text name, KeySource source) {
+    private record Row(KeyBinding binding, Text name, KeySource source, List<KeyConflicts.Conflict> conflicts) {
+        KeyConflicts.Level level() {
+            return KeyConflicts.worst(conflicts);
+        }
+
         boolean matches(String needle) {
             if (needle.isEmpty()) {
                 return true;
@@ -211,8 +248,9 @@ public class KeyOverviewScreen extends Screen {
             lines.add(Text.translatable("keybindprofilesplus.overview.tooltip.category", binding.getCategory().getLabel()).formatted(Formatting.GRAY));
             lines.add(Text.translatable("keybindprofilesplus.overview.tooltip.default", binding.getDefaultKey().getLocalizedText()).formatted(Formatting.GRAY));
             if (!binding.isDefault()) {
-                lines.add(Text.translatable("keybindprofilesplus.overview.tooltip.changed").formatted(Formatting.YELLOW));
+                lines.add(Text.translatable("keybindprofilesplus.overview.tooltip.changed").formatted(Formatting.GRAY));
             }
+            lines.addAll(KeyConflicts.describe(conflicts));
             lines.add(Text.literal(binding.getId()).formatted(Formatting.DARK_GRAY));
             return lines;
         }
@@ -297,10 +335,14 @@ public class KeyOverviewScreen extends Screen {
                 context.fill(keyLeft, top, right, bottom, 0x80000000);
                 boolean unbound = row.binding().isUnbound();
                 String keyText = font.trimToWidth(row.binding().getBoundKeyLocalizedText().getString(), KEY_BOX_WIDTH - 6);
+                KeyConflicts.Level level = row.level();
+                if (level != KeyConflicts.Level.NONE) {
+                    context.fill(keyLeft - 4, top, keyLeft - 1, bottom, level.color());
+                }
                 context.drawCenteredTextWithShadow(font, keyText, keyLeft + KEY_BOX_WIDTH / 2, textY,
-                        unbound ? 0xFF808080 : row.binding().isDefault() ? 0xFFFFFFFF : 0xFFFFFF80);
+                        unbound ? 0xFF808080 : level != KeyConflicts.Level.NONE ? level.color() : row.binding().isDefault() ? 0xFFFFFFFF : 0xFFB8E0FF);
 
-                int sourceRight = keyLeft - 6;
+                int sourceRight = keyLeft - 9;
                 int available = sourceRight - left;
                 int sourceBudget = Math.min(MAX_SOURCE_WIDTH, available / 2);
                 String sourceText = ellipsize(font, row.source().label().getString(), sourceBudget);

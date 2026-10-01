@@ -12,6 +12,7 @@ import io.github.autyi6969.keybindprofilesplus.options.GameOptionsBridge;
 import io.github.autyi6969.keybindprofilesplus.options.OptionCatalog;
 import io.github.autyi6969.keybindprofilesplus.profile.ProfileChange;
 import io.github.autyi6969.keybindprofilesplus.gui.KeyOverviewScreen;
+import io.github.autyi6969.keybindprofilesplus.keys.KeyConflicts;
 import io.github.autyi6969.keybindprofilesplus.keys.KeySource;
 import io.github.autyi6969.keybindprofilesplus.keys.KeySourceResolver;
 import io.github.autyi6969.keybindprofilesplus.notification.ProfileNoticeHud;
@@ -246,6 +247,7 @@ public final class SelfTest {
         step("language files", 0, this::checkLanguageFiles);
         step("key display names", 0, this::checkKeyNames);
         step("key sources", 0, () -> checkKeySources(client));
+        step("conflicts: layered detection", 0, () -> checkConflicts(client));
 
         step("profile: create", 0, () -> profileCreate(client));
         step("profile: apply", 0, () -> profileApply(client));
@@ -253,6 +255,7 @@ public final class SelfTest {
         step("profile: reload from disk", 0, this::profileReload);
         step("contents: game options and partial profiles", 0, () -> checkProfileContents(client));
         step("compare: model", 0, () -> checkComparison(client));
+        step("conflicts: set up visible examples", 0, () -> setUpVisibleConflicts(client));
 
         screenTour(client, "en");
         applyAndContentsFlow(client);
@@ -293,6 +296,14 @@ public final class SelfTest {
             check("overview button opens the key overview", client.currentScreen instanceof KeyOverviewScreen);
         });
         shot(client, tag + "_overview_all");
+        step("overview: conflicts only", 4, () -> {
+            KeyOverviewScreen overview = (KeyOverviewScreen) client.currentScreen;
+            overview.setConflictsOnly(true);
+            check("overview: conflicts-only shows at least the 4 bindings set up to conflict, got " + overview.visibleBindingCount(),
+                    overview.visibleBindingCount() >= 4 && overview.visibleBindingCount() < client.options.allKeys.length);
+        });
+        shot(client, tag + "_overview_conflicts_only");
+        step("overview: all again", 2, () -> ((KeyOverviewScreen) client.currentScreen).setConflictsOnly(false));
         if (tag.equals("en")) {
             step("overview: mods only", 4, () -> {
                 KeyOverviewScreen overview = (KeyOverviewScreen) client.currentScreen;
@@ -375,6 +386,18 @@ public final class SelfTest {
         open(client, "vanilla key binds screen", () -> new KeybindsScreen(homeScreen, client.options));
         step("manage button present", 0, () -> check("vanilla Key Binds screen has the '" + manageLabel() + "' button",
                 findWidget(client.currentScreen, manageLabel()) != null));
+        step("vanilla list uses the layered conflict check", 0, () -> {
+            String hardKey = keyLabel("key.inventory");
+            String softKey = keyLabel("key.loadToolbarActivator");
+            String debugKey = keyLabel("key.advancements");
+            check("vanilla list: the real conflict on " + hardKey + " is marked", findWidget(client.currentScreen, "[ " + hardKey + " ]") != null);
+            check("vanilla list: the possible conflict on " + softKey + " is marked", findWidget(client.currentScreen, "[ " + softKey + " ]") != null);
+            check("vanilla list: sharing " + debugKey + " with an F3 combination is not marked",
+                    findWidget(client.currentScreen, "[ " + debugKey + " ]") == null && findWidget(client.currentScreen, debugKey) != null);
+            KeyConflicts.Summary summary = KeyConflicts.summarize(client.options);
+            check("vanilla list: summary counts them (" + summary.hard() + " conflicts, " + summary.soft() + " possible)",
+                    summary.hard() >= 2 && summary.soft() >= 2);
+        });
         shot(client, tag + "_vanilla_keybinds_with_manage_button");
         step("compare button on the vanilla screen", SCREEN_SETTLE_TICKS, () -> {
             String compareLabel = Text.translatable("keybindprofilesplus.compare.open_short").getString();
@@ -599,6 +622,114 @@ public final class SelfTest {
         check("preview: 1 key binding and 2 settings",
                 changes.stream().filter(change -> change.kind() == ProfileChange.Kind.KEY_BINDING).count() == 1
                         && changes.stream().filter(change -> change.kind() == ProfileChange.Kind.OPTION).count() == 2);
+    }
+
+    private void checkConflicts(MinecraftClient client) {
+        Map<String, String> before = new LinkedHashMap<>();
+        for (KeyBinding binding : client.options.allKeys) {
+            before.put(binding.getId(), binding.getBoundKeyTranslationKey());
+        }
+
+        try {
+            for (KeyBinding binding : client.options.allKeys) {
+                binding.setBoundKey(binding.getDefaultKey());
+            }
+            KeyBinding.updateKeysByCode();
+            KeyConflicts.Summary defaults = KeyConflicts.summarize(client.options);
+            check("conflicts: the default key bindings have none (" + defaults.hard() + " / " + defaults.soft() + ")", defaults.isEmpty());
+
+            bind("key.jump", "key.keyboard.b");
+            checkConflict(client, "a normal key on B and F3+B (show hitboxes) do not conflict", "key.jump", KeyConflicts.Level.NONE, 0, null);
+            bind("key.jump", "key.keyboard.1");
+            checkConflict(client, "jump on 1 conflicts with hotbar slot 1 but not with F3+1", "key.jump", KeyConflicts.Level.HARD, 1, "general");
+            bind("key.jump", "key.keyboard.space");
+
+            bind("key.drop", "key.keyboard.e");
+            checkConflict(client, "drop and inventory on E is a real conflict", "key.drop", KeyConflicts.Level.HARD, 1, "general");
+            checkConflict(client, "... seen from the other binding too", "key.inventory", KeyConflicts.Level.HARD, 1, "general");
+            KeyConflicts.Summary oneClash = KeyConflicts.summarize(client.options);
+            check("conflicts: summary counts both bindings of the pair", oneClash.hard() == 2 && oneClash.soft() == 0);
+            bind("key.drop", "key.keyboard.q");
+
+            bind("key.sprint", "key.keyboard.x");
+            checkConflict(client, "sprint on X and the Creative-only load-hotbar key is a possible conflict", "key.sprint", KeyConflicts.Level.SOFT, 1, "creative");
+            bind("key.sprint", "key.keyboard.left.control");
+
+            bind("key.spectatorOutlines", "key.mouse.middle");
+            checkConflict(client, "two Spectator-only keys clash, pick block (never in Spectator) does not", "key.spectatorOutlines", KeyConflicts.Level.HARD, 1, "spectator_both");
+            bind("key.spectatorOutlines", "key.keyboard.space");
+            checkConflict(client, "a Spectator-only key and jump is a possible conflict", "key.spectatorOutlines", KeyConflicts.Level.SOFT, 1, "spectator");
+            bind("key.spectatorOutlines", "key.keyboard.unknown");
+
+            bind("key.debug.reloadChunk", "key.keyboard.b");
+            checkConflict(client, "two F3 combinations on the same key conflict", "key.debug.reloadChunk", KeyConflicts.Level.HARD, 1, "debug");
+            bind("key.debug.reloadChunk", "key.keyboard.a");
+
+            bind("key.jump", "key.keyboard.f3");
+            checkConflict(client, "a normal key on F3 itself conflicts with the debug keys", "key.jump", KeyConflicts.Level.HARD, 2, "general");
+            bind("key.jump", "key.keyboard.space");
+
+            bind(DEMO_MOD_BINDING, "key.keyboard.q");
+            checkConflict(client, "a mod key on the same key as a vanilla one conflicts", DEMO_MOD_BINDING, KeyConflicts.Level.HARD, 1, "general");
+        } finally {
+            before.forEach(this::bind);
+        }
+    }
+
+    private void checkConflict(MinecraftClient client, String what, String bindingId, KeyConflicts.Level level, int count, String reason) {
+        List<KeyConflicts.Conflict> conflicts = KeyConflicts.conflictsOf(Objects.requireNonNull(KeyBinding.byId(bindingId)), client.options);
+        boolean ok = KeyConflicts.worst(conflicts) == level && conflicts.size() == count
+                && (reason == null || conflicts.stream().anyMatch(conflict -> conflict.reason().equals(reason)));
+        StringBuilder found = new StringBuilder();
+        for (KeyConflicts.Conflict conflict : conflicts) {
+            found.append(" [").append(conflict.level()).append(" ").append(conflict.other().getId()).append(" ").append(conflict.reason()).append("]");
+        }
+        check("conflicts: " + what + (ok ? "" : " - got" + found), ok);
+    }
+
+    private void bind(String bindingId, String translationKey) {
+        KeyBinding binding = KeyBinding.byId(bindingId);
+        if (binding != null) {
+            binding.setBoundKey(InputUtil.fromTranslationKey(translationKey));
+            KeyBinding.updateKeysByCode();
+        }
+    }
+
+    private static String keyLabel(String bindingId) {
+        return Objects.requireNonNull(KeyBinding.byId(bindingId)).getBoundKeyLocalizedText().getString();
+    }
+
+    /**
+     * Leaves three situations in the live key bindings for the screenshots: a real conflict
+     * (drop on the inventory key), a possible one (sprint on the Creative load-hotbar key) and a
+     * harmless overlap with an F3 combination (advancements on a key only F3 combinations use).
+     */
+    private void setUpVisibleConflicts(MinecraftClient client) {
+        KeySourceResolver sources = KeyConflicts.sources(client.options);
+        // F13 / F14 are used so the examples do not depend on the key layout the dev client happens to have.
+        bind("key.inventory", "key.keyboard.f13");
+        bind("key.drop", "key.keyboard.f13");
+        bind("key.loadToolbarActivator", "key.keyboard.f14");
+        bind("key.sprint", "key.keyboard.f14");
+        for (KeyBinding debug : client.options.allKeys) {
+            if (KeyConflicts.scopeOf(debug, sources) != KeyConflicts.Scope.DEBUG_COMBO || debug.isUnbound()) {
+                continue;
+            }
+            boolean usedElsewhere = false;
+            for (KeyBinding other : client.options.allKeys) {
+                if (other != debug && other.equals(debug) && KeyConflicts.scopeOf(other, sources) != KeyConflicts.Scope.DEBUG_COMBO) {
+                    usedElsewhere = true;
+                    break;
+                }
+            }
+            if (!usedElsewhere) {
+                bind("key.advancements", debug.getBoundKeyTranslationKey());
+                log("conflicts: advancements now shares " + keyLabel("key.advancements") + " with F3 combination " + debug.getId());
+                break;
+            }
+        }
+        check("conflicts: advancements shares its key only with an F3 combination",
+                KeyConflicts.conflictsOf(Objects.requireNonNull(KeyBinding.byId("key.advancements")), client.options).isEmpty());
     }
 
     private void checkComparison(MinecraftClient client) {
