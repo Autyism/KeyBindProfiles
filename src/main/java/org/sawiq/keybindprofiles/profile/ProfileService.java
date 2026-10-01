@@ -6,6 +6,7 @@ import net.minecraft.client.util.InputUtil;
 import org.sawiq.keybindprofiles.KeyBindProfiles;
 import org.sawiq.keybindprofiles.storage.ProfileFileStore;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -97,6 +98,32 @@ public final class ProfileService {
         }
     }
 
+    public boolean renameProfile(String oldName, String newName) {
+        Map<String, String> keyMap = profiles.get(oldName);
+        if (keyMap == null || newName == null || newName.isBlank() || profiles.containsKey(newName)) {
+            return false;
+        }
+
+        List<String> hotkeys = profileHotkeys.remove(oldName);
+        List<String> autoSwitchServers = profileAutoSwitchServers.remove(oldName);
+        profiles.remove(oldName);
+        profiles.put(newName, keyMap);
+        if (hotkeys != null) {
+            profileHotkeys.put(newName, hotkeys);
+        }
+        if (autoSwitchServers != null) {
+            profileAutoSwitchServers.put(newName, autoSwitchServers);
+        }
+
+        fileStore.deleteProfileFile(oldName);
+        exportProfile(newName);
+        if (Objects.equals(currentProfile, oldName)) {
+            saveCurrentProfile(newName);
+        }
+        autoSwitchResetCallback.run();
+        return true;
+    }
+
     public void exportProfile(String name) {
         fileStore.exportProfile(name, profiles, profileHotkeys, profileAutoSwitchServers);
     }
@@ -137,6 +164,10 @@ public final class ProfileService {
 
     public String getCurrentProfile() {
         return currentProfile;
+    }
+
+    public File profilesDirectory() {
+        return fileStore.profilesDirectory();
     }
 
     public boolean openProfilesFolder() {

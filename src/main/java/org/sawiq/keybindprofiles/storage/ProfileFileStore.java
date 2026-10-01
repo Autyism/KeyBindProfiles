@@ -232,6 +232,10 @@ public final class ProfileFileStore {
         }
     }
 
+    public File profilesDirectory() {
+        return getProfilesDir();
+    }
+
     private File getProfilesDir() {
         if (profilesDir != null) {
             return profilesDir;
