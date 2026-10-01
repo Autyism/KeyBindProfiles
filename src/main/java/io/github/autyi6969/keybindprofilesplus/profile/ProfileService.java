@@ -4,6 +4,8 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
 import io.github.autyi6969.keybindprofilesplus.KeyBindProfilesPlus;
+import io.github.autyi6969.keybindprofilesplus.keys.KeyCombo;
+import io.github.autyi6969.keybindprofilesplus.keys.KeyCombos;
 import io.github.autyi6969.keybindprofilesplus.options.GameOptionsBridge;
 import io.github.autyi6969.keybindprofilesplus.options.OptionCatalog;
 import io.github.autyi6969.keybindprofilesplus.storage.ProfileFileStore;
@@ -83,7 +85,7 @@ public final class ProfileService {
             return;
         }
 
-        applyKeyBindings(client.options.allKeys, keyMap);
+        KeyCombos.batch(() -> applyKeyBindings(client.options.allKeys, keyMap));
         KeyBinding.updateKeysByCode();
         releaseAllKeys(client.options.allKeys);
         applyGameOptions(client, profileOptions.get(name));
@@ -139,6 +141,19 @@ public final class ProfileService {
         return true;
     }
 
+    /** Creates a profile from explicit contents (new-profile dialog, share code import). False if the name is taken. */
+    public boolean createProfile(String name, Map<String, String> keyBindings, Map<String, String> options) {
+        if (name == null || ProfileNames.containsIgnoreCase(profiles.keySet(), name)) {
+            return false;
+        }
+        profiles.put(name, new HashMap<>(keyBindings));
+        if (options != null && !options.isEmpty()) {
+            profileOptions.put(name, new LinkedHashMap<>(options));
+        }
+        exportProfile(name);
+        return true;
+    }
+
     public void exportProfile(String name) {
         fileStore.exportProfile(name, profiles, profileHotkeys, profileAutoSwitchServers, profileOptions);
     }
@@ -180,15 +195,12 @@ public final class ProfileService {
         Arrays.sort(bindings);
         for (KeyBinding binding : bindings) {
             String savedKey = keyMap.get(binding.getId());
-            if (savedKey == null || savedKey.equals(binding.getBoundKeyTranslationKey())) {
+            // An unreadable key in the file is skipped when applying, so it is no change either.
+            if (savedKey == null || savedKey.equals(KeyCombos.valueOf(binding)) || KeyCombo.parse(savedKey).inputKey() == null) {
                 continue;
             }
-            try {
-                changes.add(new ProfileChange(ProfileChange.Kind.KEY_BINDING, binding.getId(), Text.translatable(binding.getId()),
-                        binding.getBoundKeyLocalizedText(), InputUtil.fromTranslationKey(savedKey).getLocalizedText()));
-            } catch (IllegalArgumentException ignored) {
-                // An unreadable key in the file is skipped when applying, so it is no change either.
-            }
+            changes.add(new ProfileChange(ProfileChange.Kind.KEY_BINDING, binding.getId(), Text.translatable(binding.getId()),
+                    binding.getBoundKeyLocalizedText(), KeyCombo.describe(savedKey)));
         }
 
         Map<String, String> options = profileOptions.get(name);
@@ -267,11 +279,8 @@ public final class ProfileService {
             return;
         }
 
-        try {
-            binding.setBoundKey(InputUtil.fromTranslationKey(savedKey));
-        } catch (IllegalArgumentException ignored) {
-            // Invalid key values from old or manually edited profile files are ignored.
-        }
+        // Invalid key values from old or manually edited profile files are ignored.
+        KeyCombos.applyValue(binding, savedKey);
     }
 
     private void applyGameOptions(MinecraftClient client, Map<String, String> options) {

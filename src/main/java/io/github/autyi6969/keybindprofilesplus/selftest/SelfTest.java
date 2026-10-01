@@ -12,6 +12,8 @@ import io.github.autyi6969.keybindprofilesplus.options.GameOptionsBridge;
 import io.github.autyi6969.keybindprofilesplus.options.OptionCatalog;
 import io.github.autyi6969.keybindprofilesplus.profile.ProfileChange;
 import io.github.autyi6969.keybindprofilesplus.gui.KeyOverviewScreen;
+import io.github.autyi6969.keybindprofilesplus.keys.KeyCombo;
+import io.github.autyi6969.keybindprofilesplus.keys.KeyCombos;
 import io.github.autyi6969.keybindprofilesplus.keys.KeyConflicts;
 import io.github.autyi6969.keybindprofilesplus.keys.KeySource;
 import io.github.autyi6969.keybindprofilesplus.keys.KeySourceResolver;
@@ -252,6 +254,8 @@ public final class SelfTest {
         step("key sources", 0, () -> checkKeySources(client));
         step("conflicts: layered detection", 0, () -> checkConflicts(client));
         step("server rules: matching", 0, this::checkServerRules);
+        step("combinations: dispatch, display, storage", 0, () -> checkCombos(client));
+        recordCombosThroughRealKeyEvents(client);
 
         step("profile: create", 0, () -> profileCreate(client));
         step("profile: apply", 0, () -> profileApply(client));
@@ -480,7 +484,7 @@ public final class SelfTest {
 
     private void snapshot(MinecraftClient client) {
         for (KeyBinding binding : client.options.allKeys) {
-            savedBindings.put(binding.getId(), binding.getBoundKeyTranslationKey());
+            savedBindings.put(binding.getId(), KeyCombos.valueOf(binding));
         }
         savedCurrentProfile = service.getCurrentProfile();
         savedLanguage = client.getLanguageManager().getLanguage();
@@ -495,6 +499,12 @@ public final class SelfTest {
         });
         savedOptions = optionValues;
         log("current profile before test: " + savedCurrentProfile + ", existing profiles: " + sortedProfileNames());
+        for (KeyBinding binding : client.options.allKeys) {
+            for (KeyConflicts.Conflict conflict : KeyConflicts.conflictsOf(binding, client.options)) {
+                log("conflict in the current key layout: " + binding.getId() + " (" + binding.getBoundKeyLocalizedText().getString() + ") vs "
+                        + conflict.other().getId() + " -> " + conflict.level() + " " + conflict.reason());
+            }
+        }
         deleteTestProfiles();
     }
 
@@ -727,12 +737,183 @@ public final class SelfTest {
         check("conflicts: " + what + (ok ? "" : " - got" + found), ok);
     }
 
-    private void bind(String bindingId, String translationKey) {
+    /** Binds a key or a combination given in text form ("ctrl+key.keyboard.x"). */
+    private void bind(String bindingId, String value) {
         KeyBinding binding = KeyBinding.byId(bindingId);
         if (binding != null) {
-            binding.setBoundKey(InputUtil.fromTranslationKey(translationKey));
+            KeyCombos.applyValue(binding, value);
             KeyBinding.updateKeysByCode();
         }
+    }
+
+    private Map<String, String> currentKeyValues(MinecraftClient client) {
+        Map<String, String> values = new LinkedHashMap<>();
+        for (KeyBinding binding : client.options.allKeys) {
+            values.put(binding.getId(), KeyCombos.valueOf(binding));
+        }
+        return values;
+    }
+
+    private static boolean drainPressed(KeyBinding binding) {
+        boolean any = false;
+        while (binding.wasPressed()) {
+            any = true;
+        }
+        return any;
+    }
+
+    private void checkCombos(MinecraftClient client) {
+        KeyCombo parsed = KeyCombo.parse("Shift+ctrl+key.keyboard.x");
+        check("combos: text form is normalised (" + parsed.encode() + ")", parsed.encode().equals("ctrl+shift+key.keyboard.x"));
+        check("combos: shown as Ctrl + Shift + X", KeyCombo.describe("ctrl+shift+key.keyboard.x").getString().equals("Ctrl + Shift + X"));
+        check("combos: a plain key stays a plain key", KeyCombo.parse("key.keyboard.x").isPlain() && KeyCombo.describe("key.keyboard.x").getString().equals("X"));
+        check("combos: numpad names work inside a combination", KeyCombo.describe("alt+key.keyboard.keypad.5").getString().equals("Alt + Num 5"));
+
+        Map<String, String> before = currentKeyValues(client);
+        KeyBinding plain = Objects.requireNonNull(KeyBinding.byId("key.advancements"));
+        KeyBinding combo = Objects.requireNonNull(KeyBinding.byId("key.socialInteractions"));
+        InputUtil.Key f15 = InputUtil.fromTranslationKey("key.keyboard.f15");
+        int[] held = {0};
+        KeyCombos.setHeldModifiersForTesting(() -> held[0]);
+        try {
+            bind("key.advancements", "key.keyboard.f15");
+            bind("key.socialInteractions", "ctrl+key.keyboard.f15");
+            check("combos: the binding reports its combination", KeyCombos.valueOf(combo).equals("ctrl+key.keyboard.f15")
+                    && combo.getBoundKeyLocalizedText().getString().equals("Ctrl + F15"));
+            check("combos: a combination is never the default", !combo.isDefault());
+
+            drainPressed(plain);
+            drainPressed(combo);
+            held[0] = 0;
+            KeyBinding.onKeyPressed(f15);
+            boolean plainOnBare = drainPressed(plain);
+            boolean comboOnBare = drainPressed(combo);
+            check("combos: F15 alone triggers the plain binding, not Ctrl + F15", plainOnBare && !comboOnBare);
+
+            held[0] = KeyCombo.CTRL;
+            KeyBinding.onKeyPressed(f15);
+            boolean plainOnCtrl = drainPressed(plain);
+            boolean comboOnCtrl = drainPressed(combo);
+            check("combos: Ctrl + F15 triggers the combination, not the plain binding", comboOnCtrl && !plainOnCtrl);
+
+            held[0] = KeyCombo.CTRL | KeyCombo.SHIFT;
+            KeyBinding.onKeyPressed(f15);
+            check("combos: extra modifiers held still trigger Ctrl + F15", drainPressed(combo) && !drainPressed(plain));
+
+            held[0] = KeyCombo.CTRL;
+            KeyBinding.setKeyPressed(f15, true);
+            check("combos: held state follows the same rule", combo.isPressed() && !plain.isPressed());
+            KeyBinding.setKeyPressed(f15, false);
+            check("combos: releasing the key releases every binding on it", !combo.isPressed() && !plain.isPressed());
+
+            check("combos: screen key checks respect modifiers",
+                    combo.matchesKey(new KeyInput(InputUtil.GLFW_KEY_F15, 0, KeyCombo.CTRL)) && !plain.matchesKey(new KeyInput(InputUtil.GLFW_KEY_F15, 0, KeyCombo.CTRL))
+                            && plain.matchesKey(new KeyInput(InputUtil.GLFW_KEY_F15, 0, 0)) && !combo.matchesKey(new KeyInput(InputUtil.GLFW_KEY_F15, 0, 0)));
+
+            // A key without any combination on it keeps the vanilla behaviour whatever is held.
+            KeyBinding jump = requireBinding();
+            drainPressed(jump);
+            held[0] = KeyCombo.CTRL | KeyCombo.ALT;
+            KeyBinding.onKeyPressed(jump.boundKey);
+            check("combos: bindings on other keys are untouched by held modifiers", drainPressed(jump));
+
+            checkConflict(client, "X and Ctrl + X on the same key do not conflict", "key.socialInteractions", KeyConflicts.Level.NONE, 0, null);
+            bind("key.playerlist", "ctrl+key.keyboard.f15");
+            checkConflict(client, "two bindings on Ctrl + F15 conflict", "key.socialInteractions", KeyConflicts.Level.HARD, 1, "general");
+            bind("key.playerlist", "key.keyboard.f16");
+            bind("key.sprint", "key.keyboard.left.control");
+            checkConflict(client, "a combination next to a binding on its modifier key (sprint on Ctrl) is not reported", "key.socialInteractions", KeyConflicts.Level.NONE, 0, null);
+
+            File combosFile = new File(service.profilesDirectory(), "combos.json");
+            boolean written = false;
+            try {
+                written = combosFile.isFile() && Files.readString(combosFile.toPath()).contains("\"key.socialInteractions\": \"ctrl+key.keyboard.f15\"");
+            } catch (IOException e) {
+                fail("combos: could not read combos.json: " + e);
+            }
+            check("combos: saved to combos.json", written);
+            KeyCombos.load(service.profilesDirectory());
+            check("combos: read back from combos.json", KeyCombos.valueOf(combo).equals("ctrl+key.keyboard.f15"));
+
+            service.saveProfile(PROFILE_PREFIX + "combo", client.options.allKeys);
+            check("combos: stored in a profile", "ctrl+key.keyboard.f15".equals(service.profiles().get(PROFILE_PREFIX + "combo").get("key.socialInteractions")));
+            combo.setBoundKey(InputUtil.fromTranslationKey("key.keyboard.f16"));
+            KeyBinding.updateKeysByCode();
+            check("combos: rebinding the vanilla way drops the modifiers", KeyCombos.valueOf(combo).equals("key.keyboard.f16"));
+            check("combos: the profile preview shows the combination",
+                    service.previewApply(PROFILE_PREFIX + "combo").stream().anyMatch(change -> change.to().getString().equals("Ctrl + F15")));
+            service.applyProfile(PROFILE_PREFIX + "combo");
+            held[0] = KeyCombo.CTRL;
+            drainPressed(combo);
+            KeyBinding.onKeyPressed(f15);
+            check("combos: applying the profile restores a working combination", KeyCombos.valueOf(combo).equals("ctrl+key.keyboard.f15") && drainPressed(combo));
+            drainPressed(plain);
+            service.deleteProfile(PROFILE_PREFIX + "combo");
+        } finally {
+            KeyCombos.setHeldModifiersForTesting(null);
+            before.forEach(this::bind);
+        }
+        check("combos: test bindings were put back", currentKeyValues(client).equals(before));
+    }
+
+    /**
+     * Records combinations on the vanilla Key Binds screen by sending key events through the
+     * game's own key handler, the same path a real key press takes.
+     */
+    private void recordCombosThroughRealKeyEvents(MinecraftClient client) {
+        String[] original = new String[1];
+        open(client, "vanilla key binds screen (recording)", () -> new KeybindsScreen(homeScreen, client.options));
+        step("record: start waiting for a key", 2, () -> {
+            KeyBinding binding = Objects.requireNonNull(KeyBinding.byId("key.socialInteractions"));
+            original[0] = KeyCombos.valueOf(binding);
+            KeybindsScreen screen = (KeybindsScreen) client.currentScreen;
+            screen.selectedKeyBinding = binding;
+            screen.controlsList.update();
+        });
+        step("record: Ctrl goes down", 2, () -> {
+            sendKey(client, InputUtil.GLFW_KEY_LEFT_CONTROL, true, KeyCombo.CTRL);
+            KeybindsScreen screen = (KeybindsScreen) client.currentScreen;
+            check("record: holding Ctrl does not bind Left Control yet", screen.selectedKeyBinding != null
+                    && KeyCombos.valueOf(screen.selectedKeyBinding).equals(original[0]));
+            check("record: the button shows the modifier being held", findWidget(screen, "> Ctrl + ... <") != null);
+        });
+        step("record: F15 goes down with Ctrl held", 2, () -> {
+            sendKey(client, InputUtil.GLFW_KEY_F15, true, KeyCombo.CTRL);
+            KeybindsScreen screen = (KeybindsScreen) client.currentScreen;
+            KeyBinding binding = Objects.requireNonNull(KeyBinding.byId("key.socialInteractions"));
+            check("record: Ctrl + F15 was recorded", KeyCombos.valueOf(binding).equals("ctrl+key.keyboard.f15") && screen.selectedKeyBinding == null);
+            check("record: the list shows Ctrl + F15", findWidget(screen, "Ctrl + F15") != null);
+            sendKey(client, InputUtil.GLFW_KEY_F15, false, KeyCombo.CTRL);
+            sendKey(client, InputUtil.GLFW_KEY_LEFT_CONTROL, false, 0);
+            check("record: releasing the keys afterwards changes nothing", KeyCombos.valueOf(binding).equals("ctrl+key.keyboard.f15"));
+        });
+        shot(client, "en_vanilla_keybinds_combination");
+        step("record: a modifier pressed and released alone is bound as a plain key", 2, () -> {
+            KeyBinding binding = Objects.requireNonNull(KeyBinding.byId("key.socialInteractions"));
+            KeybindsScreen screen = (KeybindsScreen) client.currentScreen;
+            screen.selectedKeyBinding = binding;
+            screen.controlsList.update();
+            sendKey(client, InputUtil.GLFW_KEY_RIGHT_SHIFT, true, KeyCombo.SHIFT);
+            sendKey(client, InputUtil.GLFW_KEY_RIGHT_SHIFT, false, 0);
+            check("record: Right Shift alone -> " + KeyCombos.valueOf(binding), KeyCombos.valueOf(binding).equals("key.keyboard.right.shift") && screen.selectedKeyBinding == null);
+        });
+        step("record: escape unbinds", 2, () -> {
+            KeyBinding binding = Objects.requireNonNull(KeyBinding.byId("key.socialInteractions"));
+            KeybindsScreen screen = (KeybindsScreen) client.currentScreen;
+            bind("key.socialInteractions", "alt+key.keyboard.f15");
+            screen.selectedKeyBinding = binding;
+            screen.controlsList.update();
+            sendKey(client, InputUtil.GLFW_KEY_ESCAPE, true, 0);
+            sendKey(client, InputUtil.GLFW_KEY_ESCAPE, false, 0);
+            check("record: Escape leaves it unbound without modifiers", binding.isUnbound() && KeyCombos.modifiersOf(binding) == 0);
+            bind("key.socialInteractions", original[0]);
+        });
+        step("record: close", 2, () -> client.setScreen(homeScreen));
+    }
+
+    /** Feeds one key event into the game exactly where GLFW would. */
+    private void sendKey(MinecraftClient client, int keyCode, boolean press, int modifiers) {
+        client.keyboard.onKey(client.getWindow().getHandle(), press ? 1 : 0, new KeyInput(keyCode, 0, modifiers));
     }
 
     private static String keyLabel(String bindingId) {
@@ -1107,7 +1288,7 @@ public final class SelfTest {
             for (KeyBinding binding : client.options.allKeys) {
                 String key = savedBindings.get(binding.getId());
                 if (key != null) {
-                    binding.setBoundKey(InputUtil.fromTranslationKey(key));
+                    KeyCombos.applyValue(binding, key);
                 }
             }
             KeyBinding.updateKeysByCode();

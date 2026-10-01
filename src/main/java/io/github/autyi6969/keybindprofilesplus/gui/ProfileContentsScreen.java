@@ -1,5 +1,7 @@
 package io.github.autyi6969.keybindprofilesplus.gui;
 
+import io.github.autyi6969.keybindprofilesplus.keys.KeyCombo;
+import io.github.autyi6969.keybindprofilesplus.keys.KeyCombos;
 import io.github.autyi6969.keybindprofilesplus.options.GameOptionsBridge;
 import io.github.autyi6969.keybindprofilesplus.options.OptionCatalog;
 import io.github.autyi6969.keybindprofilesplus.profile.ProfileService;
@@ -19,7 +21,6 @@ import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.client.gui.widget.TextWidget;
 import net.minecraft.client.gui.widget.ThreePartsLayoutWidget;
 import net.minecraft.client.option.KeyBinding;
-import net.minecraft.client.util.InputUtil;
 import net.minecraft.screen.ScreenTexts;
 import net.minecraft.text.Text;
 
@@ -224,7 +225,7 @@ public class ProfileContentsScreen extends Screen {
             String categoryId = "keys/" + binding.getCategory().id();
             Group category = nodesById.get(categoryId) instanceof Group existing ? existing : addGroup(keys, categoryId, binding.getCategory().getLabel());
             addItem(category, "key:" + binding.getId(), Text.translatable(binding.getId()), true, binding.getId(),
-                    savedKeys.get(binding.getId()), binding.getBoundKeyTranslationKey(), ProfileContentsScreen::describeKey);
+                    savedKeys.get(binding.getId()), KeyCombos.valueOf(binding), ProfileContentsScreen::describeKey);
             unknownKeys.remove(binding.getId());
         }
         if (!unknownKeys.isEmpty()) {
@@ -269,11 +270,7 @@ public class ProfileContentsScreen extends Screen {
     }
 
     private static Text describeKey(String translationKey) {
-        try {
-            return InputUtil.fromTranslationKey(translationKey).getLocalizedText();
-        } catch (IllegalArgumentException e) {
-            return Text.literal(translationKey);
-        }
+        return KeyCombo.describe(translationKey);
     }
 
     private static void forEachItem(Group group, Consumer<Item> action) {

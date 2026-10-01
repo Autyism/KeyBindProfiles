@@ -113,7 +113,16 @@ public final class KeyConflicts {
 
     /** The verdict for one pair, or null when they do not conflict at all. */
     public static Conflict between(KeyBinding binding, KeyBinding other, KeySourceResolver sources) {
-        if (binding == other || binding.isUnbound() || other.isUnbound() || !binding.equals(other)) {
+        if (binding == other || binding.isUnbound() || other.isUnbound()) {
+            return null;
+        }
+        // Holding Ctrl for "Ctrl + X" also presses whatever is bound to Ctrl itself (sprint by default).
+        // That is true of every combination and harmless in practice, so it is not reported.
+        if (!binding.equals(other)) {
+            return null;
+        }
+        // Same key but different modifiers ("X" and "Ctrl + X"): only one of them reacts to any given press.
+        if (KeyCombos.modifiersOf(binding) != KeyCombos.modifiersOf(other)) {
             return null;
         }
         // Pairs the game ships on the same key (F3+C for both "copy location" and "crash") are intended.
