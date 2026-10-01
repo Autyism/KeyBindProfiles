@@ -35,5 +35,21 @@
   "keybindprofilesplus.hotkey_hint": "按下 1-2 个键，回车保存，退格清除，Esc 取消",
   "keybindprofilesplus.open_folder": "打开文件夹",
   "keybindprofilesplus.hud.profile_applied": "已应用档案“%s”",
-  "keybindprofilesplus.key.keypad": "小键盘 %s"
+  "keybindprofilesplus.key.keypad": "小键盘 %s",
+  "keybindprofilesplus.source.vanilla": "Minecraft",
+  "keybindprofilesplus.source.unknown": "未知模组",
+  "keybindprofilesplus.source.unknown_hint": "%s？",
+  "keybindprofilesplus.overview.open": "键位全景",
+  "keybindprofilesplus.overview.title": "键位全景",
+  "keybindprofilesplus.overview.search": "搜索名称、按键或模组",
+  "keybindprofilesplus.overview.filter": "来源",
+  "keybindprofilesplus.overview.filter.all": "全部",
+  "keybindprofilesplus.overview.filter.vanilla": "Minecraft",
+  "keybindprofilesplus.overview.filter.mods": "模组",
+  "keybindprofilesplus.overview.summary": "显示 %s / %s 个 - %s 个来自模组 - %s 个未绑定",
+  "keybindprofilesplus.overview.empty": "没有符合条件的键位",
+  "keybindprofilesplus.overview.tooltip.source": "来源：%s",
+  "keybindprofilesplus.overview.tooltip.category": "分类：%s",
+  "keybindprofilesplus.overview.tooltip.default": "默认按键：%s",
+  "keybindprofilesplus.overview.tooltip.changed": "已修改（不是默认键）"
 }

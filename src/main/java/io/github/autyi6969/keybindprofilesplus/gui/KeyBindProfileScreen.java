@@ -72,6 +72,12 @@ public class KeyBindProfileScreen extends Screen {
         }).dimensions(width - 10 - openFolderWidth, 6, openFolderWidth, 20).build();
         addDrawableChild(openFolderButton);
 
+        Text overviewLabel = Text.translatable("keybindprofilesplus.overview.open");
+        int overviewWidth = textRenderer.getWidth(overviewLabel) + 12;
+        addDrawableChild(ButtonWidget.builder(overviewLabel, button -> client.setScreen(new KeyOverviewScreen(this)))
+                .dimensions(openFolderButton.getX() - 4 - overviewWidth, 6, overviewWidth, 20)
+                .build());
+
         createButton = ButtonWidget.builder(Text.translatable("keybindprofilesplus.create"), button -> createProfile())
                 .dimensions(leftX + KeyBindProfileScreenLayout.FIELD_WIDTH + 8, fieldY, 130, KeyBindProfileScreenLayout.BUTTON_HEIGHT)
                 .build();

@@ -4,11 +4,15 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import io.github.autyi6969.keybindprofilesplus.KeyBindProfilesPlus;
 import io.github.autyi6969.keybindprofilesplus.gui.KeyBindProfileScreen;
+import io.github.autyi6969.keybindprofilesplus.gui.KeyOverviewScreen;
+import io.github.autyi6969.keybindprofilesplus.keys.KeySource;
+import io.github.autyi6969.keybindprofilesplus.keys.KeySourceResolver;
 import io.github.autyi6969.keybindprofilesplus.notification.ProfileNoticeHud;
 import io.github.autyi6969.keybindprofilesplus.profile.ProfileService;
 import io.github.autyi6969.keybindprofilesplus.storage.LegacyOptions;
 import io.github.autyi6969.keybindprofilesplus.storage.ProfileFileStore;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.SharedConstants;
 import net.minecraft.client.MinecraftClient;
@@ -26,6 +30,7 @@ import net.minecraft.client.util.ScreenshotRecorder;
 import net.minecraft.resource.DataConfiguration;
 import net.minecraft.resource.featuretoggle.FeatureFlags;
 import net.minecraft.text.Text;
+import net.minecraft.util.Identifier;
 import net.minecraft.world.Difficulty;
 import net.minecraft.world.GameMode;
 import net.minecraft.world.gen.GeneratorOptions;
@@ -75,6 +80,8 @@ public final class SelfTest {
     private static final String WORLD_NAME = "selftest_world";
     private static final String TEST_BINDING_ID = "key.jump";
     private static final String TEST_KEY = "key.keyboard.j";
+    private static final String DEMO_MOD_BINDING = "key.fabric-api.selftest_demo";
+    private static final String DEMO_UNKNOWN_BINDING = "key.selftest.unknown_demo";
     private static final String LANG_PATH = "assets/" + KeyBindProfilesPlus.MOD_ID + "/lang/";
     private static final int READY_TICKS = 40;
     private static final int SCREEN_SETTLE_TICKS = 12;
@@ -114,8 +121,21 @@ public final class SelfTest {
 
     public static void install(ProfileService service) {
         SelfTest selfTest = new SelfTest(service);
+        registerDemoBindings();
         ClientTickEvents.END_CLIENT_TICK.register(selfTest::tick);
         log("installed, waiting for the main menu");
+    }
+
+    /**
+     * Two fake key bindings so the dev client (which has no other mods) can exercise the
+     * "which mod is this from" logic: one that looks like it belongs to Fabric API and one from
+     * a mod that cannot be identified. They only exist while the self-test is running.
+     */
+    private static void registerDemoBindings() {
+        KeyBindingHelper.registerKeyBinding(new KeyBinding(DEMO_MOD_BINDING, InputUtil.Type.KEYSYM,
+                InputUtil.GLFW_KEY_KP_5, KeyBinding.Category.MISC));
+        KeyBindingHelper.registerKeyBinding(new KeyBinding(DEMO_UNKNOWN_BINDING, InputUtil.Type.KEYSYM,
+                InputUtil.UNKNOWN_KEY.getCode(), KeyBinding.Category.create(Identifier.of("selftestmod", "demo"))));
     }
 
     // ------------------------------------------------------------------ driver
@@ -209,6 +229,7 @@ public final class SelfTest {
         step("migration from upstream KeyBindProfiles", 0, this::checkMigration);
         step("language files", 0, this::checkLanguageFiles);
         step("key display names", 0, this::checkKeyNames);
+        step("key sources", 0, () -> checkKeySources(client));
 
         step("profile: create", 0, () -> profileCreate(client));
         step("profile: apply", 0, () -> profileApply(client));
@@ -244,6 +265,33 @@ public final class SelfTest {
         }
         step("click profile " + PROFILE_A, 4, () -> click(client, PROFILE_A));
         shot(client, tag + "_profiles_profile_selected");
+
+        step("click overview button", SCREEN_SETTLE_TICKS, () -> {
+            click(client, Text.translatable("keybindprofilesplus.overview.open").getString());
+            check("overview button opens the key overview", client.currentScreen instanceof KeyOverviewScreen);
+        });
+        shot(client, tag + "_overview_all");
+        if (tag.equals("en")) {
+            step("overview: mods only", 4, () -> {
+                KeyOverviewScreen overview = (KeyOverviewScreen) client.currentScreen;
+                overview.setSourceFilter(KeyOverviewScreen.SourceFilter.MODS);
+                check("overview: mods filter shows the 3 non-vanilla bindings, got " + overview.visibleBindingCount(), overview.visibleBindingCount() == 3);
+            });
+            shot(client, tag + "_overview_mods_only");
+            step("overview: search", 4, () -> {
+                KeyOverviewScreen overview = (KeyOverviewScreen) client.currentScreen;
+                overview.setSourceFilter(KeyOverviewScreen.SourceFilter.ALL);
+                overview.setQuery("num 5");
+                check("overview: searching 'num 5' finds the binding on numpad 5, got " + overview.visibleBindingCount(), overview.visibleBindingCount() == 1);
+                overview.setQuery("zzzz no such key");
+                check("overview: a search without hits shows nothing", overview.visibleBindingCount() == 0);
+            });
+            shot(client, tag + "_overview_no_match");
+        }
+        step("overview: done", SCREEN_SETTLE_TICKS, () -> {
+            click(client, Text.translatable("gui.done").getString());
+            check("overview: done returns to the profile screen", client.currentScreen instanceof KeyBindProfileScreen);
+        });
 
         open(client, "vanilla key binds screen", () -> new KeybindsScreen(homeScreen, client.options));
         step("manage button present", 0, () -> check("vanilla Key Binds screen has the '" + manageLabel() + "' button",
@@ -368,6 +416,36 @@ public final class SelfTest {
         checkKeyName("key.keyboard.keypad.enter", "Num Enter");
         checkKeyName("key.keyboard.5", "5");
         checkKeyName("key.keyboard.enter", "Enter");
+    }
+
+    private void checkKeySources(MinecraftClient client) {
+        KeySourceResolver resolver = new KeySourceResolver(client.options);
+        checkSource(resolver, "key.jump", KeySource.Kind.VANILLA, "minecraft");
+        checkSource(resolver, "key.hotbar.1", KeySource.Kind.VANILLA, "minecraft");
+        checkSource(resolver, "key.debug.reloadChunk", KeySource.Kind.VANILLA, "minecraft");
+        checkSource(resolver, "key.keybindprofilesplus.open", KeySource.Kind.MOD, KeyBindProfilesPlus.MOD_ID);
+        checkSource(resolver, DEMO_MOD_BINDING, KeySource.Kind.MOD, "fabric-api");
+        checkSource(resolver, DEMO_UNKNOWN_BINDING, KeySource.Kind.UNKNOWN, "selftestmod");
+
+        int vanilla = 0;
+        for (KeyBinding binding : client.options.allKeys) {
+            if (resolver.resolve(binding).isVanilla()) {
+                vanilla++;
+            }
+        }
+        check("key sources: every binding except the 3 mod ones is vanilla (" + vanilla + " of " + client.options.allKeys.length + ")",
+                vanilla == client.options.allKeys.length - 3);
+    }
+
+    private void checkSource(KeySourceResolver resolver, String bindingId, KeySource.Kind kind, String modId) {
+        KeyBinding binding = KeyBinding.byId(bindingId);
+        if (binding == null) {
+            fail("key source: binding " + bindingId + " does not exist");
+            return;
+        }
+        KeySource source = resolver.resolve(binding);
+        check("key source: " + bindingId + " -> " + kind + " " + modId + " (label '" + source.label().getString() + "')",
+                source.kind() == kind && modId.equals(source.modId()));
     }
 
     private void checkChineseTexts() {
