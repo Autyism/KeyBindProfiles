@@ -76,5 +76,15 @@
   "keybindprofilesplus.confirm.group.settings": "游戏设置（%s）",
   "keybindprofilesplus.confirm.dont_ask": "下次不再询问",
   "keybindprofilesplus.confirm.apply": "应用",
-  "keybindprofilesplus.confirm.toggle": "应用前先确认"
+  "keybindprofilesplus.confirm.toggle": "应用前先确认",
+  "keybindprofilesplus.compare.open": "对比…",
+  "keybindprofilesplus.compare.open_short": "对比档案",
+  "keybindprofilesplus.compare.title": "对比档案",
+  "keybindprofilesplus.compare.side_a": "A",
+  "keybindprofilesplus.compare.side_b": "B",
+  "keybindprofilesplus.compare.current": "当前设置",
+  "keybindprofilesplus.compare.only_differences": "只看差异",
+  "keybindprofilesplus.compare.summary": "%s / %s 项不同 - %s 项只有一边保存",
+  "keybindprofilesplus.compare.no_differences": "没有差异",
+  "keybindprofilesplus.compare.group_differs": "（%s 项不同）"
 }

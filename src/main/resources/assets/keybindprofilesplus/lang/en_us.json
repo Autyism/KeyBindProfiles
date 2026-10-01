@@ -76,5 +76,15 @@
   "keybindprofilesplus.confirm.group.settings": "Game settings (%s)",
   "keybindprofilesplus.confirm.dont_ask": "Don't ask again",
   "keybindprofilesplus.confirm.apply": "Apply",
-  "keybindprofilesplus.confirm.toggle": "Ask Before Applying"
+  "keybindprofilesplus.confirm.toggle": "Ask Before Applying",
+  "keybindprofilesplus.compare.open": "Compare...",
+  "keybindprofilesplus.compare.open_short": "Compare Profiles",
+  "keybindprofilesplus.compare.title": "Compare Profiles",
+  "keybindprofilesplus.compare.side_a": "A",
+  "keybindprofilesplus.compare.side_b": "B",
+  "keybindprofilesplus.compare.current": "Current settings",
+  "keybindprofilesplus.compare.only_differences": "Only differences",
+  "keybindprofilesplus.compare.summary": "%s of %s differ - %s saved on one side only",
+  "keybindprofilesplus.compare.no_differences": "No differences",
+  "keybindprofilesplus.compare.group_differs": " (%s differ)"
 }
