@@ -1,0 +1,9 @@
+accessWidener v2 named
+
+# Enumerating and applying the game's own options (FOV, sensitivity, ...) the same way
+# GameOptions.load()/write() do. There is no public or Fabric API for this.
+accessible class net/minecraft/client/option/GameOptions$OptionVisitor
+accessible class net/minecraft/client/option/GameOptions$Visitor
+accessible method net/minecraft/client/option/GameOptions accept (Lnet/minecraft/client/option/GameOptions$Visitor;)V
+accessible field net/minecraft/client/option/SimpleOption text Lnet/minecraft/text/Text;
+accessible field net/minecraft/client/option/SimpleOption textGetter Ljava/util/function/Function;

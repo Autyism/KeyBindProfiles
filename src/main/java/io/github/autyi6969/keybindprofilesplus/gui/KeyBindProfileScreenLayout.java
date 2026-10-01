@@ -51,7 +51,7 @@ final class KeyBindProfileScreenLayout {
     }
 
     int serverInputY() {
-        return CONTENT_TOP + BUTTON_SPACING * 4 + 4;
+        return CONTENT_TOP + BUTTON_SPACING * 4 + 16;
     }
 
     int serverListTop() {

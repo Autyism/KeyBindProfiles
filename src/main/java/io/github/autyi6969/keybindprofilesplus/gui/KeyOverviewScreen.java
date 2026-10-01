@@ -313,11 +313,7 @@ public class KeyOverviewScreen extends Screen {
         }
     }
 
-    static String ellipsize(TextRenderer font, String text, int maxWidth) {
-        if (font.getWidth(text) <= maxWidth) {
-            return text;
-        }
-        String ellipsis = "...";
-        return font.trimToWidth(text, Math.max(0, maxWidth - font.getWidth(ellipsis))) + ellipsis;
+    private static String ellipsize(TextRenderer font, String text, int maxWidth) {
+        return GuiUtil.ellipsize(font, text, maxWidth);
     }
 }

@@ -21,6 +21,7 @@
 	"entrypoints": {
 		"client": ["io.github.autyi6969.keybindprofilesplus.KeyBindProfilesPlus"]
 	},
+	"accessWidener": "keybindprofilesplus.accesswidener",
 	"mixins": [
 		"keybindprofilesplus.mixins.json"
 	],

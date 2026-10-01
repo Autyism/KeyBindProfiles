@@ -22,6 +22,7 @@ import io.github.autyi6969.keybindprofilesplus.profile.ProfileService;
 import io.github.autyi6969.keybindprofilesplus.selftest.SelfTest;
 import io.github.autyi6969.keybindprofilesplus.server.ServerAutoSwitchController;
 import io.github.autyi6969.keybindprofilesplus.storage.LegacyOptions;
+import io.github.autyi6969.keybindprofilesplus.storage.ModSettings;
 import io.github.autyi6969.keybindprofilesplus.storage.ProfileFileStore;
 import net.fabricmc.loader.api.FabricLoader;
 import org.slf4j.Logger;
@@ -37,6 +38,7 @@ public class KeyBindProfilesPlus implements ClientModInitializer {
     private static final ProfileNotification NOTIFICATION = new ProfileNotification();
     private static final ProfileNoticeHud NOTICE_HUD = new ProfileNoticeHud(NOTIFICATION);
     private static final ProfileService PROFILE_SERVICE = new ProfileService(new ProfileFileStore());
+    private static final ModSettings SETTINGS = new ModSettings(PROFILE_SERVICE::profilesDirectory);
     private static final ProfileHotkeyController HOTKEY_CONTROLLER = new ProfileHotkeyController(PROFILE_SERVICE, NOTIFICATION);
     private static final ServerAutoSwitchController AUTO_SWITCH_CONTROLLER = new ServerAutoSwitchController(PROFILE_SERVICE, NOTIFICATION);
 
@@ -61,6 +63,14 @@ public class KeyBindProfilesPlus implements ClientModInitializer {
         if (SelfTest.isRequested()) {
             SelfTest.install(PROFILE_SERVICE);
         }
+    }
+
+    public static ProfileService profileService() {
+        return PROFILE_SERVICE;
+    }
+
+    public static ModSettings settings() {
+        return SETTINGS;
     }
 
     public static void openConfigScreen(Screen parent) {

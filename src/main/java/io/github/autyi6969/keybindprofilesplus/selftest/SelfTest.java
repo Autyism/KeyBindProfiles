@@ -3,7 +3,12 @@ package io.github.autyi6969.keybindprofilesplus.selftest;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import io.github.autyi6969.keybindprofilesplus.KeyBindProfilesPlus;
+import io.github.autyi6969.keybindprofilesplus.gui.ApplyConfirmScreen;
 import io.github.autyi6969.keybindprofilesplus.gui.KeyBindProfileScreen;
+import io.github.autyi6969.keybindprofilesplus.gui.ProfileContentsScreen;
+import io.github.autyi6969.keybindprofilesplus.options.GameOptionsBridge;
+import io.github.autyi6969.keybindprofilesplus.options.OptionCatalog;
+import io.github.autyi6969.keybindprofilesplus.profile.ProfileChange;
 import io.github.autyi6969.keybindprofilesplus.gui.KeyOverviewScreen;
 import io.github.autyi6969.keybindprofilesplus.keys.KeySource;
 import io.github.autyi6969.keybindprofilesplus.keys.KeySourceResolver;
@@ -81,6 +86,8 @@ public final class SelfTest {
     private static final String TEST_BINDING_ID = "key.jump";
     private static final String TEST_KEY = "key.keyboard.j";
     private static final String DEMO_MOD_BINDING = "key.fabric-api.selftest_demo";
+    private static final String PROFILE_A_KEY = "key.keyboard.k";
+    private static final String PROFILE_FOV = "0.5";
     private static final String DEMO_UNKNOWN_BINDING = "key.selftest.unknown_demo";
     private static final String LANG_PATH = "assets/" + KeyBindProfilesPlus.MOD_ID + "/lang/";
     private static final int READY_TICKS = 40;
@@ -96,6 +103,11 @@ public final class SelfTest {
     private String savedLanguage;
     private boolean savedPauseOnLostFocus;
     private String originalTestKey;
+    private String originalAutoJump;
+    private String originalFov;
+    private String profileAutoJump;
+    private Map<String, String> savedOptions = Map.of();
+    private boolean savedConfirmApply = true;
     private Screen homeScreen;
     private boolean started;
     private boolean finished;
@@ -235,14 +247,19 @@ public final class SelfTest {
         step("profile: apply", 0, () -> profileApply(client));
         step("profile: rename", 0, this::profileRename);
         step("profile: reload from disk", 0, this::profileReload);
+        step("contents: game options and partial profiles", 0, () -> checkProfileContents(client));
 
         screenTour(client, "en");
+        applyAndContentsFlow(client);
         step("switch language to zh_cn", SCREEN_SETTLE_TICKS, () -> setLanguage(client, "zh_cn"));
         step("chinese texts", 0, this::checkChineseTexts);
         screenTour(client, "zh");
         step("switch language back", 4, () -> setLanguage(client, savedLanguage));
 
-        step("world: prepare auto-switch", 0, () -> service.setProfileAutoSwitchServers(PROFILE_A, List.of("singleplayer")));
+        step("world: prepare auto-switch", 0, () -> {
+            service.applyProfile(PROFILE_C);
+            service.setProfileAutoSwitchServers(PROFILE_A, List.of("singleplayer"));
+        });
         stepUntil("world: create and enter " + WORLD_NAME, () -> enterWorld(client),
                 () -> client.player != null && client.world != null && client.currentScreen == null, 20 * 90);
         step("world: settle", 30, () -> {
@@ -293,6 +310,36 @@ public final class SelfTest {
             check("overview: done returns to the profile screen", client.currentScreen instanceof KeyBindProfileScreen);
         });
 
+        step("make the game differ from " + PROFILE_A, 0, () -> makeGameDifferFromProfileA(client));
+        step("click apply (expect the confirm screen)", SCREEN_SETTLE_TICKS, () -> {
+            click(client, Text.translatable("keybindprofilesplus.apply").getString());
+            check("apply with pending changes opens the confirm screen", client.currentScreen instanceof ApplyConfirmScreen);
+        });
+        shot(client, tag + "_apply_confirm");
+        step("confirm: cancel", SCREEN_SETTLE_TICKS, () -> {
+            click(client, Text.translatable("gui.cancel").getString());
+            check("confirm: cancel returns to the profile screen and applies nothing",
+                    client.currentScreen instanceof KeyBindProfileScreen && TEST_KEY.equals(requireBinding().getBoundKeyTranslationKey()));
+        });
+
+        step("click saved contents", SCREEN_SETTLE_TICKS, () -> {
+            click(client, Text.translatable("keybindprofilesplus.contents.open").getString());
+            check("contents button opens the contents screen", client.currentScreen instanceof ProfileContentsScreen);
+        });
+        if (tag.equals("en")) {
+            shot(client, tag + "_contents_collapsed");
+        }
+        step("contents: expand movement keys and video settings", 4, () -> {
+            ProfileContentsScreen contents = (ProfileContentsScreen) client.currentScreen;
+            check("contents: movement group can be expanded", contents.setExpanded("keys/minecraft:movement", true));
+            check("contents: video group can be expanded", contents.setExpanded("options/video", true));
+        });
+        shot(client, tag + "_contents_expanded");
+        step("contents: cancel", SCREEN_SETTLE_TICKS, () -> {
+            click(client, Text.translatable("gui.cancel").getString());
+            check("contents: cancel returns to the profile screen", client.currentScreen instanceof KeyBindProfileScreen);
+        });
+
         open(client, "vanilla key binds screen", () -> new KeybindsScreen(homeScreen, client.options));
         step("manage button present", 0, () -> check("vanilla Key Binds screen has the '" + manageLabel() + "' button",
                 findWidget(client.currentScreen, manageLabel()) != null));
@@ -330,6 +377,14 @@ public final class SelfTest {
         savedCurrentProfile = service.getCurrentProfile();
         savedLanguage = client.getLanguageManager().getLanguage();
         savedPauseOnLostFocus = client.options.pauseOnLostFocus;
+        savedConfirmApply = KeyBindProfilesPlus.settings().confirmApply();
+        Map<String, String> optionValues = new LinkedHashMap<>();
+        GameOptionsBridge.readAll(client.options).forEach((key, entry) -> {
+            if (OptionCatalog.isOffered(key)) {
+                optionValues.put(key, entry.rawValue());
+            }
+        });
+        savedOptions = optionValues;
         log("current profile before test: " + savedCurrentProfile + ", existing profiles: " + sortedProfileNames());
         deleteTestProfiles();
     }
@@ -448,6 +503,171 @@ public final class SelfTest {
                 source.kind() == kind && modId.equals(source.modId()));
     }
 
+    /**
+     * Turns selftest_a into a partial profile: it saves only the jump key plus two game settings.
+     * Everything else must be left alone when it is applied.
+     */
+    private void checkProfileContents(MinecraftClient client) {
+        Map<String, GameOptionsBridge.Entry> options = GameOptionsBridge.readAll(client.options);
+        check("options: the game settings can be listed (" + options.size() + " entries)", options.size() > 60);
+        check("options: fov, mouse sensitivity and auto-jump are listed",
+                options.containsKey("fov") && options.containsKey("mouseSensitivity") && options.containsKey("autoJump"));
+        check("options: key bindings are not listed as settings", options.keySet().stream().noneMatch(key -> key.startsWith("key_")));
+        check("options: language and resource packs are never offered",
+                !OptionCatalog.isOffered("lang") && !OptionCatalog.isOffered("resourcePacks") && OptionCatalog.isOffered("fov"));
+        int uncategorized = 0;
+        for (String key : options.keySet()) {
+            if (OptionCatalog.isOffered(key) && OptionCatalog.categoryOf(key) == OptionCatalog.Category.OTHER) {
+                uncategorized++;
+                log("options: not in a named group: " + key);
+            }
+        }
+        check("options: every offered setting has a named group (" + uncategorized + " in Other)", uncategorized == 0);
+
+        originalAutoJump = options.get("autoJump").rawValue();
+        originalFov = options.get("fov").rawValue();
+        profileAutoJump = "true".equals(originalAutoJump) ? "false" : "true";
+        log("options: fov raw=" + originalFov + " shown as [" + options.get("fov").describe(originalFov).getString()
+                + "], 0.5 shown as [" + options.get("fov").describe(PROFILE_FOV).getString()
+                + "], autoJump " + originalAutoJump + " shown as [" + options.get("autoJump").describe(originalAutoJump).getString() + "]");
+
+        check("options: values are shown without repeating the name (fov 0.5 -> 90)", "90".equals(options.get("fov").describe(PROFILE_FOV).getString()));
+        GameOptionsBridge.Entry chunkFade = options.get("chunkSectionFadeInTime");
+        if (chunkFade != null) {
+            String shown = chunkFade.describe(chunkFade.rawValue()).getString();
+            check("options: shortened labels are stripped too (chunk fade shown as [" + shown + "])", !shown.contains(":"));
+        }
+
+        service.setProfileContents(PROFILE_A, Map.of(TEST_BINDING_ID, PROFILE_A_KEY), Map.of("autoJump", profileAutoJump, "fov", PROFILE_FOV));
+        check("contents: profile now saves 1 key binding", service.profiles().get(PROFILE_A).size() == 1);
+        check("contents: profile now saves 2 settings", service.getProfileOptions(PROFILE_A).size() == 2);
+        service.reloadProfiles();
+        check("contents: settings survive a reload from disk",
+                PROFILE_FOV.equals(service.getProfileOptions(PROFILE_A).get("fov")) && profileAutoJump.equals(service.getProfileOptions(PROFILE_A).get("autoJump")));
+
+        List<ProfileChange> changes = service.previewApply(PROFILE_A);
+        for (ProfileChange change : changes) {
+            log("preview: " + change.kind() + " " + change.name().getString() + ": " + change.from().getString() + " -> " + change.to().getString());
+        }
+        check("preview: exactly the 3 saved items would change, got " + changes.size(), changes.size() == 3);
+        check("preview: 1 key binding and 2 settings",
+                changes.stream().filter(change -> change.kind() == ProfileChange.Kind.KEY_BINDING).count() == 1
+                        && changes.stream().filter(change -> change.kind() == ProfileChange.Kind.OPTION).count() == 2);
+    }
+
+    /** Puts the live game back into a state where applying selftest_a changes exactly its 3 items. */
+    private void makeGameDifferFromProfileA(MinecraftClient client) {
+        setLiveKey(requireBinding(), TEST_KEY);
+        GameOptionsBridge.apply(client.options, Map.of("autoJump", originalAutoJump, "fov", originalFov));
+    }
+
+    private String liveOption(MinecraftClient client, String key) {
+        return GameOptionsBridge.readAll(client.options).get(key).rawValue();
+    }
+
+    /** Clicks through Apply (with and without the confirm screen) and the contents screen for real. */
+    private void applyAndContentsFlow(MinecraftClient client) {
+        KeyBinding drop = Objects.requireNonNull(KeyBinding.byId("key.drop"));
+        String[] dropBefore = new String[1];
+
+        open(client, "profile screen", () -> new KeyBindProfileScreen(null));
+        step("flow: select " + PROFILE_A, 4, () -> click(client, PROFILE_A));
+        step("flow: prepare", 0, () -> {
+            makeGameDifferFromProfileA(client);
+            dropBefore[0] = drop.getBoundKeyTranslationKey();
+            setLiveKey(drop, "key.keyboard.x");
+            KeyBindProfilesPlus.settings().setConfirmApply(true);
+        });
+        step("flow: apply -> confirm screen", SCREEN_SETTLE_TICKS, () -> {
+            click(client, Text.translatable("keybindprofilesplus.apply").getString());
+            check("flow: confirm screen is shown", client.currentScreen instanceof ApplyConfirmScreen);
+        });
+        step("flow: confirm", SCREEN_SETTLE_TICKS, () -> {
+            if (client.currentScreen instanceof ApplyConfirmScreen confirm) {
+                confirm.confirm(false);
+            }
+            check("flow: back on the profile screen", client.currentScreen instanceof KeyBindProfileScreen);
+            check("flow: saved key applied (" + TEST_BINDING_ID + " = " + PROFILE_A_KEY + ")", PROFILE_A_KEY.equals(requireBinding().getBoundKeyTranslationKey()));
+            check("flow: saved auto-jump applied", profileAutoJump.equals(liveOption(client, "autoJump")));
+            check("flow: saved fov applied", PROFILE_FOV.equals(liveOption(client, "fov")));
+            check("flow: fov really changed in the game", Math.abs(client.options.getFov().getValue() - 90) <= 1);
+            check("flow: a key the profile does not save is left alone", "key.keyboard.x".equals(drop.getBoundKeyTranslationKey()));
+            check("flow: profile became current", PROFILE_A.equals(service.getCurrentProfile()));
+            check("flow: nothing left to change", service.previewApply(PROFILE_A).isEmpty());
+            check("flow: confirm setting untouched", KeyBindProfilesPlus.settings().confirmApply());
+            check("flow: options.txt has the new fov", optionsFileContains(client, "fov:" + PROFILE_FOV));
+        });
+        step("flow: apply again (nothing to change, no dialog)", SCREEN_SETTLE_TICKS, () -> {
+            click(client, Text.translatable("keybindprofilesplus.apply").getString());
+            check("flow: no confirm screen when nothing would change", client.currentScreen instanceof KeyBindProfileScreen);
+        });
+        step("flow: apply with do-not-ask-again", SCREEN_SETTLE_TICKS, () -> {
+            makeGameDifferFromProfileA(client);
+            click(client, Text.translatable("keybindprofilesplus.apply").getString());
+            if (client.currentScreen instanceof ApplyConfirmScreen confirm) {
+                confirm.confirm(true);
+            } else {
+                fail("flow: expected the confirm screen");
+            }
+            check("flow: do-not-ask-again is remembered", !KeyBindProfilesPlus.settings().confirmApply());
+        });
+        step("flow: apply without asking", SCREEN_SETTLE_TICKS, () -> {
+            makeGameDifferFromProfileA(client);
+            click(client, Text.translatable("keybindprofilesplus.apply").getString());
+            check("flow: applied directly, no confirm screen", client.currentScreen instanceof KeyBindProfileScreen
+                    && PROFILE_A_KEY.equals(requireBinding().getBoundKeyTranslationKey()));
+            KeyBindProfilesPlus.settings().reload();
+            check("flow: the choice is stored on disk", !KeyBindProfilesPlus.settings().confirmApply());
+            KeyBindProfilesPlus.settings().setConfirmApply(true);
+            setLiveKey(drop, dropBefore[0]);
+        });
+
+        step("flow: open contents", SCREEN_SETTLE_TICKS, () -> {
+            click(client, Text.translatable("keybindprofilesplus.contents.open").getString());
+            check("flow: contents screen is shown", client.currentScreen instanceof ProfileContentsScreen);
+        });
+        step("flow: tick more items", 4, () -> {
+            ProfileContentsScreen contents = (ProfileContentsScreen) client.currentScreen;
+            check("flow: contents starts with 1 key and 2 settings", contents.checkedCount(true) == 1 && contents.checkedCount(false) == 2);
+            check("flow: tick brightness", contents.setChecked("opt:gamma", true));
+            check("flow: tick the whole movement group", contents.setChecked("keys/minecraft:movement", true));
+            check("flow: untick auto-jump", contents.setChecked("opt:autoJump", false));
+            check("flow: 7 movement keys and 2 settings ticked, got " + contents.checkedCount(true) + " and " + contents.checkedCount(false),
+                    contents.checkedCount(true) == 7 && contents.checkedCount(false) == 2);
+            contents.setQuery("sensitivity");
+            check("flow: search narrows the tree, rows=" + contents.visibleRowCount(), contents.visibleRowCount() > 0 && contents.visibleRowCount() < 10);
+        });
+        shot(client, "en_contents_search");
+        step("flow: save contents", SCREEN_SETTLE_TICKS, () -> {
+            ProfileContentsScreen contents = (ProfileContentsScreen) client.currentScreen;
+            contents.setQuery("");
+            contents.save();
+            check("flow: back on the profile screen", client.currentScreen instanceof KeyBindProfileScreen);
+            Map<String, String> keys = service.profiles().get(PROFILE_A);
+            Map<String, String> saved = service.getProfileOptions(PROFILE_A);
+            check("flow: profile saves the 7 movement keys", keys.size() == 7 && keys.containsKey("key.sneak"));
+            check("flow: the previously saved jump key is kept", PROFILE_A_KEY.equals(keys.get(TEST_BINDING_ID)));
+            check("flow: profile saves fov and brightness, not auto-jump",
+                    saved.size() == 2 && saved.containsKey("fov") && saved.containsKey("gamma") && !saved.containsKey("autoJump"));
+            setLiveKey(requireBinding(), TEST_KEY);
+        });
+        step("flow: reopen contents", SCREEN_SETTLE_TICKS, () -> {
+            click(client, Text.translatable("keybindprofilesplus.contents.open").getString());
+            if (client.currentScreen instanceof ProfileContentsScreen contents) {
+                contents.setExpanded("keys/minecraft:movement", true);
+            } else {
+                fail("flow: contents screen did not open");
+            }
+        });
+        shot(client, "en_contents_saved_differs_from_now");
+        step("flow: use current values", SCREEN_SETTLE_TICKS, () -> {
+            ProfileContentsScreen contents = (ProfileContentsScreen) client.currentScreen;
+            contents.recapture();
+            contents.save();
+            check("flow: use-current-values stored the live jump key", TEST_KEY.equals(service.profiles().get(PROFILE_A).get(TEST_BINDING_ID)));
+        });
+    }
+
     private void checkChineseTexts() {
         checkKeyName("key.keyboard.keypad.5", "小键盘 5");
         check("zh_cn: manage button reads 管理档案", "管理档案".equals(manageLabel()));
@@ -556,6 +776,8 @@ public final class SelfTest {
                 }
             }
             KeyBinding.updateKeysByCode();
+            GameOptionsBridge.apply(client.options, savedOptions);
+            KeyBindProfilesPlus.settings().setConfirmApply(savedConfirmApply);
             client.options.pauseOnLostFocus = savedPauseOnLostFocus;
             if (savedLanguage != null && !savedLanguage.equals(client.getLanguageManager().getLanguage())) {
                 setLanguage(client, savedLanguage);

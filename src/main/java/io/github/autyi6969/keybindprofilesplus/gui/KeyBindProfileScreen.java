@@ -6,11 +6,13 @@ import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.screen.option.KeybindsScreen;
 import net.minecraft.client.gui.widget.ButtonWidget;
+import net.minecraft.client.gui.widget.CyclingButtonWidget;
 import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.client.input.KeyInput;
 import net.minecraft.client.util.InputUtil;
 import net.minecraft.text.Text;
 import io.github.autyi6969.keybindprofilesplus.KeyBindProfilesPlus;
+import io.github.autyi6969.keybindprofilesplus.profile.ProfileChange;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -28,6 +30,7 @@ public class KeyBindProfileScreen extends Screen {
     private ButtonWidget applyButton;
     private ButtonWidget renameButton;
     private ButtonWidget deleteButton;
+    private ButtonWidget contentsButton;
     private ButtonWidget openFolderButton;
     private ButtonWidget addServerButton;
     private String selectedProfile = null;
@@ -98,6 +101,18 @@ public class KeyBindProfileScreen extends Screen {
                 .build();
         addDrawableChild(deleteButton);
 
+        int halfWidth = (KeyBindProfileScreenLayout.RIGHT_PANEL_WIDTH - 4) / 2;
+        contentsButton = ButtonWidget.builder(Text.translatable("keybindprofilesplus.contents.open"), button -> editSelectedProfileContents())
+                .dimensions(rightX, KeyBindProfileScreenLayout.CONTENT_TOP + KeyBindProfileScreenLayout.BUTTON_SPACING * 3, halfWidth, KeyBindProfileScreenLayout.BUTTON_HEIGHT)
+                .build();
+        addDrawableChild(contentsButton);
+
+        int toggleWidth = 170;
+        addDrawableChild(CyclingButtonWidget.onOffBuilder(KeyBindProfilesPlus.settings().confirmApply())
+                .build(width - 10 - toggleWidth, layout.doneButtonY(), toggleWidth, KeyBindProfileScreenLayout.BUTTON_HEIGHT,
+                        Text.translatable("keybindprofilesplus.confirm.toggle"),
+                        (button, value) -> KeyBindProfilesPlus.settings().setConfirmApply(value)));
+
         serverInputField = new TextFieldWidget(textRenderer, rightX, layout.serverInputY(), 196, KeyBindProfileScreenLayout.BUTTON_HEIGHT, Text.translatable("keybindprofilesplus.server_address"));
         serverInputField.setMaxLength(128);
         addDrawableChild(serverInputField);
@@ -156,9 +171,28 @@ public class KeyBindProfileScreen extends Screen {
             return;
         }
 
-        KeyBindProfilesPlus.applyProfile(selectedProfile);
+        String name = selectedProfile;
+        List<ProfileChange> changes = KeyBindProfilesPlus.profileService().previewApply(name);
+        if (!changes.isEmpty() && KeyBindProfilesPlus.settings().confirmApply()) {
+            client.setScreen(new ApplyConfirmScreen(this, name, changes, KeyBindProfilesPlus.settings(), () -> applyNow(name)));
+            return;
+        }
+        applyNow(name);
+    }
+
+    private void applyNow(String name) {
+        KeyBindProfilesPlus.applyProfile(name);
         refreshParentKeybindsScreen();
-        showStatus("keybindprofilesplus.status.profile_applied", selectedProfile);
+        showStatus("keybindprofilesplus.status.profile_applied", name);
+    }
+
+    private void editSelectedProfileContents() {
+        if (selectedProfile == null) {
+            showStatus("keybindprofilesplus.status.select_profile");
+            return;
+        }
+        client.setScreen(new ProfileContentsScreen(this, KeyBindProfilesPlus.profileService(), selectedProfile,
+                name -> showStatus("keybindprofilesplus.status.contents_saved", name)));
     }
 
     private void renameSelectedProfile() {
@@ -337,6 +371,9 @@ public class KeyBindProfileScreen extends Screen {
         applyButton.active = hasSelectedProfile;
         renameButton.active = hasSelectedProfile;
         deleteButton.active = hasSelectedProfile;
+        if (contentsButton != null) {
+            contentsButton.active = hasSelectedProfile;
+        }
         serverInputField.active = hasSelectedProfile;
         addServerButton.active = hasSelectedProfile;
     }
