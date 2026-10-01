@@ -35,5 +35,21 @@
   "keybindprofilesplus.hotkey_hint": "Press 1-2 keys, then ENTER to save, BACKSPACE to clear, ESC to cancel",
   "keybindprofilesplus.open_folder": "Open Folder",
   "keybindprofilesplus.hud.profile_applied": "Profile \"%s\" applied",
-  "keybindprofilesplus.key.keypad": "Num %s"
+  "keybindprofilesplus.key.keypad": "Num %s",
+  "keybindprofilesplus.source.vanilla": "Minecraft",
+  "keybindprofilesplus.source.unknown": "Unknown mod",
+  "keybindprofilesplus.source.unknown_hint": "%s?",
+  "keybindprofilesplus.overview.open": "All Key Bindings",
+  "keybindprofilesplus.overview.title": "All Key Bindings",
+  "keybindprofilesplus.overview.search": "Search name, key or mod",
+  "keybindprofilesplus.overview.filter": "Source",
+  "keybindprofilesplus.overview.filter.all": "All",
+  "keybindprofilesplus.overview.filter.vanilla": "Minecraft",
+  "keybindprofilesplus.overview.filter.mods": "Mods",
+  "keybindprofilesplus.overview.summary": "Showing %s of %s - %s from mods - %s not bound",
+  "keybindprofilesplus.overview.empty": "No key binding matches",
+  "keybindprofilesplus.overview.tooltip.source": "From: %s",
+  "keybindprofilesplus.overview.tooltip.category": "Category: %s",
+  "keybindprofilesplus.overview.tooltip.default": "Default key: %s",
+  "keybindprofilesplus.overview.tooltip.changed": "Changed from the default"
 }
