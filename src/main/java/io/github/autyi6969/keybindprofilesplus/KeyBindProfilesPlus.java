@@ -43,7 +43,7 @@ public class KeyBindProfilesPlus implements ClientModInitializer {
     private static final ProfileService PROFILE_SERVICE = new ProfileService(new ProfileFileStore());
     private static final ModSettings SETTINGS = new ModSettings(PROFILE_SERVICE::profilesDirectory);
     private static final ProfileHotkeyController HOTKEY_CONTROLLER = new ProfileHotkeyController(PROFILE_SERVICE, NOTIFICATION);
-    private static final ServerAutoSwitchController AUTO_SWITCH_CONTROLLER = new ServerAutoSwitchController(PROFILE_SERVICE, NOTIFICATION, SETTINGS::autoSwitch);
+    private static final ServerAutoSwitchController AUTO_SWITCH_CONTROLLER = new ServerAutoSwitchController(PROFILE_SERVICE, NOTIFICATION, SETTINGS);
 
     public static final Map<String, Map<String, String>> PROFILES = PROFILE_SERVICE.profiles();
     public static final Map<String, List<String>> PROFILE_HOTKEYS = PROFILE_SERVICE.profileHotkeys();
@@ -98,10 +98,19 @@ public class KeyBindProfilesPlus implements ClientModInitializer {
 
     public static void deleteProfile(String name) {
         PROFILE_SERVICE.deleteProfile(name);
+        if (name.equals(SETTINGS.defaultProfile())) {
+            SETTINGS.setDefaultProfile(null);
+        }
     }
 
     public static boolean renameProfile(String oldName, String newName) {
-        return PROFILE_SERVICE.renameProfile(oldName, newName);
+        if (!PROFILE_SERVICE.renameProfile(oldName, newName)) {
+            return false;
+        }
+        if (oldName.equals(SETTINGS.defaultProfile())) {
+            SETTINGS.setDefaultProfile(newName);
+        }
+        return true;
     }
 
     public static void exportProfile(String name) {
@@ -171,9 +180,10 @@ public class KeyBindProfilesPlus implements ClientModInitializer {
             AUTO_SWITCH_CONTROLLER.tick(client);
         });
 
-        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
+        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> client.execute(() -> {
             AUTO_SWITCH_CONTROLLER.reset();
-        });
+            AUTO_SWITCH_CONTROLLER.onLeave();
+        }));
     }
 
     private static void registerControlsScreenButton() {

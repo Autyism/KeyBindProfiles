@@ -1,5 +1,7 @@
 package io.github.autyi6969.keybindprofilesplus.gui;
 
+import io.github.autyi6969.keybindprofilesplus.keys.KeyConflicts;
+import io.github.autyi6969.keybindprofilesplus.keys.KeySource;
 import io.github.autyi6969.keybindprofilesplus.profile.ProfileComparison;
 import io.github.autyi6969.keybindprofilesplus.profile.ProfileService;
 import net.minecraft.client.MinecraftClient;
@@ -15,6 +17,7 @@ import net.minecraft.client.gui.widget.ElementListWidget;
 import net.minecraft.client.gui.widget.EmptyWidget;
 import net.minecraft.client.gui.widget.TextWidget;
 import net.minecraft.client.gui.widget.ThreePartsLayoutWidget;
+import net.minecraft.client.option.KeyBinding;
 import net.minecraft.screen.ScreenTexts;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
@@ -256,8 +259,14 @@ public class ProfileCompareScreen extends Screen {
         private final class RowEntry extends Entry {
             private final ProfileComparison.Row row;
 
+            /** Which mod the key binding comes from; null for vanilla ones and for game settings. */
+            private final KeySource source;
+
             RowEntry(ProfileComparison.Row row) {
                 this.row = row;
+                KeyBinding binding = row.keyBinding() ? KeyBinding.byId(row.id()) : null;
+                KeySource resolved = binding == null ? null : KeyConflicts.sources(client.options).resolve(binding);
+                this.source = resolved == null || resolved.isVanilla() ? null : resolved;
             }
 
             @Override
@@ -280,7 +289,14 @@ public class ProfileCompareScreen extends Screen {
                 drawValue(context, font, row.right(), rightBox, box, top, bottom, textY, different);
 
                 int nameColor = different ? GuiUtil.YELLOW : row.state() == ProfileComparison.State.ONE_SIDED ? GuiUtil.GRAY : GuiUtil.WHITE;
-                String name = GuiUtil.ellipsize(font, row.name().getString(), leftBox - 8 - left - 8);
+                int nameRight = leftBox - 8;
+                if (source != null) {
+                    String sourceText = GuiUtil.ellipsize(font, source.label().getString(), (nameRight - left) / 3);
+                    nameRight -= font.getWidth(sourceText);
+                    context.drawTextWithShadow(font, sourceText, nameRight, textY, source.color());
+                    nameRight -= 6;
+                }
+                String name = GuiUtil.ellipsize(font, row.name().getString(), nameRight - left - 8);
                 context.drawTextWithShadow(font, name, left + 8, textY, nameColor);
             }
 

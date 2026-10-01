@@ -4,20 +4,35 @@ import io.github.autyi6969.keybindprofilesplus.notification.ProfileNotification;
 import io.github.autyi6969.keybindprofilesplus.profile.ProfileService;
 import net.minecraft.client.MinecraftClient;
 
-import java.util.function.BooleanSupplier;
+import io.github.autyi6969.keybindprofilesplus.storage.ModSettings;
 
 /** Applies the profile whose rule matches the world or server the player has just joined. */
 public final class ServerAutoSwitchController {
     private final ProfileService profileService;
     private final ProfileNotification notification;
-    private final BooleanSupplier enabled;
+    private final ModSettings settings;
 
     private String lastLocationKey;
 
-    public ServerAutoSwitchController(ProfileService profileService, ProfileNotification notification, BooleanSupplier enabled) {
+    public ServerAutoSwitchController(ProfileService profileService, ProfileNotification notification, ModSettings settings) {
         this.profileService = profileService;
         this.notification = notification;
-        this.enabled = enabled;
+        this.settings = settings;
+    }
+
+    /**
+     * Leaving a world or server: goes back to the default profile if the player asked for that.
+     * Returns the profile that was applied, or null when nothing changed.
+     */
+    public String onLeave() {
+        String defaultProfile = settings.defaultProfile();
+        if (!settings.returnToDefault() || defaultProfile == null || !profileService.profiles().containsKey(defaultProfile)
+                || defaultProfile.equals(profileService.getCurrentProfile())) {
+            return null;
+        }
+        profileService.applyProfile(defaultProfile);
+        notification.show(defaultProfile);
+        return defaultProfile;
     }
 
     /** Forgets where the player was, so the rules are evaluated again on the next tick. */
@@ -26,7 +41,7 @@ public final class ServerAutoSwitchController {
     }
 
     public void tick(MinecraftClient client) {
-        if (client == null || !enabled.getAsBoolean()) {
+        if (client == null || !settings.autoSwitch()) {
             return;
         }
 

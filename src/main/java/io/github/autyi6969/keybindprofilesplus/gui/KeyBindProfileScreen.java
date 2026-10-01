@@ -1,46 +1,62 @@
 package io.github.autyi6969.keybindprofilesplus.gui;
 
+import io.github.autyi6969.keybindprofilesplus.KeyBindProfilesPlus;
+import io.github.autyi6969.keybindprofilesplus.keys.KeyCombo;
+import io.github.autyi6969.keybindprofilesplus.profile.ProfileChange;
+import io.github.autyi6969.keybindprofilesplus.profile.ProfileService;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gui.Click;
 import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.Element;
+import net.minecraft.client.gui.Selectable;
+import net.minecraft.client.gui.screen.ConfirmScreen;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.screen.option.KeybindsScreen;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.client.gui.widget.CyclingButtonWidget;
-import net.minecraft.client.gui.widget.TextFieldWidget;
-import net.minecraft.client.input.KeyInput;
-import net.minecraft.client.util.InputUtil;
-import net.minecraft.text.Text;
-import io.github.autyi6969.keybindprofilesplus.KeyBindProfilesPlus;
-import io.github.autyi6969.keybindprofilesplus.profile.ProfileChange;
-import io.github.autyi6969.keybindprofilesplus.server.ServerProfileMatcher;
 import net.minecraft.client.gui.tooltip.Tooltip;
+import net.minecraft.client.gui.widget.ButtonWidget;
+import net.minecraft.client.gui.widget.DirectionalLayoutWidget;
+import net.minecraft.client.gui.widget.ElementListWidget;
+import net.minecraft.client.gui.widget.GridWidget;
+import net.minecraft.client.gui.widget.TextFieldWidget;
+import net.minecraft.client.gui.widget.TextWidget;
+import net.minecraft.client.gui.widget.ThreePartsLayoutWidget;
+import net.minecraft.client.input.KeyInput;
+import net.minecraft.screen.ScreenTexts;
+import net.minecraft.text.MutableText;
+import net.minecraft.text.Text;
+import net.minecraft.util.Formatting;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 
+/**
+ * The mod's main screen: the list of profiles and everything that can be done with them.
+ * One click selects a profile, a double click applies it, Ctrl+click (or a right click) marks a
+ * second profile so the two can be compared.
+ */
 public class KeyBindProfileScreen extends Screen {
+    private static final int HEADER_HEIGHT = 56;
+    private static final int FOOTER_HEIGHT = 82;
+    private static final int ROW_HEIGHT = 34;
+
     private final Screen parent;
-    private TextFieldWidget profileNameField;
-    private TextFieldWidget searchField;
-    private TextFieldWidget serverInputField;
-    private final ProfileListWidget profileListWidget = new ProfileListWidget();
-    private final ServerListWidget serverListWidget = new ServerListWidget();
-    private ButtonWidget createButton;
-    private ButtonWidget applyButton;
-    private ButtonWidget renameButton;
-    private ButtonWidget deleteButton;
-    private ButtonWidget contentsButton;
-    private ButtonWidget openFolderButton;
-    private ButtonWidget addServerButton;
-    private ButtonWidget addSingleplayerButton;
-    private ButtonWidget addCurrentServerButton;
-    private boolean hasSuggestedServer;
-    private String selectedProfile = null;
-    private int scrollOffset = 0;
+    private final ProfileService service = KeyBindProfilesPlus.profileService();
+    private final ThreePartsLayoutWidget layout = new ThreePartsLayoutWidget(this, HEADER_HEIGHT, FOOTER_HEIGHT);
     private final ScreenStatusMessage statusMessage = new ScreenStatusMessage();
-    private final ProfileHotkeyCapture hotkeyCapture = new ProfileHotkeyCapture();
+
+    private TextFieldWidget searchField;
+    private ProfileList list;
+    private ButtonWidget applyButton;
+    private ButtonWidget editButton;
+    private ButtonWidget compareButton;
+    private ButtonWidget deleteButton;
+    private String query = "";
+    private String selected;
+    private String compareWith;
 
     public KeyBindProfileScreen(Screen parent) {
         super(Text.translatable("keybindprofilesplus.title"));
@@ -49,169 +65,157 @@ public class KeyBindProfileScreen extends Screen {
 
     @Override
     protected void init() {
-        KeyBindProfilesPlus.reloadProfilesFromDirectory();
-
-        KeyBindProfileScreenLayout layout = layout();
-        int leftX = layout.leftPanelX();
-        int rightX = layout.rightPanelX();
-        int fieldY = KeyBindProfileScreenLayout.CONTENT_TOP;
-
-        profileNameField = new TextFieldWidget(textRenderer, leftX, fieldY, KeyBindProfileScreenLayout.FIELD_WIDTH, KeyBindProfileScreenLayout.BUTTON_HEIGHT, Text.translatable("keybindprofilesplus.profile_name"));
-        profileNameField.setMaxLength(32);
-        addDrawableChild(profileNameField);
-
-        searchField = new TextFieldWidget(textRenderer, leftX, fieldY + KeyBindProfileScreenLayout.LABELED_FIELD_SPACING, KeyBindProfileScreenLayout.LEFT_PANEL_WIDTH, KeyBindProfileScreenLayout.BUTTON_HEIGHT, Text.translatable("keybindprofilesplus.search"));
-        searchField.setMaxLength(64);
-        searchField.setChangedListener(value -> {
-            scrollOffset = 0;
-            refreshProfileList();
-        });
-        addDrawableChild(searchField);
-
-        Text openFolderLabel = Text.translatable("keybindprofilesplus.open_folder");
-        int openFolderWidth = textRenderer.getWidth(openFolderLabel) + 12;
-        openFolderButton = ButtonWidget.builder(openFolderLabel, button -> {
-            if (KeyBindProfilesPlus.openProfilesFolder()) {
-                showStatus("keybindprofilesplus.status.folder_opened");
-            } else {
-                showStatus("keybindprofilesplus.status.folder_open_failed");
-            }
-        }).dimensions(width - 10 - openFolderWidth, 6, openFolderWidth, 20).build();
-        addDrawableChild(openFolderButton);
-
-        Text overviewLabel = Text.translatable("keybindprofilesplus.overview.open");
-        int overviewWidth = textRenderer.getWidth(overviewLabel) + 12;
-        addDrawableChild(ButtonWidget.builder(overviewLabel, button -> client.setScreen(new KeyOverviewScreen(this)))
-                .dimensions(openFolderButton.getX() - 4 - overviewWidth, 6, overviewWidth, 20)
-                .build());
-
-        createButton = ButtonWidget.builder(Text.translatable("keybindprofilesplus.create"), button -> createProfile())
-                .dimensions(leftX + KeyBindProfileScreenLayout.FIELD_WIDTH + 8, fieldY, 130, KeyBindProfileScreenLayout.BUTTON_HEIGHT)
-                .build();
-        addDrawableChild(createButton);
-
-        applyButton = ButtonWidget.builder(Text.translatable("keybindprofilesplus.apply"), button -> applySelectedProfile())
-                .dimensions(rightX, KeyBindProfileScreenLayout.CONTENT_TOP, KeyBindProfileScreenLayout.RIGHT_PANEL_WIDTH, KeyBindProfileScreenLayout.BUTTON_HEIGHT)
-                .build();
-        addDrawableChild(applyButton);
-
-        renameButton = ButtonWidget.builder(Text.translatable("keybindprofilesplus.rename"), button -> renameSelectedProfile())
-                .dimensions(rightX, KeyBindProfileScreenLayout.CONTENT_TOP + KeyBindProfileScreenLayout.BUTTON_SPACING, KeyBindProfileScreenLayout.RIGHT_PANEL_WIDTH, KeyBindProfileScreenLayout.BUTTON_HEIGHT)
-                .build();
-        addDrawableChild(renameButton);
-
-        deleteButton = ButtonWidget.builder(Text.translatable("keybindprofilesplus.delete"), button -> deleteSelectedProfile())
-                .dimensions(rightX, KeyBindProfileScreenLayout.CONTENT_TOP + KeyBindProfileScreenLayout.BUTTON_SPACING * 2, KeyBindProfileScreenLayout.RIGHT_PANEL_WIDTH, KeyBindProfileScreenLayout.BUTTON_HEIGHT)
-                .build();
-        addDrawableChild(deleteButton);
-
-        int halfWidth = (KeyBindProfileScreenLayout.RIGHT_PANEL_WIDTH - 4) / 2;
-        contentsButton = ButtonWidget.builder(Text.translatable("keybindprofilesplus.contents.open"), button -> editSelectedProfileContents())
-                .dimensions(rightX, KeyBindProfileScreenLayout.CONTENT_TOP + KeyBindProfileScreenLayout.BUTTON_SPACING * 3, halfWidth, KeyBindProfileScreenLayout.BUTTON_HEIGHT)
-                .build();
-        addDrawableChild(contentsButton);
-
-        addDrawableChild(ButtonWidget.builder(Text.translatable("keybindprofilesplus.compare.open"), button -> openCompare())
-                .dimensions(rightX + halfWidth + 4, KeyBindProfileScreenLayout.CONTENT_TOP + KeyBindProfileScreenLayout.BUTTON_SPACING * 3, halfWidth, KeyBindProfileScreenLayout.BUTTON_HEIGHT)
-                .build());
-
-        int toggleWidth = 170;
-        addDrawableChild(CyclingButtonWidget.onOffBuilder(KeyBindProfilesPlus.settings().confirmApply())
-                .build(width - 10 - toggleWidth, layout.doneButtonY(), toggleWidth, KeyBindProfileScreenLayout.BUTTON_HEIGHT,
-                        Text.translatable("keybindprofilesplus.confirm.toggle"),
-                        (button, value) -> KeyBindProfilesPlus.settings().setConfirmApply(value)));
-
-        serverInputField = new TextFieldWidget(textRenderer, rightX, layout.serverInputY(), 196, KeyBindProfileScreenLayout.BUTTON_HEIGHT, Text.translatable("keybindprofilesplus.server_address"));
-        serverInputField.setMaxLength(128);
-        addDrawableChild(serverInputField);
-
-        addServerButton = ButtonWidget.builder(Text.translatable("keybindprofilesplus.add_server"), button -> {
-            addServerToSelectedProfile();
-        }).dimensions(rightX + 204, layout.serverInputY(), 96, KeyBindProfileScreenLayout.BUTTON_HEIGHT).build();
-        addDrawableChild(addServerButton);
-
-        int quickWidth = (KeyBindProfileScreenLayout.RIGHT_PANEL_WIDTH - 4) / 2;
-        addSingleplayerButton = ButtonWidget.builder(Text.translatable("keybindprofilesplus.server.add_singleplayer"),
-                        button -> addServerRule(ServerProfileMatcher.SINGLEPLAYER))
-                .dimensions(rightX, layout.quickAddY(), quickWidth, KeyBindProfileScreenLayout.BUTTON_HEIGHT)
-                .tooltip(Tooltip.of(Text.translatable("keybindprofilesplus.server.help")))
-                .build();
-        addDrawableChild(addSingleplayerButton);
-
-        String suggested = suggestedServerAddress();
-        Text suggestedLabel = suggested == null
-                ? Text.translatable("keybindprofilesplus.server.add_current_none")
-                : Text.translatable("keybindprofilesplus.server.add_current", suggested);
-        addCurrentServerButton = ButtonWidget.builder(suggestedLabel, button -> {
-                    if (suggested != null) {
-                        addServerRule(suggested);
-                    }
-                })
-                .dimensions(rightX + quickWidth + 4, layout.quickAddY(), quickWidth, KeyBindProfileScreenLayout.BUTTON_HEIGHT)
-                .tooltip(Tooltip.of(Text.translatable("keybindprofilesplus.server.help")))
-                .build();
-        addDrawableChild(addCurrentServerButton);
-        hasSuggestedServer = suggested != null;
-
-        int autoSwitchWidth = 150;
-        addDrawableChild(CyclingButtonWidget.onOffBuilder(KeyBindProfilesPlus.settings().autoSwitch())
-                .build(10, layout.doneButtonY(), autoSwitchWidth, KeyBindProfileScreenLayout.BUTTON_HEIGHT,
-                        Text.translatable("keybindprofilesplus.server.auto_switch_toggle"), (button, value) -> {
-                            KeyBindProfilesPlus.settings().setAutoSwitch(value);
-                            KeyBindProfilesPlus.autoSwitchController().reset();
-                        }));
-
-        ButtonWidget doneButton = ButtonWidget.builder(Text.translatable("gui.done"), button -> returnToParent())
-                .dimensions(layout.doneButtonX(), layout.doneButtonY(), 200, KeyBindProfileScreenLayout.BUTTON_HEIGHT)
-                .build();
-        addDrawableChild(doneButton);
-
-        if (selectedProfile != null && KeyBindProfilesPlus.PROFILES.containsKey(selectedProfile)) {
-            profileNameField.setText(selectedProfile);
-        } else {
-            selectedProfile = null;
+        service.reloadProfiles();
+        if (selected != null && !service.profiles().containsKey(selected)) {
+            selected = null;
+        }
+        if (compareWith != null && !service.profiles().containsKey(compareWith)) {
+            compareWith = null;
         }
 
-        refreshProfileList();
-        refreshServerList();
-        updateActionButtons();
+        DirectionalLayoutWidget header = layout.addHeader(DirectionalLayoutWidget.vertical().spacing(4));
+        header.getMainPositioner().alignHorizontalCenter();
+        header.add(new TextWidget(title, textRenderer));
+        searchField = header.add(new TextFieldWidget(textRenderer, Math.max(100, Math.min(220, width - 40)), 20,
+                Text.translatable("keybindprofilesplus.search")));
+        searchField.setMaxLength(64);
+        searchField.setText(query);
+        searchField.setPlaceholder(Text.translatable("keybindprofilesplus.search").setStyle(TextFieldWidget.SEARCH_STYLE));
+        searchField.setChangedListener(value -> {
+            query = value;
+            refreshList();
+        });
+
+        list = layout.addBody(new ProfileList(client));
+
+        int column = Math.max(58, Math.min(76, (width - 28) / 4));
+        GridWidget grid = layout.addFooter(new GridWidget().setColumnSpacing(4).setRowSpacing(4));
+        GridWidget.Adder adder = grid.createAdder(4);
+        applyButton = adder.add(button("keybindprofilesplus.apply", column * 2 + 4, this::applySelectedProfile), 2);
+        adder.add(button("keybindprofilesplus.new", column * 2 + 4,
+                () -> client.setScreen(ProfileContentsScreen.forNewProfile(this, service, this::onProfileCreated))), 2);
+        editButton = adder.add(button("keybindprofilesplus.edit", column, this::editSelectedProfile));
+        compareButton = adder.add(ButtonWidget.builder(Text.translatable("keybindprofilesplus.compare.open"), button -> openCompare())
+                .width(column)
+                .tooltip(Tooltip.of(Text.translatable("keybindprofilesplus.compare.hint")))
+                .build());
+        adder.add(button("keybindprofilesplus.import", column,
+                () -> client.setScreen(new ImportScreen(this, service, this::onProfileCreated))));
+        deleteButton = adder.add(button("keybindprofilesplus.delete", column, this::deleteSelectedProfile));
+        adder.add(button("keybindprofilesplus.overview.open", column, () -> client.setScreen(new KeyOverviewScreen(this))));
+        adder.add(button("keybindprofilesplus.rules.open", column, () -> client.setScreen(new ServerRulesScreen(this, service))));
+        adder.add(button("keybindprofilesplus.settings.open", column, () -> client.setScreen(new SettingsScreen(this, service))));
+        adder.add(ButtonWidget.builder(ScreenTexts.DONE, button -> close()).width(column).build());
+
+        layout.forEachChild(this::addDrawableChild);
+        refreshList();
+        refreshWidgetPositions();
     }
 
-    private void createProfile() {
-        String name = profileNameField.getText().trim();
-        if (name.isEmpty()) {
-            showStatus("keybindprofilesplus.status.profile_name_required");
+    private ButtonWidget button(String translationKey, int buttonWidth, Runnable action) {
+        return ButtonWidget.builder(Text.translatable(translationKey), button -> action.run()).width(buttonWidth).build();
+    }
+
+    @Override
+    protected void refreshWidgetPositions() {
+        layout.refreshPositions();
+        if (list != null) {
+            list.position(width, layout);
+            // Also reached when coming back from another screen: show what changed there.
+            refreshList();
+        }
+    }
+
+    @Override
+    public void close() {
+        if (parent instanceof KeybindsScreen originalKeybindsScreen) {
+            client.setScreen(KeybindsScreenNavigation.createFreshKeybindsScreen(originalKeybindsScreen));
             return;
         }
+        client.setScreen(parent);
+    }
 
-        if (KeyBindProfilesPlus.PROFILES.containsKey(name)) {
-            showStatus("keybindprofilesplus.status.profile_exists", name);
+    @Override
+    public void render(DrawContext context, int mouseX, int mouseY, float deltaTicks) {
+        super.render(context, mouseX, mouseY, deltaTicks);
+
+        Text status = statusMessage.getVisibleText();
+        if (status != null) {
+            context.drawCenteredTextWithShadow(textRenderer, status, width / 2, layout.getHeaderHeight() - 11, GuiUtil.YELLOW);
+        }
+        if (list.children().isEmpty()) {
+            Text empty = Text.translatable(service.profiles().isEmpty() ? "keybindprofilesplus.list.empty" : "keybindprofilesplus.list.no_match");
+            context.drawCenteredTextWithShadow(textRenderer, empty, width / 2, layout.getHeaderHeight() + layout.getContentHeight() / 2 - 4, GuiUtil.GRAY);
+        }
+    }
+
+    @Override
+    public boolean keyPressed(KeyInput input) {
+        if (input.isEnterOrSpace() && selected != null && !searchField.isFocused()) {
+            applySelectedProfile();
+            return true;
+        }
+        return super.keyPressed(input);
+    }
+
+    // ------------------------------------------------------------------ actions (also used by the self-test)
+
+    /** Selects a profile as a single click would. */
+    public void select(String profileName) {
+        if (profileName != null && !service.profiles().containsKey(profileName)) {
             return;
         }
+        selected = profileName;
+        if (Objects.equals(compareWith, selected)) {
+            compareWith = null;
+        }
+        updateButtons();
+    }
 
-        MinecraftClient client = MinecraftClient.getInstance();
-        if (client == null || client.options == null) {
+    /** Marks or unmarks the second profile for a comparison, as Ctrl+click would. */
+    public void toggleCompareMark(String profileName) {
+        if (selected == null || profileName.equals(selected)) {
+            select(profileName);
             return;
         }
+        compareWith = profileName.equals(compareWith) ? null : profileName;
+        updateButtons();
+    }
 
-        KeyBindProfilesPlus.saveProfile(name, client.options.allKeys);
-        KeyBindProfilesPlus.reloadProfilesFromDirectory();
-        selectProfile(name);
-        searchField.setText("");
-        scrollOffset = 0;
-        refreshProfileList();
-        refreshServerList();
-        showStatus("keybindprofilesplus.status.profile_created", name);
+    public String selectedProfile() {
+        return selected;
+    }
+
+    public String compareMark() {
+        return compareWith;
+    }
+
+    public int visibleProfileCount() {
+        return list.children().size();
+    }
+
+    /** Screen coordinates {x, y} of a profile's row, or null when it is not listed. */
+    public int[] hitPoint(String profileName) {
+        return list.hitPoint(profileName);
+    }
+
+    public void showStatus(String translationKey, Object... args) {
+        statusMessage.show(translationKey, args);
+    }
+
+    private void onProfileCreated(String name) {
+        selected = name;
+        compareWith = null;
     }
 
     private void applySelectedProfile() {
-        if (selectedProfile == null) {
+        if (selected == null) {
             showStatus("keybindprofilesplus.status.select_profile");
             return;
         }
 
-        String name = selectedProfile;
-        List<ProfileChange> changes = KeyBindProfilesPlus.profileService().previewApply(name);
+        String name = selected;
+        List<ProfileChange> changes = service.previewApply(name);
         if (!changes.isEmpty() && KeyBindProfilesPlus.settings().confirmApply()) {
             client.setScreen(new ApplyConfirmScreen(this, name, changes, KeyBindProfilesPlus.settings(), () -> applyNow(name)));
             return;
@@ -220,372 +224,185 @@ public class KeyBindProfileScreen extends Screen {
     }
 
     private void applyNow(String name) {
-        KeyBindProfilesPlus.applyProfile(name);
-        refreshParentKeybindsScreen();
+        service.applyProfile(name);
+        if (parent instanceof KeybindsScreen keybindsScreen) {
+            KeybindsScreenNavigation.refreshControlsList(keybindsScreen);
+        }
+        refreshList();
         showStatus("keybindprofilesplus.status.profile_applied", name);
     }
 
-    /** Compares the selected profile (or the applied one) with the game's current settings. */
+    private void editSelectedProfile() {
+        if (selected != null) {
+            client.setScreen(new ProfileEditScreen(this, service, selected, renamed -> selected = renamed));
+        }
+    }
+
     private void openCompare() {
-        String leftSide = selectedProfile != null ? selectedProfile : KeyBindProfilesPlus.getCurrentProfile();
-        client.setScreen(new ProfileCompareScreen(this, KeyBindProfilesPlus.profileService(), leftSide, null));
-    }
-
-    private void editSelectedProfileContents() {
-        if (selectedProfile == null) {
-            showStatus("keybindprofilesplus.status.select_profile");
-            return;
-        }
-        client.setScreen(new ProfileContentsScreen(this, KeyBindProfilesPlus.profileService(), selectedProfile,
-                name -> showStatus("keybindprofilesplus.status.contents_saved", name)));
-    }
-
-    private void renameSelectedProfile() {
-        if (selectedProfile == null) {
-            showStatus("keybindprofilesplus.status.select_profile");
-            return;
-        }
-
-        String newName = profileNameField.getText().trim();
-        if (newName.isEmpty()) {
-            showStatus("keybindprofilesplus.status.profile_name_required");
-            return;
-        }
-
-        if (newName.equals(selectedProfile)) {
-            showStatus("keybindprofilesplus.status.rename_same_name");
-            return;
-        }
-
-        if (KeyBindProfilesPlus.PROFILES.containsKey(newName)) {
-            showStatus("keybindprofilesplus.status.profile_exists", newName);
-            return;
-        }
-
-        renameProfile(selectedProfile, newName);
-    }
-
-    private void renameProfile(String oldName, String newName) {
-        boolean wasCurrent = Objects.equals(KeyBindProfilesPlus.getCurrentProfile(), oldName);
-        if (!KeyBindProfilesPlus.renameProfile(oldName, newName)) {
-            return;
-        }
-
-        selectProfile(newName);
-        refreshProfileList();
-        refreshServerList();
-        showStatus("keybindprofilesplus.status.profile_renamed", newName);
-
-        if (wasCurrent) {
-            this.init(this.width, this.height);
-        }
+        String left = selected != null ? selected : service.getCurrentProfile();
+        client.setScreen(new ProfileCompareScreen(this, service, left, compareWith));
     }
 
     private void deleteSelectedProfile() {
-        if (selectedProfile == null) {
-            showStatus("keybindprofilesplus.status.select_profile");
+        if (selected == null) {
             return;
         }
-
-        String deletedProfile = selectedProfile;
-        KeyBindProfilesPlus.deleteProfile(deletedProfile);
-        selectedProfile = null;
-        profileNameField.setText("");
-        serverInputField.setText("");
-        refreshProfileList();
-        refreshServerList();
-        showStatus("keybindprofilesplus.status.profile_deleted", deletedProfile);
-
-        if (Objects.equals(KeyBindProfilesPlus.getCurrentProfile(), deletedProfile)) {
-            this.init(this.width, this.height);
-        }
-    }
-
-    private void selectProfile(String profileName) {
-        selectedProfile = profileName;
-        profileNameField.setText(profileName);
-        serverInputField.setText("");
-    }
-
-    private void refreshParentKeybindsScreen() {
-        if (!(parent instanceof KeybindsScreen keybindsScreen)) {
-            return;
-        }
-
-        KeybindsScreenNavigation.refreshControlsList(keybindsScreen);
-        this.init(this.width, this.height);
-    }
-
-    private void returnToParent() {
-        if (client == null) {
-            return;
-        }
-
-        if (parent instanceof KeybindsScreen originalKeybindsScreen) {
-            client.setScreen(KeybindsScreenNavigation.createFreshKeybindsScreen(originalKeybindsScreen));
-            return;
-        }
-
-        client.setScreen(parent);
-    }
-
-    private KeyBindProfileScreenLayout layout() {
-        return new KeyBindProfileScreenLayout(width, height);
-    }
-
-    void addButton(ButtonWidget button) {
-        addDrawableChild(button);
-    }
-
-    void removeButton(ButtonWidget button) {
-        remove(button);
-    }
-
-    private void addServerToSelectedProfile() {
-        if (selectedProfile == null) {
-            showStatus("keybindprofilesplus.status.select_profile");
-            return;
-        }
-
-        addServerRule(serverInputField.getText().trim());
-    }
-
-    /** Adds an auto-switch rule (an address, a wildcard, or singleplayer / lan / realms) to the selected profile. */
-    private void addServerRule(String server) {
-        if (selectedProfile == null) {
-            showStatus("keybindprofilesplus.status.select_profile");
-            return;
-        }
-
-        String problem = ServerProfileMatcher.validate(server);
-        if (problem != null) {
-            showStatus(problem);
-            return;
-        }
-
-        List<String> servers = new ArrayList<>();
-        List<String> existingServers = KeyBindProfilesPlus.getProfileAutoSwitchServers(selectedProfile);
-        if (existingServers != null) {
-            servers.addAll(existingServers);
-        }
-
-        String normalizedServer = ServerProfileMatcher.normalizeRule(server);
-        for (String existingServer : servers) {
-            if (ServerProfileMatcher.normalizeRule(existingServer).equals(normalizedServer)) {
-                showStatus("keybindprofilesplus.status.server_exists", server);
-                return;
+        String name = selected;
+        client.setScreen(new ConfirmScreen(confirmed -> {
+            if (confirmed) {
+                KeyBindProfilesPlus.deleteProfile(name);
+                selected = null;
+                compareWith = null;
             }
-        }
-
-        servers.add(server);
-        KeyBindProfilesPlus.setProfileAutoSwitchServers(selectedProfile, servers);
-        serverInputField.setText("");
-        refreshServerList();
-
-        List<String> alsoUsedBy = ServerProfileMatcher.profilesUsingRule(server, KeyBindProfilesPlus.PROFILE_AUTO_SWITCH_SERVERS, selectedProfile);
-        if (alsoUsedBy.isEmpty()) {
-            showStatus("keybindprofilesplus.status.server_added", server);
-        } else {
-            showStatus("keybindprofilesplus.status.server_added_shared", server, String.join(", ", alsoUsedBy));
-        }
+            client.setScreen(this);
+            if (confirmed) {
+                showStatus("keybindprofilesplus.status.profile_deleted", name);
+            }
+        }, Text.translatable("keybindprofilesplus.delete.confirm.title", name), Text.translatable("keybindprofilesplus.delete.confirm.message")));
     }
 
-    /** While in a world: which profile the auto-switch rules pick for this place. Null on the main menu. */
-    private Text whereAmIText() {
-        ServerProfileMatcher.Location location = ServerProfileMatcher.currentLocation(client);
-        if (location == null) {
+    private void updateButtons() {
+        if (applyButton == null) {
+            return;
+        }
+        boolean hasSelection = selected != null;
+        applyButton.active = hasSelection;
+        editButton.active = hasSelection;
+        deleteButton.active = hasSelection;
+        compareButton.setMessage(Text.translatable(compareWith != null ? "keybindprofilesplus.compare.open_two" : "keybindprofilesplus.compare.open"));
+    }
+
+    private void refreshList() {
+        String needle = query.trim().toLowerCase(Locale.ROOT);
+        List<String> names = new ArrayList<>(service.profiles().keySet());
+        names.sort(String.CASE_INSENSITIVE_ORDER);
+        names.removeIf(name -> !needle.isEmpty() && !name.toLowerCase(Locale.ROOT).contains(needle));
+        list.setProfiles(names);
+        updateButtons();
+    }
+
+    /** "62 keys, 3 settings - hotkey Num 5 + F6 - 2 server rules". */
+    private Text describe(String name) {
+        Map<String, String> keys = service.profiles().getOrDefault(name, Map.of());
+        MutableText text = Text.translatable("keybindprofilesplus.list.contents", keys.size(), service.getProfileOptions(name).size());
+        List<String> hotkey = service.getProfileHotkey(name);
+        if (hotkey != null && !hotkey.isEmpty()) {
+            text.append(" - ").append(Text.translatable("keybindprofilesplus.list.hotkey", ProfileHotkeyCapture.formatKeys(hotkey)));
+        }
+        List<String> rules = service.getProfileAutoSwitchServers(name);
+        if (rules != null && !rules.isEmpty()) {
+            text.append(" - ").append(Text.translatable("keybindprofilesplus.list.rules", rules.size()));
+        }
+        return text;
+    }
+
+    private final class ProfileList extends ElementListWidget<ProfileList.Entry> {
+        ProfileList(MinecraftClient client) {
+            super(client, KeyBindProfileScreen.this.width, layout.getContentHeight(), layout.getHeaderHeight(), ROW_HEIGHT);
+        }
+
+        void setProfiles(List<String> names) {
+            double scroll = getScrollY();
+            clearEntries();
+            for (String name : names) {
+                addEntry(new Entry(name));
+            }
+            setScrollY(scroll);
+        }
+
+        int[] hitPoint(String profileName) {
+            for (Entry entry : children()) {
+                if (entry.name.equals(profileName)) {
+                    return new int[]{entry.getContentX() + 20, entry.getContentMiddleY()};
+                }
+            }
             return null;
         }
-        if (!KeyBindProfilesPlus.settings().autoSwitch()) {
-            return Text.translatable("keybindprofilesplus.server.here_off");
-        }
-        ServerProfileMatcher.Match match = KeyBindProfilesPlus.autoSwitchController().match(location);
-        return match == null
-                ? Text.translatable("keybindprofilesplus.server.here_none", location.describe())
-                : Text.translatable("keybindprofilesplus.server.here_match", location.describe(), match.profile());
-    }
 
-    /** The server the player is on, or failing that the last one joined; null when there is none. */
-    private String suggestedServerAddress() {
-        ServerProfileMatcher.Location location = ServerProfileMatcher.currentLocation(client);
-        if (location != null && location.address() != null) {
-            return location.address();
-        }
-        String last = client.options.lastServer;
-        return last == null || last.isBlank() ? null : last;
-    }
-
-    private void removeServerFromSelectedProfile(String server) {
-        if (selectedProfile == null) {
-            showStatus("keybindprofilesplus.status.select_profile");
-            return;
+        @Override
+        public int getRowWidth() {
+            return Math.max(200, Math.min(380, width - 40));
         }
 
-        List<String> servers = new ArrayList<>();
-        List<String> existingServers = KeyBindProfilesPlus.getProfileAutoSwitchServers(selectedProfile);
-        if (existingServers != null) {
-            servers.addAll(existingServers);
-        }
-        servers.remove(server);
-        KeyBindProfilesPlus.setProfileAutoSwitchServers(selectedProfile, servers);
-        refreshServerList();
-        showStatus("keybindprofilesplus.status.server_removed", server);
-    }
+        private final class Entry extends ElementListWidget.Entry<Entry> {
+            private final String name;
+            private final Text contents;
 
-    private void refreshServerList() {
-        serverListWidget.refresh(new ServerListWidget.RefreshRequest(
-                this,
-                layout(),
-                serverInputField,
-                selectedProfile,
-                height,
-                this::removeServerFromSelectedProfile,
-                status -> showStatus(status.translationKey(), status.args()),
-                this::updateActionButtons
-        ));
-    }
+            Entry(String name) {
+                this.name = name;
+                this.contents = describe(name);
+            }
 
-    private void updateActionButtons() {
-        if (applyButton == null || renameButton == null || deleteButton == null || serverInputField == null || addServerButton == null) {
-            return;
-        }
-        boolean hasSelectedProfile = selectedProfile != null;
-        applyButton.active = hasSelectedProfile;
-        renameButton.active = hasSelectedProfile;
-        deleteButton.active = hasSelectedProfile;
-        if (contentsButton != null) {
-            contentsButton.active = hasSelectedProfile;
-        }
-        serverInputField.active = hasSelectedProfile;
-        addServerButton.active = hasSelectedProfile;
-        if (addSingleplayerButton != null) {
-            addSingleplayerButton.active = hasSelectedProfile;
-        }
-        if (addCurrentServerButton != null) {
-            addCurrentServerButton.active = hasSelectedProfile && hasSuggestedServer;
-        }
-    }
+            @Override
+            public List<? extends Element> children() {
+                return List.of();
+            }
 
-    private void showStatus(String translationKey, Object... args) {
-        statusMessage.show(translationKey, args);
-    }
+            @Override
+            public List<? extends Selectable> selectableChildren() {
+                return List.of();
+            }
 
-    @Override
-    public boolean keyPressed(KeyInput input) {
-        int keyCode = input.key();
-        if (keyCode == InputUtil.GLFW_KEY_ENTER && serverInputField != null && serverInputField.isFocused()) {
-            addServerToSelectedProfile();
-            return true;
-        }
-        if (keyCode == InputUtil.GLFW_KEY_ENTER && profileNameField != null && profileNameField.isFocused()) {
-            createProfile();
-            return true;
-        }
-
-        if (hotkeyCapture.handleKeyPressed(input)) {
-            refreshProfileList();
-            return true;
-        }
-        return super.keyPressed(input);
-    }
-
-    @Override
-    public boolean mouseClicked(Click click, boolean bl) {
-        if (hotkeyCapture.handleMouseClicked(click.button())) {
-            refreshProfileList();
-            return true;
-        }
-        return super.mouseClicked(click, bl);
-    }
-
-    public void refreshProfileList() {
-        scrollOffset = profileListWidget.refresh(new ProfileListWidget.RefreshRequest(
-                this,
-                layout(),
-                searchField,
-                selectedProfile,
-                scrollOffset,
-                hotkeyCapture,
-                this::selectProfile,
-                this::refreshProfileList,
-                this::refreshServerList,
-                this::updateActionButtons
-        ));
-        updateActionButtons();
-    }
-
-    @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double horizontal, double vertical) {
-        KeyBindProfileScreenLayout layout = layout();
-        int listX = layout.leftPanelX();
-        int listWidth = KeyBindProfileScreenLayout.PROFILE_BUTTON_WIDTH + KeyBindProfileScreenLayout.HOTKEY_BUTTON_WIDTH + 8;
-
-        if (mouseX >= listX &&
-                mouseX <= listX + listWidth &&
-                mouseY >= layout.listTop() &&
-                mouseY <= layout.listBottom()) {
-
-            int listHeight = layout.listHeight();
-            int totalHeight = profileListWidget.getVisibleProfileCount(searchField) * KeyBindProfileScreenLayout.BUTTON_SPACING;
-
-            if (totalHeight > listHeight) {
-                int maxOffset = Math.max(0, totalHeight - listHeight);
-                scrollOffset = (int) Math.max(0, Math.min(scrollOffset - (int)(vertical * KeyBindProfileScreenLayout.BUTTON_SPACING), maxOffset));
-                refreshProfileList();
+            @Override
+            public boolean mouseClicked(Click click, boolean doubled) {
+                boolean secondary = click.button() == 1 || (click.button() == 0 && (click.modifiers() & (KeyCombo.CTRL | KeyCombo.SHIFT)) != 0);
+                if (secondary) {
+                    toggleCompareMark(name);
+                    return true;
+                }
+                if (click.button() != 0) {
+                    return false;
+                }
+                boolean wasSelected = name.equals(selected);
+                select(name);
+                if (doubled && wasSelected) {
+                    applySelectedProfile();
+                }
                 return true;
             }
-        }
-        return super.mouseScrolled(mouseX, mouseY, horizontal, vertical);
-    }
 
-    @Override
-    public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-        context.fill(0, 0, width, height, 0x66000000);
+            @Override
+            public void render(DrawContext context, int mouseX, int mouseY, boolean hovered, float deltaTicks) {
+                TextRenderer font = textRenderer;
+                int left = getContentX();
+                int right = getContentRightEnd();
+                int top = getContentY();
+                int bottom = getContentBottomEnd();
+                boolean isSelected = name.equals(selected);
+                boolean isMarked = name.equals(compareWith);
 
-        KeyBindProfileScreenLayout layout = layout();
-        int listX = layout.leftPanelX();
-        int listRight = listX + KeyBindProfileScreenLayout.PROFILE_BUTTON_WIDTH + KeyBindProfileScreenLayout.HOTKEY_BUTTON_WIDTH + 8;
-        context.fill(listX - 5, layout.listTop() - 5, listRight + 5, layout.listBottom() + 5, 0x40000000);
+                // Frames stay inside the row so neighbouring rows never overlap.
+                if (isSelected) {
+                    context.fill(left - 3, top - 1, right + 3, bottom + 1, 0xFFFFFFFF);
+                    context.fill(left - 2, top, right + 2, bottom, 0xFF202020);
+                } else if (isMarked) {
+                    context.fill(left - 3, top - 1, right + 3, bottom + 1, 0xFF7FD4FF);
+                    context.fill(left - 2, top, right + 2, bottom, 0xFF182830);
+                } else if (hovered) {
+                    context.fill(left - 2, top, right + 2, bottom, GuiUtil.ROW_HOVER);
+                }
 
-        super.render(context, mouseX, mouseY, delta);
+                // Badges on the right of the first line: applied / default / marked for comparison.
+                int badgeRight = right - 2;
+                badgeRight = badge(context, font, isMarked ? "keybindprofilesplus.list.badge.compare" : null, badgeRight, top + 4, 0xFF7FD4FF);
+                badgeRight = badge(context, font, name.equals(service.getCurrentProfile()) ? "keybindprofilesplus.list.badge.applied" : null, badgeRight, top + 4, GuiUtil.GREEN);
+                badgeRight = badge(context, font, name.equals(KeyBindProfilesPlus.settings().defaultProfile()) ? "keybindprofilesplus.list.badge.default" : null, badgeRight, top + 4, GuiUtil.YELLOW);
 
-        String currentProfileName = KeyBindProfilesPlus.getCurrentProfile();
-        Text fullProfileText;
-        if (currentProfileName != null) {
-            fullProfileText = Text.translatable("keybindprofilesplus.applied_profile", currentProfileName);
-        } else {
-            fullProfileText = Text.translatable("keybindprofilesplus.applied_profile", Text.translatable("options.off"));
-        }
-        context.drawText(textRenderer, fullProfileText, 10, 10, 0xFFFFFFFF, false);
-        context.drawText(textRenderer, Text.translatable("keybindprofilesplus.profile_name"), profileNameField.getX(), profileNameField.getY() - 11, 0xFFA0A0A0, false);
-        context.drawText(textRenderer, Text.translatable("keybindprofilesplus.search"), searchField.getX(), searchField.getY() - 11, 0xFFA0A0A0, false);
-        context.drawText(textRenderer, Text.translatable("keybindprofilesplus.server_address"), serverInputField.getX(), serverInputField.getY() - 11, 0xFFA0A0A0, false);
-        context.drawText(textRenderer, Text.translatable("keybindprofilesplus.auto_switch_servers"), layout.rightPanelX(), layout.serverListTop() - 11, 0xFFA0A0A0, false);
-        Text hereText = whereAmIText();
-        if (hereText != null) {
-            int titleWidth = textRenderer.getWidth(Text.translatable("keybindprofilesplus.auto_switch_servers"));
-            String here = GuiUtil.ellipsize(textRenderer, hereText.getString(), KeyBindProfileScreenLayout.RIGHT_PANEL_WIDTH - titleWidth - 10);
-            context.drawText(textRenderer, here, layout.rightPanelX() + KeyBindProfileScreenLayout.RIGHT_PANEL_WIDTH - textRenderer.getWidth(here),
-                    layout.serverListTop() - 11, 0xFF7FD4FF, false);
-        }
-
-        if (selectedProfile != null) {
-            List<String> servers = KeyBindProfilesPlus.getProfileAutoSwitchServers(selectedProfile);
-            if (servers == null || servers.isEmpty()) {
-                context.drawText(textRenderer, Text.translatable("keybindprofilesplus.no_servers"), layout.rightPanelX(), layout.serverListTop() + 5, 0xFF777777, false);
+                String title = GuiUtil.ellipsize(font, name, badgeRight - left - 6);
+                context.drawTextWithShadow(font, title, left + 2, top + 4, GuiUtil.WHITE);
+                String details = GuiUtil.ellipsize(font, contents.getString(), right - left - 4);
+                context.drawTextWithShadow(font, details, left + 2, top + 17, GuiUtil.GRAY);
             }
-        }
 
-        Text statusText = statusMessage.getVisibleText();
-        if (statusText != null) {
-            int statusX = (width - textRenderer.getWidth(statusText)) / 2;
-            context.drawTextWithShadow(textRenderer, statusText, statusX, 24, 0xFFFFFF55);
-        }
-
-        if (hotkeyCapture.isCapturing()) {
-            Text hint = Text.translatable("keybindprofilesplus.hotkey_hint");
-            int hintX = (width - textRenderer.getWidth(hint)) / 2;
-            context.drawText(textRenderer, hint, hintX, layout.listBottom() - 12, 0xFFFFFF55, true);
+            private int badge(DrawContext context, TextRenderer font, String translationKey, int right, int y, int color) {
+                if (translationKey == null) {
+                    return right;
+                }
+                Text text = Text.translatable(translationKey).formatted(Formatting.ITALIC);
+                int x = right - font.getWidth(text);
+                context.drawTextWithShadow(font, text, x, y, color);
+                return x - 6;
+            }
         }
     }
 }

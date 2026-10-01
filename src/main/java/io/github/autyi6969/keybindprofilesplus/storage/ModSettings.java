@@ -11,6 +11,8 @@ import java.io.Reader;
 import java.io.Writer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.util.Map;
+import java.util.TreeMap;
 import java.util.function.Supplier;
 
 /** The mod's own few preferences, kept in settings.json next to the profiles. */
@@ -42,6 +44,48 @@ public final class ModSettings {
 
     public void setAutoSwitch(boolean autoSwitch) {
         data().autoSwitch = autoSwitch;
+        save();
+    }
+
+    /** The profile to fall back to when leaving a world or server; null when none is chosen. */
+    public String defaultProfile() {
+        String name = data().defaultProfile;
+        return name == null || name.isBlank() ? null : name;
+    }
+
+    public void setDefaultProfile(String defaultProfile) {
+        data().defaultProfile = defaultProfile == null || defaultProfile.isBlank() ? null : defaultProfile;
+        save();
+    }
+
+    /** Whether leaving a world or server switches back to {@link #defaultProfile()}. */
+    public boolean returnToDefault() {
+        return data().returnToDefault;
+    }
+
+    public void setReturnToDefault(boolean returnToDefault) {
+        data().returnToDefault = returnToDefault;
+        save();
+    }
+
+    /**
+     * The player's own say on when a mod's key binding is active: "general" (during play) or
+     * "screen" (only while a screen is open). Null means the mod decides by its built-in rules.
+     */
+    public String scopeOverride(String bindingId) {
+        Map<String, String> overrides = data().scopeOverrides;
+        return overrides == null ? null : overrides.get(bindingId);
+    }
+
+    public void setScopeOverride(String bindingId, String scope) {
+        if (data().scopeOverrides == null) {
+            data().scopeOverrides = new TreeMap<>();
+        }
+        if (scope == null) {
+            data().scopeOverrides.remove(bindingId);
+        } else {
+            data().scopeOverrides.put(bindingId, scope);
+        }
         save();
     }
 
@@ -92,5 +136,8 @@ public final class ModSettings {
     private static final class Data {
         boolean confirmApply = true;
         boolean autoSwitch = true;
+        String defaultProfile;
+        boolean returnToDefault;
+        Map<String, String> scopeOverrides;
     }
 }

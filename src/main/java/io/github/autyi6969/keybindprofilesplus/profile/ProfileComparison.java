@@ -2,6 +2,7 @@ package io.github.autyi6969.keybindprofilesplus.profile;
 
 import io.github.autyi6969.keybindprofilesplus.keys.KeyCombo;
 import io.github.autyi6969.keybindprofilesplus.keys.KeyCombos;
+import io.github.autyi6969.keybindprofilesplus.keys.KeyLabels;
 import io.github.autyi6969.keybindprofilesplus.options.GameOptionsBridge;
 import io.github.autyi6969.keybindprofilesplus.options.OptionCatalog;
 import net.minecraft.client.option.GameOptions;
@@ -55,7 +56,7 @@ public final class ProfileComparison {
             liveIds.add(binding.getId());
             String left = leftProfile == null ? KeyCombos.valueOf(binding) : leftKeys.get(binding.getId());
             String right = rightProfile == null ? KeyCombos.valueOf(binding) : rightKeys.get(binding.getId());
-            addRow(rows, true, binding.getId(), Text.translatable(binding.getId()), binding.getCategory().getLabel(),
+            addRow(rows, true, binding.getId(), KeyLabels.name(binding), KeyLabels.category(binding.getCategory()),
                     left, right, describeKey(left), describeKey(right));
         }
 
@@ -67,7 +68,7 @@ public final class ProfileComparison {
         for (String id : orphanIds) {
             String left = leftKeys.get(id);
             String right = rightKeys.get(id);
-            addRow(rows, true, id, Text.literal(id), orphanGroup, left, right, describeKey(left), describeKey(right));
+            addRow(rows, true, id, KeyLabels.name(id), orphanGroup, left, right, describeKey(left), describeKey(right));
         }
 
         Map<String, String> leftOptions = leftProfile == null ? Map.of() : service.getProfileOptions(leftProfile);

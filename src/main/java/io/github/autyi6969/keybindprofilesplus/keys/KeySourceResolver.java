@@ -11,12 +11,14 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 /**
  * Works out which mod registered a key binding. Minecraft does not record this, so it is deduced:
  * <ol>
  *   <li>bindings held in a field of {@link GameOptions} are vanilla;</li>
+ *   <li>otherwise the mod whose code created the binding (see {@link KeyOrigins});</li>
  *   <li>otherwise the namespace of the binding's category names the mod, if such a mod is loaded;</li>
  *   <li>otherwise a part of the binding's id (e.g. {@code key.<modid>.open}) that is a loaded mod id;</li>
  *   <li>otherwise the source is unknown.</li>
@@ -52,6 +54,12 @@ public final class KeySourceResolver {
             return KeySource.VANILLA;
         }
 
+        Optional<ModContainer> creator = KeyOrigins.modOf(binding);
+        if (creator.isPresent()) {
+            return toSource(creator.get());
+        }
+
+        // Fallbacks for bindings whose creator could not be traced: go by how they are named.
         String namespace = binding.getCategory().id().getNamespace();
         ModContainer byNamespace = modsByNormalizedId.get(normalize(namespace));
         if (byNamespace != null) {
