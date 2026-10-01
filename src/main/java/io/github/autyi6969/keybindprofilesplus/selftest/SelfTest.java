@@ -460,6 +460,8 @@ public final class SelfTest {
         step("click done", SCREEN_SETTLE_TICKS, () -> {
             click(client, Text.translatable("gui.done").getString());
             check("done returns to the vanilla Key Binds screen", client.currentScreen instanceof KeybindsScreen);
+            check("... and that screen still leads back to where it came from",
+                    client.currentScreen instanceof KeybindsScreen keybinds && keybinds.parent == homeScreen);
         });
     }
 
