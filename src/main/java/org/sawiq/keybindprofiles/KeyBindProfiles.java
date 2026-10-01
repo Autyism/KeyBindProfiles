@@ -16,6 +16,7 @@ import org.sawiq.keybindprofiles.gui.KeyBindProfileScreen;
 import org.sawiq.keybindprofiles.input.ProfileHotkeyController;
 import org.sawiq.keybindprofiles.notification.ProfileNotification;
 import org.sawiq.keybindprofiles.profile.ProfileService;
+import org.sawiq.keybindprofiles.selftest.SelfTest;
 import org.sawiq.keybindprofiles.server.ServerAutoSwitchController;
 import org.sawiq.keybindprofiles.storage.ProfileFileStore;
 import org.slf4j.Logger;
@@ -47,6 +48,9 @@ public class KeyBindProfiles implements ClientModInitializer {
         registerConnectionEvents();
         registerControlsScreenButton();
         loadProfilesOnClientStart();
+        if (SelfTest.isRequested()) {
+            SelfTest.install(PROFILE_SERVICE);
+        }
     }
 
     public static void openConfigScreen(Screen parent) {
@@ -67,6 +71,10 @@ public class KeyBindProfiles implements ClientModInitializer {
 
     public static void deleteProfile(String name) {
         PROFILE_SERVICE.deleteProfile(name);
+    }
+
+    public static boolean renameProfile(String oldName, String newName) {
+        return PROFILE_SERVICE.renameProfile(oldName, newName);
     }
 
     public static void exportProfile(String name) {

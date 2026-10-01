@@ -10,6 +10,19 @@ base {
 	archivesName = project.archives_base_name
 }
 
+loom {
+	runs {
+		// Dev client that runs the automated self-test and quits (see tools/selftest.ps1).
+		selfTest {
+			client()
+			configName = "Self Test"
+			vmArg "-Dkbp.selftest=true"
+			runDir "run"
+			ideConfigGenerated false
+		}
+	}
+}
+
 repositories {
 	maven { url "https://maven.shedaniel.me/" }
 	maven { url "https://maven.terraformersmc.com/releases/" }

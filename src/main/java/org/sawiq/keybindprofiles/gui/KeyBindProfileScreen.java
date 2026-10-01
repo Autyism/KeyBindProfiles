@@ -8,7 +8,6 @@ import net.minecraft.client.gui.screen.option.KeybindsScreen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.client.input.KeyInput;
-import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
 import net.minecraft.text.Text;
 import org.sawiq.keybindprofiles.KeyBindProfiles;
@@ -16,7 +15,6 @@ import org.sawiq.keybindprofiles.KeyBindProfiles;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Objects;
 
 public class KeyBindProfileScreen extends Screen {
@@ -181,58 +179,18 @@ public class KeyBindProfileScreen extends Screen {
     }
 
     private void renameProfile(String oldName, String newName) {
-        Map<String, String> keyMap = KeyBindProfiles.PROFILES.get(oldName);
-        MinecraftClient client = MinecraftClient.getInstance();
-        if (keyMap == null || client == null || client.options == null) {
+        boolean wasCurrent = Objects.equals(KeyBindProfiles.getCurrentProfile(), oldName);
+        if (!KeyBindProfiles.renameProfile(oldName, newName)) {
             return;
         }
 
-        List<String> hotkeys = KeyBindProfiles.getProfileHotkey(oldName);
-        List<String> autoSwitchServers = KeyBindProfiles.getProfileAutoSwitchServers(oldName);
-
-        KeyBindProfiles.deleteProfile(oldName);
-        KeyBinding[] renamedBindings = cloneBindingsWithProfileKeys(client.options.allKeys, keyMap);
-        KeyBindProfiles.saveProfile(newName, renamedBindings);
-        restoreProfileMetadata(newName, hotkeys, autoSwitchServers);
         selectProfile(newName);
         refreshProfileList();
         refreshServerList();
         showStatus("keybindprofiles.status.profile_renamed", newName);
 
-        if (Objects.equals(KeyBindProfiles.getCurrentProfile(), oldName)) {
-            KeyBindProfiles.saveCurrentProfile(newName);
+        if (wasCurrent) {
             this.init(this.width, this.height);
-        }
-    }
-
-    private KeyBinding[] cloneBindingsWithProfileKeys(KeyBinding[] bindings, Map<String, String> keyMap) {
-        KeyBinding[] clonedBindings = bindings.clone();
-        for (KeyBinding binding : clonedBindings) {
-            applySavedKey(binding, keyMap);
-        }
-        return clonedBindings;
-    }
-
-    private void applySavedKey(KeyBinding binding, Map<String, String> keyMap) {
-        String savedKey = keyMap.get(binding.getId());
-        if (savedKey == null) {
-            return;
-        }
-
-        try {
-            binding.setBoundKey(InputUtil.fromTranslationKey(savedKey));
-        } catch (IllegalArgumentException ignored) {
-            // Ignore invalid values from manually edited profile files.
-        }
-    }
-
-    private void restoreProfileMetadata(String profileName, List<String> hotkeys, List<String> autoSwitchServers) {
-        if (hotkeys != null) {
-            KeyBindProfiles.setProfileHotkey(profileName, hotkeys);
-        }
-
-        if (autoSwitchServers != null) {
-            KeyBindProfiles.setProfileAutoSwitchServers(profileName, autoSwitchServers);
         }
     }
 
