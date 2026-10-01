@@ -1,32 +1,33 @@
 {
 	"schemaVersion": 1,
-	"id": "keybindprofiles",
+	"id": "keybindprofilesplus",
 	"version": "${version}",
-	"name": "KeyBindProfiles",
-	"description": "Create, save, and instantly switch between different keybinding profiles in Minecraft.",
+	"name": "KeyBind Profiles+",
+	"description": "Save, compare and instantly switch between key binding profiles. Based on KeyBindProfiles by sawiq_ (MIT).",
 	"authors": [
-		"sawiq_"
+		"Autyi6969"
+	],
+	"contributors": [
+		"sawiq_ (original KeyBindProfiles)"
 	],
 	"contact": {
-		"homepage": "https://modrinth.com/mod/keybindprofiles",
-		"sources": "https://github.com/imsawiq/KeyBindProfiles/tree/master/src/main"
+		"homepage": "https://github.com/Autyi6969/KeyBindProfiles",
+		"sources": "https://github.com/Autyi6969/KeyBindProfiles",
+		"issues": "https://github.com/Autyi6969/KeyBindProfiles/issues"
 	},
-	"license": "MIT",
-	"icon": "assets/keybindprofiles/icon.png",
-	"environment": "*",
+	"license": "GPL-3.0-only",
+	"icon": "assets/keybindprofilesplus/icon.png",
+	"environment": "client",
 	"entrypoints": {
-		"client": ["org.sawiq.keybindprofiles.KeyBindProfiles"]
+		"client": ["io.github.autyi6969.keybindprofilesplus.KeyBindProfilesPlus"]
 	},
 	"mixins": [
-		"keybindprofiles.mixins.json"
+		"keybindprofilesplus.mixins.json"
 	],
 	"depends": {
-		"fabricloader": ">=0.16.14",
-		"minecraft": ">=1.21.9 <=1.21.11",
+		"fabricloader": ">=0.17.3",
+		"minecraft": "1.21.11",
 		"java": ">=21",
 		"fabric-api": "*"
-	},
-	"suggests": {
-		"another-mod": "*"
 	}
 }
