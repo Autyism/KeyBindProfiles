@@ -17,6 +17,8 @@ import io.github.autyi6969.keybindprofilesplus.keys.KeySource;
 import io.github.autyi6969.keybindprofilesplus.keys.KeySourceResolver;
 import io.github.autyi6969.keybindprofilesplus.notification.ProfileNoticeHud;
 import io.github.autyi6969.keybindprofilesplus.profile.ProfileService;
+import io.github.autyi6969.keybindprofilesplus.server.ServerAutoSwitchController;
+import io.github.autyi6969.keybindprofilesplus.server.ServerProfileMatcher;
 import io.github.autyi6969.keybindprofilesplus.storage.LegacyOptions;
 import io.github.autyi6969.keybindprofilesplus.storage.ProfileFileStore;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
@@ -113,6 +115,7 @@ public final class SelfTest {
     private String profileAutoJump;
     private Map<String, String> savedOptions = Map.of();
     private boolean savedConfirmApply = true;
+    private boolean savedAutoSwitch = true;
     private Screen homeScreen;
     private boolean started;
     private boolean finished;
@@ -248,6 +251,7 @@ public final class SelfTest {
         step("key display names", 0, this::checkKeyNames);
         step("key sources", 0, () -> checkKeySources(client));
         step("conflicts: layered detection", 0, () -> checkConflicts(client));
+        step("server rules: matching", 0, this::checkServerRules);
 
         step("profile: create", 0, () -> profileCreate(client));
         step("profile: apply", 0, () -> profileApply(client));
@@ -266,14 +270,43 @@ public final class SelfTest {
 
         step("world: prepare auto-switch", 0, () -> {
             service.applyProfile(PROFILE_C);
+            // Both match a singleplayer world; the specific rule must beat the catch-all.
             service.setProfileAutoSwitchServers(PROFILE_A, List.of("singleplayer"));
+            service.setProfileAutoSwitchServers(PROFILE_C, List.of("*"));
+            KeyBindProfilesPlus.settings().setAutoSwitch(true);
         });
         stepUntil("world: create and enter " + WORLD_NAME, () -> enterWorld(client),
                 () -> client.player != null && client.world != null && client.currentScreen == null, 20 * 90);
         step("world: settle", 30, () -> {
         });
-        step("world: auto-switch on join", 2, () -> {
-            check("joining singleplayer auto-switched to " + PROFILE_A, PROFILE_A.equals(service.getCurrentProfile()));
+        step("world: auto-switch rules", 2, () -> {
+            ServerAutoSwitchController controller = KeyBindProfilesPlus.autoSwitchController();
+            check("joining singleplayer auto-switched to " + PROFILE_A + " (specific rule beats *)", PROFILE_A.equals(service.getCurrentProfile()));
+
+            KeyBindProfilesPlus.settings().setAutoSwitch(false);
+            service.applyProfile(PROFILE_C);
+            controller.reset();
+            controller.tick(client);
+            check("world: with auto-switch off nothing is applied", PROFILE_C.equals(service.getCurrentProfile()));
+
+            KeyBindProfilesPlus.settings().setAutoSwitch(true);
+            controller.reset();
+            controller.tick(client);
+            check("world: switching it back on applies the matching profile", PROFILE_A.equals(service.getCurrentProfile()));
+
+            service.setProfileAutoSwitchServers(PROFILE_A, List.of("play.example.org"));
+            controller.tick(client);
+            check("world: with the specific rule gone the catch-all profile takes over", PROFILE_C.equals(service.getCurrentProfile()));
+
+            service.setProfileAutoSwitchServers(PROFILE_A, List.of("singleplayer"));
+            controller.tick(client);
+            check("world: adding the rule back switches again without rejoining", PROFILE_A.equals(service.getCurrentProfile()));
+        });
+        open(client, "profile screen in a world", () -> new KeyBindProfileScreen(null));
+        step("world: select " + PROFILE_A, 4, () -> click(client, PROFILE_A));
+        shot(client, "ingame_profiles_where_am_i");
+        step("world: close the screen", 6, () -> client.setScreen(null));
+        step("world: show the notice", 2, () -> {
             // Shown again so the notice is guaranteed to still be on screen for the screenshot.
             KeyBindProfilesPlus.showNotification(PROFILE_A);
         });
@@ -290,6 +323,10 @@ public final class SelfTest {
         }
         step("click profile " + PROFILE_A, 4, () -> click(client, PROFILE_A));
         shot(client, tag + "_profiles_profile_selected");
+
+        step("click profile " + PROFILE_C, 4, () -> click(client, PROFILE_C));
+        shot(client, tag + "_profiles_server_rules");
+        step("click profile " + PROFILE_A + " again", 4, () -> click(client, PROFILE_A));
 
         step("click overview button", SCREEN_SETTLE_TICKS, () -> {
             click(client, Text.translatable("keybindprofilesplus.overview.open").getString());
@@ -447,6 +484,7 @@ public final class SelfTest {
         savedLanguage = client.getLanguageManager().getLanguage();
         savedPauseOnLostFocus = client.options.pauseOnLostFocus;
         savedConfirmApply = KeyBindProfilesPlus.settings().confirmApply();
+        savedAutoSwitch = KeyBindProfilesPlus.settings().autoSwitch();
         Map<String, String> optionValues = new LinkedHashMap<>();
         GameOptionsBridge.readAll(client.options).forEach((key, entry) -> {
             if (OptionCatalog.isOffered(key)) {
@@ -732,6 +770,66 @@ public final class SelfTest {
                 KeyConflicts.conflictsOf(Objects.requireNonNull(KeyBinding.byId("key.advancements")), client.options).isEmpty());
     }
 
+    private void checkServerRules() {
+        ServerProfileMatcher.Location server = ServerProfileMatcher.Location.server("play.example.org");
+        ServerProfileMatcher.Location otherPort = ServerProfileMatcher.Location.server("Play.Example.org:25566");
+        ServerProfileMatcher.Location single = ServerProfileMatcher.Location.singleplayer();
+        ServerProfileMatcher.Location lan = new ServerProfileMatcher.Location(ServerProfileMatcher.Kind.LAN, "192.168.1.20:51234");
+        ServerProfileMatcher.Location ipv6 = ServerProfileMatcher.Location.server("[2001:db8::1]:25570");
+
+        int exact = ServerProfileMatcher.score(server, "play.example.org:25565");
+        int host = ServerProfileMatcher.score(server, "play.example.org");
+        int subdomain = ServerProfileMatcher.score(server, "example.org");
+        int wildcard = ServerProfileMatcher.score(server, "*.example.org");
+        int anywhere = ServerProfileMatcher.score(server, "*");
+        check("server rules: exact > host > subdomain > wildcard > * (" + exact + " " + host + " " + subdomain + " " + wildcard + " " + anywhere + ")",
+                exact > host && host > subdomain && subdomain > wildcard && wildcard > anywhere && anywhere > 0);
+        check("server rules: a different port does not match an exact rule", ServerProfileMatcher.score(server, "play.example.org:25566") == 0);
+        check("server rules: a rule without a port matches any port", ServerProfileMatcher.score(otherPort, "play.example.org") > 0);
+        check("server rules: case, scheme and path are ignored", ServerProfileMatcher.score(server, "HTTP://Play.Example.ORG/lobby") == host);
+        check("server rules: a trailing dot is ignored", ServerProfileMatcher.score(server, "play.example.org.") == host);
+        check("server rules: unrelated hosts do not match",
+                ServerProfileMatcher.score(server, "other.org") == 0 && ServerProfileMatcher.score(server, "ample.org") == 0);
+        check("server rules: a longer wildcard is more specific",
+                ServerProfileMatcher.score(server, "play.*.org") > ServerProfileMatcher.score(server, "*.org"));
+        check("server rules: singleplayer matches only singleplayer",
+                ServerProfileMatcher.score(single, "singleplayer") > 0 && ServerProfileMatcher.score(server, "singleplayer") == 0
+                        && ServerProfileMatcher.score(single, "example.org") == 0);
+        check("server rules: * also covers singleplayer", ServerProfileMatcher.score(single, "*") > 0);
+        check("server rules: lan matches LAN worlds only",
+                ServerProfileMatcher.score(lan, "lan") > 0 && ServerProfileMatcher.score(server, "lan") == 0 && ServerProfileMatcher.score(lan, "realms") == 0);
+        check("server rules: IPv6 with and without port",
+                ServerProfileMatcher.score(ipv6, "[2001:db8::1]:25570") > ServerProfileMatcher.score(ipv6, "2001:db8::1")
+                        && ServerProfileMatcher.score(ipv6, "2001:db8::1") > 0 && ServerProfileMatcher.score(ipv6, "[2001:db8::1]:25571") == 0);
+
+        Map<String, List<String>> rules = new LinkedHashMap<>();
+        rules.put("anywhere", List.of("*"));
+        rules.put("host", List.of("example.org"));
+        rules.put("exact", List.of("mc.other.net", "play.example.org"));
+        Set<String> all = Set.of("anywhere", "host", "exact");
+        check("server rules: the most specific rule wins", matchedProfile(server, rules, all).equals("exact"));
+        check("server rules: a deleted profile is skipped", matchedProfile(server, rules, Set.of("anywhere", "host")).equals("host"));
+        check("server rules: * catches everything else",
+                matchedProfile(ServerProfileMatcher.Location.server("mc.elsewhere.net"), rules, all).equals("anywhere"));
+        check("server rules: equal rules go to the first name",
+                matchedProfile(server, Map.of("b", List.of("play.example.org"), "A", List.of("play.example.org")), Set.of("A", "b")).equals("A"));
+        check("server rules: nothing matches without rules", ServerProfileMatcher.findBestMatch(server, Map.of(), Set.of()) == null);
+
+        check("server rules: kinds are recognised",
+                ServerProfileMatcher.ruleKind("*").equals("anywhere") && ServerProfileMatcher.ruleKind("Singleplayer").equals("singleplayer")
+                        && ServerProfileMatcher.ruleKind("*.example.org").equals("wildcard") && ServerProfileMatcher.ruleKind("example.org").equals("host")
+                        && ServerProfileMatcher.ruleKind("example.org:25565").equals("exact"));
+        check("server rules: blank and spaced rules are rejected",
+                ServerProfileMatcher.validate("  ") != null && ServerProfileMatcher.validate("my server") != null && ServerProfileMatcher.validate("example.org") == null);
+        check("server rules: the same rule in another profile is noticed",
+                ServerProfileMatcher.profilesUsingRule("Example.org", rules, "exact").equals(List.of("host")));
+    }
+
+    private static String matchedProfile(ServerProfileMatcher.Location location, Map<String, List<String>> rules, Set<String> existing) {
+        ServerProfileMatcher.Match match = ServerProfileMatcher.findBestMatch(location, rules, existing);
+        return match == null ? "" : match.profile();
+    }
+
     private void checkComparison(MinecraftClient client) {
         int savedByC = service.profiles().get(PROFILE_C).size();
         ProfileComparison.Result partial = ProfileComparison.compare(service, client.options, PROFILE_A, PROFILE_C);
@@ -820,6 +918,16 @@ public final class SelfTest {
             check("flow: the choice is stored on disk", !KeyBindProfilesPlus.settings().confirmApply());
             KeyBindProfilesPlus.settings().setConfirmApply(true);
             setLiveKey(drop, dropBefore[0]);
+        });
+
+        step("flow: quick-add the singleplayer rule", 4, () -> {
+            click(client, Text.translatable("keybindprofilesplus.server.add_singleplayer").getString());
+            check("flow: the singleplayer rule was added to " + PROFILE_A, List.of("singleplayer").equals(service.getProfileAutoSwitchServers(PROFILE_A)));
+        });
+        step("flow: adding the same rule twice is refused", 4, () -> {
+            click(client, Text.translatable("keybindprofilesplus.server.add_singleplayer").getString());
+            check("flow: still exactly one rule", List.of("singleplayer").equals(service.getProfileAutoSwitchServers(PROFILE_A)));
+            service.setProfileAutoSwitchServers(PROFILE_A, List.of());
         });
 
         step("flow: open contents", SCREEN_SETTLE_TICKS, () -> {
@@ -1003,6 +1111,7 @@ public final class SelfTest {
             KeyBinding.updateKeysByCode();
             GameOptionsBridge.apply(client.options, savedOptions);
             KeyBindProfilesPlus.settings().setConfirmApply(savedConfirmApply);
+            KeyBindProfilesPlus.settings().setAutoSwitch(savedAutoSwitch);
             client.options.pauseOnLostFocus = savedPauseOnLostFocus;
             if (savedLanguage != null && !savedLanguage.equals(client.getLanguageManager().getLanguage())) {
                 setLanguage(client, savedLanguage);

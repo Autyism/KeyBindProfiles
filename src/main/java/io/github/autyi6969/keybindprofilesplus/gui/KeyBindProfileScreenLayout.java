@@ -55,7 +55,12 @@ final class KeyBindProfileScreenLayout {
     }
 
     int serverListTop() {
-        return serverInputY() + BUTTON_SPACING + 16;
+        return quickAddY() + BUTTON_SPACING + 14;
+    }
+
+    /** Row of "add this kind of place" shortcut buttons under the server address field. */
+    int quickAddY() {
+        return serverInputY() + BUTTON_SPACING;
     }
 
     int doneButtonX() {

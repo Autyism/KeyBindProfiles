@@ -1,54 +1,57 @@
 package io.github.autyi6969.keybindprofilesplus.server;
 
-import net.minecraft.client.MinecraftClient;
 import io.github.autyi6969.keybindprofilesplus.notification.ProfileNotification;
 import io.github.autyi6969.keybindprofilesplus.profile.ProfileService;
+import net.minecraft.client.MinecraftClient;
 
+import java.util.function.BooleanSupplier;
+
+/** Applies the profile whose rule matches the world or server the player has just joined. */
 public final class ServerAutoSwitchController {
     private final ProfileService profileService;
     private final ProfileNotification notification;
+    private final BooleanSupplier enabled;
 
-    private String lastAutoSwitchServer;
+    private String lastLocationKey;
 
-    public ServerAutoSwitchController(ProfileService profileService, ProfileNotification notification) {
+    public ServerAutoSwitchController(ProfileService profileService, ProfileNotification notification, BooleanSupplier enabled) {
         this.profileService = profileService;
         this.notification = notification;
+        this.enabled = enabled;
     }
 
+    /** Forgets where the player was, so the rules are evaluated again on the next tick. */
     public void reset() {
-        lastAutoSwitchServer = null;
+        lastLocationKey = null;
     }
 
     public void tick(MinecraftClient client) {
-        if (client == null || client.player == null || client.world == null) {
+        if (client == null || !enabled.getAsBoolean()) {
             return;
         }
 
-        String serverAddress = ServerProfileMatcher.getCurrentServerAddress(client);
-        if (serverAddress == null || serverAddress.isBlank()) {
+        ServerProfileMatcher.Location location = ServerProfileMatcher.currentLocation(client);
+        if (location == null) {
             return;
         }
 
-        String normalizedServer = ServerProfileMatcher.normalizeServerPattern(serverAddress);
-        if (normalizedServer.equals(lastAutoSwitchServer)) {
+        String locationKey = location.key();
+        if (locationKey.equals(lastLocationKey)) {
+            return;
+        }
+        lastLocationKey = locationKey;
+
+        ServerProfileMatcher.Match match = match(location);
+        if (match == null || match.profile().equals(profileService.getCurrentProfile())) {
             return;
         }
 
-        lastAutoSwitchServer = normalizedServer;
-        applyMatchingProfile(serverAddress);
+        profileService.applyProfile(match.profile());
+        notification.show(match.profile());
     }
 
-    private void applyMatchingProfile(String serverAddress) {
-        String profileName = ServerProfileMatcher.findMatchingProfile(
-                serverAddress,
-                profileService.profileAutoSwitchServers(),
-                profileService.profiles().keySet()
-        );
-        if (profileName == null || profileName.equals(profileService.getCurrentProfile())) {
-            return;
-        }
-
-        profileService.applyProfile(profileName);
-        notification.show(profileName);
+    /** The rule that decides which profile belongs to a location, or null when none matches. */
+    public ServerProfileMatcher.Match match(ServerProfileMatcher.Location location) {
+        return ServerProfileMatcher.findBestMatch(location, profileService.profileAutoSwitchServers(), profileService.profiles().keySet());
     }
 }

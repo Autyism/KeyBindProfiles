@@ -35,6 +35,16 @@ public final class ModSettings {
         save();
     }
 
+    /** Whether joining a world or server applies the profile whose rule matches it. */
+    public boolean autoSwitch() {
+        return data().autoSwitch;
+    }
+
+    public void setAutoSwitch(boolean autoSwitch) {
+        data().autoSwitch = autoSwitch;
+        save();
+    }
+
     /** Forgets what was read so the next access reads the file again. */
     public void reload() {
         data = null;
@@ -81,5 +91,6 @@ public final class ModSettings {
 
     private static final class Data {
         boolean confirmApply = true;
+        boolean autoSwitch = true;
     }
 }
