@@ -63,7 +63,8 @@ java {
 jar {
 	inputs.property "archivesName", project.base.archivesName
 
-	from("LICENSE") {
+	// GPLv3 for this mod, plus the MIT notice of the upstream code it is based on.
+	from(["LICENSE", "LICENSE-upstream-MIT"]) {
 		rename { "${it}_${inputs.properties.archivesName}"}
 	}
 }
