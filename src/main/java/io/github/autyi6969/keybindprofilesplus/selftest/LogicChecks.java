@@ -70,6 +70,7 @@ final class LogicChecks {
     static final String DEMO_MOD_BINDING = "key.fabric-api.selftest_demo";
     static final String DEMO_SCREEN_BINDING = "key.fabric-api.selftest_inventory_sort";
     static final String DEMO_UNKNOWN_BINDING = "key.selftest.unknown_demo";
+    static final String MOD_MENU_BINDING = "key.modmenu.open_menu";
     static final int DEMO_BINDINGS = 3;
     private static final String LANG_PATH = "assets/" + KeyBindProfilesPlus.MOD_ID + "/lang/";
 
@@ -244,8 +245,16 @@ final class LogicChecks {
                 vanilla++;
             }
         }
+        // Mod Menu is in the dev client (for its configure button) and registers one key binding of its own:
+        // a real mod jar, so this is the one place where tracing the creating class is checked for real.
+        KeyBinding modMenuKey = KeyBinding.byId(MOD_MENU_BINDING);
+        if (modMenuKey != null) {
+            KeySource modMenu = resolver.resolve(modMenuKey);
+            t.check("key source: Mod Menu's own key binding is traced to Mod Menu (" + modMenu.description().getString() + ")",
+                    modMenu.kind() == KeySource.Kind.MOD && "modmenu".equals(modMenu.modId()) && KeyOrigins.creatorClassOf(modMenuKey) != null);
+        }
         t.check("key sources: every binding except the mod ones is vanilla (" + vanilla + " of " + client().options.allKeys.length + ")",
-                vanilla == client().options.allKeys.length - DEMO_BINDINGS - 1);
+                vanilla == client().options.allKeys.length - DEMO_BINDINGS - 1 - (modMenuKey == null ? 0 : 1));
     }
 
     private void source(KeySourceResolver resolver, String bindingId, KeySource.Kind kind, String modId) {
@@ -324,6 +333,17 @@ final class LogicChecks {
             t.bind(DEMO_MOD_BINDING, "key.keyboard.space");
             settings.setScopeOverride(DEMO_MOD_BINDING, KeyConflicts.OVERRIDE_SCREEN);
             conflict("... and the other way round: marked screen-only, it is only a possible conflict", DEMO_MOD_BINDING, KeyConflicts.Level.SOFT, 1, "screen");
+            settings.setScopeOverride(DEMO_MOD_BINDING, KeyConflicts.OVERRIDE_SITUATIONAL);
+            conflict("... marked 'only in a special situation', it is no conflict at all", DEMO_MOD_BINDING, KeyConflicts.Level.NONE, 0, null);
+            conflict("... seen from the vanilla key too", "key.jump", KeyConflicts.Level.NONE, 0, null);
+            t.check("conflicts: ... but the tooltip can still say what shares the key",
+                    KeyConflicts.sharedWithoutConflict(SelfTestRunner.binding("key.jump"), client().options).size() == 1
+                            && KeyConflicts.describeShared(KeyConflicts.sharedWithoutConflict(SelfTestRunner.binding("key.jump"), client().options)).size() == 2);
+            t.check("conflicts: clicking through the choices goes automatic -> play -> screens -> special situation -> automatic",
+                    KeyConflicts.OVERRIDE_GENERAL.equals(KeyConflicts.nextOverride(null))
+                            && KeyConflicts.OVERRIDE_SCREEN.equals(KeyConflicts.nextOverride(KeyConflicts.OVERRIDE_GENERAL))
+                            && KeyConflicts.OVERRIDE_SITUATIONAL.equals(KeyConflicts.nextOverride(KeyConflicts.OVERRIDE_SCREEN))
+                            && KeyConflicts.nextOverride(KeyConflicts.OVERRIDE_SITUATIONAL) == null);
             settings.setScopeOverride(DEMO_MOD_BINDING, null);
             conflict("... and back to a real conflict once the override is removed", DEMO_MOD_BINDING, KeyConflicts.Level.HARD, 1, "general");
             settings.reload();
@@ -649,19 +669,84 @@ final class LogicChecks {
         external(all, "Litematica", "Toggle All Rendering", "M + R", true);
         external(all, "Litematica", "Execute Operation", "Ctrl + Num 5", true);
         external(all, "Litematica", "Pick Block Last", "Middle Button", true);
+        external(all, "Litematica", "Tool Place Corner 1", "Left Button", true);
+        external(all, "Litematica", "Tool Place Corner 2", "Right Button", true);
+        external(all, "Litematica", "Rerender Schematic", "F3 + M", true);
+        external(all, "Meteor", "Light Overlay", "B", true);
+        external(all, "Meteor", "Anti Afk", "Ctrl + H", true);
+        external(all, "Meteor", "Anti Afk / Pause Key", "Button 5", true);
+        t.check("external: a Meteor key bind in the newer format without a key is left out, one that needs the Windows key is shown but not compared",
+                all.stream().noneMatch(binding -> binding.name().equals("New Unbound"))
+                        && all.stream().anyMatch(binding -> binding.name().equals("Super Module") && binding.key() == null
+                        && binding.keyText().getString().equals("Super + N")));
         t.check("external: malilib hotkeys without keys are left out", all.stream().noneMatch(binding -> binding.name().equals("Unbound One")));
         external(all, "Item Scroller", "Crafting Features", "Num -", true);
         external(all, "Item Scroller", "Modifier Move Everything", "Left Alt", true);
         t.check("external: malilib's own 'GUI only' marking is understood",
-                all.stream().filter(binding -> binding.sourceId().equals("itemscroller")).allMatch(ExternalBinding::screenOnly)
-                        && all.stream().filter(binding -> binding.sourceId().equals("litematica")).noneMatch(ExternalBinding::screenOnly));
+                all.stream().filter(binding -> binding.sourceId().equals("itemscroller")).allMatch(binding -> binding.when() == ExternalBinding.When.SCREEN_ONLY)
+                        && all.stream().filter(binding -> binding.sourceId().equals("litematica")).noneMatch(binding -> binding.when() == ExternalBinding.When.SCREEN_ONLY));
+
+        // Hotkeys that only act in a situation of the mod's own must be recognised as such.
+        when(all, "Litematica", "Tool Place Corner 1", ExternalBinding.When.SITUATIONAL);
+        when(all, "Litematica", "Tool Place Corner 2", ExternalBinding.When.SITUATIONAL);
+        when(all, "Litematica", "Tool Select Elements", ExternalBinding.When.SITUATIONAL);
+        when(all, "Litematica", "Tool Select Modifier Block 2", ExternalBinding.When.SITUATIONAL);
+        when(all, "Litematica", "Operation Mode Change Modifier", ExternalBinding.When.SITUATIONAL);
+        when(all, "Litematica", "Pick Block Last", ExternalBinding.When.SITUATIONAL);
+        when(all, "Litematica", "Open Gui Main Menu", ExternalBinding.When.IN_GAME);
+        when(all, "Litematica", "Layer Next", ExternalBinding.When.IN_GAME);
+        when(all, "Meteor", "Auto Totem", ExternalBinding.When.IN_GAME);
+        when(all, "Meteor", "Auto Totem / Swap Key", ExternalBinding.When.SITUATIONAL);
+        t.check("external: without a word in its file, an Item Scroller hotkey counts as screen-only, its config key as in-game; a bare modifier as a hold key",
+                malilibWhen("itemscroller", "keyDropStack", false, false) == ExternalBinding.When.SCREEN_ONLY
+                        && malilibWhen("itemscroller", "openConfigGui", false, false) == ExternalBinding.When.IN_GAME
+                        && malilibWhen("tweakeroo", "flexibleBlockPlacementOffset", true, false) == ExternalBinding.When.SITUATIONAL
+                        && malilibWhen("somemod", "doSomething", false, true) == ExternalBinding.When.SITUATIONAL
+                        && malilibWhen("somemod", "doSomething", false, false) == ExternalBinding.When.IN_GAME);
 
         Map<String, String> before = SelfTestRunner.currentKeyValues();
+        ModSettings settings = KeyBindProfilesPlus.settings();
         try {
             // Default keys, so the outcome does not depend on the layout the dev client happens to have.
             for (KeyBinding binding : client().options.allKeys) {
                 KeyCombos.bind(binding, binding.getDefaultKey(), 0);
             }
+            // Litematica ships with its tool on the mouse buttons and its hold-keys on Shift / Ctrl: by design, so no conflict.
+            conflict("Litematica's tool key on the left mouse button is no conflict with attack", "key.attack", KeyConflicts.Level.NONE, 0, null);
+            conflict("... nor the one on the right mouse button with use", "key.use", KeyConflicts.Level.NONE, 0, null);
+            conflict("... nor the ones on the middle mouse button with pick block", "key.pickItem", KeyConflicts.Level.NONE, 0, null);
+            conflict("... nor its hold-key on Left Shift with sneak", "key.sneak", KeyConflicts.Level.NONE, 0, null);
+            conflict("... nor its hold-key on Left Control with sprint", "key.sprint", KeyConflicts.Level.NONE, 0, null);
+            ExternalBinding corner1 = all.stream().filter(binding -> binding.name().equals("Tool Place Corner 1")).findFirst().orElseThrow();
+            List<Text> sharedWithAttack = KeyConflicts.sharedWithoutConflict(SelfTestRunner.binding("key.attack"), client().options);
+            t.check("external: the attack key's tooltip still says what shares the left mouse button " + sharedWithAttack.stream().map(Text::getString).toList(),
+                    sharedWithAttack.size() == 1 && sharedWithAttack.get(0).getString().contains("Tool Place Corner 1"));
+            t.check("external: ... and seen from Litematica's side: no conflict, attack named as sharing the key",
+                    KeyConflicts.conflictsOf(corner1, client().options).isEmpty()
+                            && KeyConflicts.sharedWithoutConflict(corner1, client().options).size() == 1);
+            settings.setScopeOverride(KeyConflicts.overrideKey(corner1), KeyConflicts.OVERRIDE_GENERAL);
+            conflict("the player can overrule that: counted as used during play, the tool key clashes with attack", "key.attack", KeyConflicts.Level.HARD, 1, "external");
+            settings.setScopeOverride(KeyConflicts.overrideKey(corner1), null);
+            conflict("... and removing the choice makes it no conflict again", "key.attack", KeyConflicts.Level.NONE, 0, null);
+
+            // F3 combinations against keys of other mods.
+            ExternalBinding lightOverlay = all.stream().filter(binding -> binding.name().equals("Light Overlay")).findFirst().orElseThrow();
+            conflict("an F3 combination (F3+B) and a Meteor module on B do not conflict", "key.debug.showHitboxes", KeyConflicts.Level.NONE, 0, null);
+            t.check("external: ... seen from the Meteor module's side neither",
+                    KeyConflicts.conflictsOf(lightOverlay, client().options).isEmpty());
+            t.check("external: a mod's chord that starts with F3 (F3 + M) is not compared with single keys",
+                    all.stream().filter(binding -> binding.name().equals("Rerender Schematic")).allMatch(binding -> binding.key() == null));
+            t.bind("key.jump", "key.keyboard.b");
+            conflict("a normal key on B does clash with that Meteor module (and still not with F3+B)", "key.jump", KeyConflicts.Level.HARD, 1, "external");
+
+            t.bind("key.jump", "ctrl+key.keyboard.h");
+            conflict("a Meteor key bind in the newer format (Ctrl + H) is compared like the others", "key.jump", KeyConflicts.Level.HARD, 1, "external");
+            t.bind("key.jump", "key.keyboard.space");
+            t.bind(DEMO_SCREEN_BINDING, "key.keyboard.b");
+            conflict("a key that only works in screens never meets a Meteor module, which is ignored while a screen is open",
+                    DEMO_SCREEN_BINDING, KeyConflicts.Level.NONE, 0, null);
+            t.bind(DEMO_SCREEN_BINDING, "key.keyboard.unknown");
+
             t.bind("key.jump", "key.keyboard.z");
             conflict("a Meteor module on Z and a game key on Z are reported", "key.jump", KeyConflicts.Level.HARD, 1, "external");
             ExternalBinding autoTotem = all.stream().filter(binding -> binding.name().equals("Auto Totem") && binding.active()).findFirst().orElseThrow();
@@ -712,6 +797,16 @@ final class LogicChecks {
         }
     }
 
+    private void when(List<ExternalBinding> all, String group, String name, ExternalBinding.When expected) {
+        ExternalBinding.When actual = all.stream().filter(binding -> binding.group().getString().equals(group) && binding.name().equals(name))
+                .map(ExternalBinding::when).findFirst().orElse(null);
+        t.check("external: " + group + " / " + name + " is in use " + expected + (actual == expected ? "" : " but was " + actual), actual == expected);
+    }
+
+    private static ExternalBinding.When malilibWhen(String modId, String name, boolean bareModifier, boolean bareMouseClick) {
+        return ExternalKeys.malilibWhen(modId, name, bareModifier, bareMouseClick);
+    }
+
     private void external(List<ExternalBinding> all, String group, String name, String keyText, boolean active) {
         ExternalBinding found = null;
         for (ExternalBinding binding : all) {
@@ -746,6 +841,25 @@ final class LogicChecks {
         modules.add(meteorModule("free-look", true, 75, 2));
         modules.add(meteorModule("unbound-module", true, -1, 0));
         modules.add(meteorModule("mouse-module", false, 3, 0));
+        modules.add(meteorModule("light-overlay", true, 66, 0));
+        // The same things the way newer Meteor versions write them: key names and modifier names.
+        NbtCompound antiAfk = meteorModule("anti-afk", "key.keyboard.h", "CONTROL");
+        NbtCompound pauseKey = new NbtCompound();
+        pauseKey.putString("name", "pause-key");
+        pauseKey.put("value", meteorKeybind("key.mouse.5"));
+        NbtList pauseSettings = new NbtList();
+        pauseSettings.add(pauseKey);
+        NbtCompound pauseGroup = new NbtCompound();
+        pauseGroup.putString("name", "General");
+        pauseGroup.put("settings", pauseSettings);
+        NbtList pauseGroups = new NbtList();
+        pauseGroups.add(pauseGroup);
+        NbtCompound antiAfkSettings = new NbtCompound();
+        antiAfkSettings.put("groups", pauseGroups);
+        antiAfk.put("settings", antiAfkSettings);
+        modules.add(antiAfk);
+        modules.add(meteorModule("new-unbound", "key.keyboard.unknown"));
+        modules.add(meteorModule("super-module", "key.keyboard.n", "SUPER"));
         NbtCompound rootTag = new NbtCompound();
         rootTag.putString("name", "modules");
         rootTag.put("modules", modules);
@@ -767,7 +881,14 @@ final class LogicChecks {
                     "toggleAllRendering": { "keys": "M,R" },
                     "executeOperation": { "keys": "LEFT_CONTROL,KP_5" },
                     "unboundOne": { "keys": "" },
-                    "pickBlockLast": { "keys": "BUTTON_3" }
+                    "pickBlockLast": { "keys": "BUTTON_3" },
+                    "toolPlaceCorner1": { "keys": "BUTTON_1" },
+                    "toolPlaceCorner2": { "keys": "BUTTON_2" },
+                    "toolSelectElements": { "keys": "BUTTON_3" },
+                    "toolSelectModifierBlock2": { "keys": "LEFT_SHIFT" },
+                    "operationModeChangeModifier": { "keys": "LEFT_CONTROL" },
+                    "rerenderSchematic": { "keys": "F3,M" },
+                    "layerNext": { "keys": "PAGE_UP" }
                   }
                 }
                 """);
@@ -793,6 +914,23 @@ final class LogicChecks {
         module.put("settings", new NbtCompound());
         module.putBoolean("active", false);
         return module;
+    }
+
+    private static NbtCompound meteorModule(String name, String keyName, String... modifierNames) {
+        NbtCompound module = meteorModule(name, true, -1, 0);
+        module.put("keybind", meteorKeybind(keyName, modifierNames));
+        return module;
+    }
+
+    private static NbtCompound meteorKeybind(String keyName, String... modifierNames) {
+        NbtCompound keybind = new NbtCompound();
+        keybind.putString("key", keyName);
+        NbtList modifiers = new NbtList();
+        for (String modifier : modifierNames) {
+            modifiers.add(net.minecraft.nbt.NbtString.of(modifier));
+        }
+        keybind.put("modifiers", modifiers);
+        return keybind;
     }
 
     private static NbtCompound meteorKeybind(boolean isKey, int value, int modifiers) {

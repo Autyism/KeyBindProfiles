@@ -3,7 +3,9 @@ package io.github.autyi6969.keybindprofilesplus.selftest;
 import io.github.autyi6969.keybindprofilesplus.KeyBindProfilesPlus;
 import io.github.autyi6969.keybindprofilesplus.external.ExternalKeys;
 import io.github.autyi6969.keybindprofilesplus.gui.KeyBindProfileScreen;
+import io.github.autyi6969.keybindprofilesplus.gui.KeyOverviewScreen;
 import io.github.autyi6969.keybindprofilesplus.gui.ProfileEditScreen;
+import io.github.autyi6969.keybindprofilesplus.input.ProfileHotkeyController;
 import io.github.autyi6969.keybindprofilesplus.keys.KeyCombos;
 import io.github.autyi6969.keybindprofilesplus.keys.KeyConflicts;
 import io.github.autyi6969.keybindprofilesplus.keys.KeyOrigins;
@@ -72,6 +74,7 @@ public final class SelfTest extends SelfTestRunner {
     private boolean savedConfirmApply = true;
     private boolean savedAutoSwitch = true;
     private boolean savedReturnToDefault;
+    private boolean savedReplaceKeyBinds = true;
     private int savedScaleFactor;
     private boolean started;
     private boolean finished;
@@ -176,9 +179,11 @@ public final class SelfTest extends SelfTestRunner {
         step("leave: back to the default profile", logic::leaveDefault);
 
         // Screens.
-        screens.recordCombinations();
+        screens.rebindOnKeyBindsScreen();
+        screens.recordCombinationsOnVanillaScreen();
         step("examples for the screenshots", screens::setUpVisibleExamples);
         screens.tour("en");
+        screens.modMenu();
         screens.applyFlow();
         step("switch language to zh_cn", SCREEN_SETTLE_TICKS, () -> setLanguage(client, "zh_cn"));
         step("chinese texts", logic::chineseTexts);
@@ -199,6 +204,7 @@ public final class SelfTest extends SelfTestRunner {
         step("world: settle", 30, () -> {
         });
         step("world: auto-switch rules", 2, () -> worldAutoSwitch(client));
+        step("world: profile hotkey", 2, () -> worldHotkey(client));
         open("main screen in a world", () -> new KeyBindProfileScreen(null));
         step("world: open the edit screen of " + PROFILE_A, SCREEN_SETTLE_TICKS, () -> {
             screen(KeyBindProfileScreen.class).select(PROFILE_A);
@@ -219,11 +225,23 @@ public final class SelfTest extends SelfTestRunner {
      * gives, about 427 x 240), to see that nothing is pushed off the screen there.
      */
     private void smallWindowTour(MinecraftClient client) {
+        // The interface shrinks while a screen is open, as when the window is dragged smaller.
+        open("key binds screen before the interface shrinks", () -> new KeyOverviewScreen(homeScreen));
         step("small: largest interface scale", SCREEN_SETTLE_TICKS, () -> {
             var window = client.getWindow();
             savedScaleFactor = window.getScaleFactor();
             window.setScaleFactor(window.calculateScaleFactor(0, client.forcesUnicodeFont()));
+            client.currentScreen.resize(window.getScaledWidth(), window.getScaledHeight());
             log("small: interface is now " + window.getScaledWidth() + "x" + window.getScaledHeight() + " (scale " + window.getScaleFactor() + ")");
+        });
+        step("small: the open screen was laid out again", () -> {
+            var manage = widget(translated("keybindprofilesplus.open"));
+            var done = widget(translated("gui.done"));
+            check("small: a screen that was open while the interface shrank fits the new size (" + manage.getX() + " .. " + (done.getX() + done.getWidth()) + " of " + client.currentScreen.width + ")",
+                    isScreen(KeyOverviewScreen.class) && manage.getX() >= 0 && done.getX() + done.getWidth() <= client.currentScreen.width);
+        });
+        shot("small_keybinds_after_resize");
+        step("small: main screen", SCREEN_SETTLE_TICKS, () -> {
             logic.makeGameDifferFromProfileA();
             client.setScreen(new KeyBindProfileScreen(null));
         });
@@ -241,12 +259,24 @@ public final class SelfTest extends SelfTestRunner {
         smallVisit("keybindprofilesplus.overview.open", "small_overview", "gui.done");
         smallVisit("keybindprofilesplus.rules.open", "small_server_rules", "gui.done");
         smallVisit("keybindprofilesplus.settings.open", "small_settings", "gui.done");
-        open("vanilla key binds screen (small)", () -> new net.minecraft.client.gui.screen.option.KeybindsScreen(homeScreen, client.options));
+        open("key binds screen from the options (small)", () -> new net.minecraft.client.gui.screen.option.KeybindsScreen(homeScreen, client.options));
         step("small: the four buttons fit side by side", () -> {
+            var manage = widget(translated("keybindprofilesplus.open"));
+            var done = widget(translated("gui.done"));
+            check("small: the key binds screen's footer buttons are inside the screen (" + manage.getX() + " .. " + (done.getX() + done.getWidth()) + " of " + client.currentScreen.width + ")",
+                    manage.getX() >= 0 && done.getX() + done.getWidth() <= client.currentScreen.width && manage.getX() + manage.getWidth() <= widget(translated("keybindprofilesplus.compare.open_short")).getX());
+        });
+        shot("small_keybinds_from_options");
+        step("small: the vanilla screen with the mod's buttons", SCREEN_SETTLE_TICKS, () -> {
+            KeyBindProfilesPlus.settings().setReplaceKeyBinds(false);
+            client.setScreen(new net.minecraft.client.gui.screen.option.KeybindsScreen(homeScreen, client.options));
+        });
+        step("small: the four buttons fit side by side there too", () -> {
             var manage = widget(translated("keybindprofilesplus.open"));
             var done = widget(translated("gui.done"));
             check("small: vanilla footer buttons are inside the screen (" + manage.getX() + " .. " + (done.getX() + done.getWidth()) + " of " + client.currentScreen.width + ")",
                     manage.getX() >= 0 && done.getX() + done.getWidth() <= client.currentScreen.width && manage.getX() + manage.getWidth() <= widget(translated("keybindprofilesplus.compare.open_short")).getX());
+            KeyBindProfilesPlus.settings().setReplaceKeyBinds(true);
         });
         shot("small_vanilla_keybinds");
         step("small: back to the normal interface scale", SCREEN_SETTLE_TICKS, () -> {
@@ -300,6 +330,47 @@ public final class SelfTest extends SelfTestRunner {
         check("world: adding the rule back switches again without rejoining", PROFILE_A.equals(service.getCurrentProfile()));
     }
 
+    /** A profile's hotkey during play. The keys are pretended to be held: real key state cannot be faked. */
+    private void worldHotkey(MinecraftClient client) {
+        ModSettings settings = KeyBindProfilesPlus.settings();
+        ProfileHotkeyController hotkeys = KeyBindProfilesPlus.hotkeyController();
+        List<String> keys = List.of("key.keyboard.keypad.5", "key.keyboard.f6");
+        java.util.Set<String> down = new java.util.HashSet<>();
+        boolean autoSwitch = settings.autoSwitch();
+        try {
+            settings.setAutoSwitch(false);
+            service.setProfileHotkey(PROFILE_C, keys);
+            service.applyProfile(PROFILE_A);
+            hotkeys.setKeyStateForTesting(key -> down.contains(key.getTranslationKey()));
+
+            down.add(keys.get(0));
+            hotkeys.tick(client);
+            check("hotkey: one of its two keys alone does not switch", PROFILE_A.equals(service.getCurrentProfile()));
+
+            down.addAll(keys);
+            hotkeys.tick(client);
+            check("hotkey: both keys held switch to " + PROFILE_C, PROFILE_C.equals(service.getCurrentProfile()));
+            check("hotkey: ... and the notice names the profile", PROFILE_C.equals(KeyBindProfilesPlus.getNotificationText()));
+
+            service.applyProfile(PROFILE_A);
+            hotkeys.tick(client);
+            check("hotkey: keeping the keys held does not switch again", PROFILE_A.equals(service.getCurrentProfile()));
+
+            down.clear();
+            hotkeys.tick(client);
+            client.setScreen(new KeyBindProfileScreen(null));
+            down.addAll(keys);
+            hotkeys.tick(client);
+            check("hotkey: nothing happens while a screen is open", PROFILE_A.equals(service.getCurrentProfile()));
+            client.setScreen(null);
+            hotkeys.tick(client);
+            check("hotkey: back in the game the same keys switch", PROFILE_C.equals(service.getCurrentProfile()));
+        } finally {
+            hotkeys.setKeyStateForTesting(null);
+            settings.setAutoSwitch(autoSwitch);
+        }
+    }
+
     private void logEnvironment(MinecraftClient client) {
         var window = client.getWindow();
         log("ENV minecraft=" + SharedConstants.getGameVersion().name()
@@ -323,6 +394,9 @@ public final class SelfTest extends SelfTestRunner {
         savedAutoSwitch = settings.autoSwitch();
         savedDefaultProfile = settings.defaultProfile();
         savedReturnToDefault = settings.returnToDefault();
+        savedReplaceKeyBinds = settings.replaceKeyBinds();
+        // The run starts from the setting a fresh install has.
+        settings.setReplaceKeyBinds(true);
         Map<String, String> optionValues = new LinkedHashMap<>();
         GameOptionsBridge.readAll(client.options).forEach((key, entry) -> {
             if (OptionCatalog.isOffered(key)) {
@@ -387,6 +461,7 @@ public final class SelfTest extends SelfTestRunner {
             settings.setAutoSwitch(savedAutoSwitch);
             settings.setDefaultProfile(savedDefaultProfile);
             settings.setReturnToDefault(savedReturnToDefault);
+            settings.setReplaceKeyBinds(savedReplaceKeyBinds);
             client.options.pauseOnLostFocus = savedPauseOnLostFocus;
             if (savedLanguage != null && !savedLanguage.equals(client.getLanguageManager().getLanguage())) {
                 setLanguage(client, savedLanguage);

@@ -6,6 +6,8 @@
     "KeyBindingComboMixin",
     "KeyBindingCreationMixin",
     "KeyBindingEntryMixin",
+    "KeyBindsScreenReplaceMixin",
+    "KeyBindsScreenReplaceMixin",
     "KeyDisplayNameMixin"
   ],
   "injectors": {

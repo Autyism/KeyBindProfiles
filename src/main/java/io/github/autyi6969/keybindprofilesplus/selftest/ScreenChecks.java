@@ -20,6 +20,7 @@ import io.github.autyi6969.keybindprofilesplus.profile.ShareCode;
 import io.github.autyi6969.keybindprofilesplus.storage.ModSettings;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.screen.ConfirmScreen;
+import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.screen.option.KeybindsScreen;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
@@ -65,13 +66,126 @@ final class ScreenChecks {
 
     // ------------------------------------------------------------------ recording combinations with real key events
 
-    /** Records combinations on the vanilla Key Binds screen by sending key events through the game's own key handler. */
-    void recordCombinations() {
+    /**
+     * Rebinding on the mod's Key Binds screen the way a player does it: a real mouse click on the
+     * key button, then key events through the game's own key handler.
+     */
+    void rebindOnKeyBindsScreen() {
+        String id = "key.socialInteractions";
         String[] original = new String[1];
+        Map<String, String> layout = new java.util.LinkedHashMap<>();
+        t.open("key binds screen, the way the options menu opens it", () -> new KeybindsScreen(t.homeScreen, client().options));
+        t.step("keys: the mod's screen is shown in place of the vanilla one", 3, () -> {
+            t.check("keys: opening the vanilla Key Binds screen shows the mod's screen instead", t.isScreen(KeyOverviewScreen.class));
+            KeyOverviewScreen keys = t.screen(KeyOverviewScreen.class);
+            original[0] = KeyCombos.valueOf(SelfTestRunner.binding(id));
+            keys.setQuery("social");
+            t.check("keys: searching leaves one row", keys.visibleBindingCount() == 1);
+        });
+        t.step("keys: click the key button", 2, () -> {
+            KeyOverviewScreen keys = t.screen(KeyOverviewScreen.class);
+            t.mouseClick(keys.keyButtonPoint(id), 0);
+            t.check("keys: a click on the key button makes the binding wait for a key", id.equals(keys.waitingFor()));
+        });
+        t.shot("en_keybinds_waiting_for_key");
+        t.step("keys: Ctrl goes down", 2, () -> {
+            t.sendKey(InputUtil.GLFW_KEY_LEFT_CONTROL, true, KeyCombo.CTRL);
+            KeyOverviewScreen keys = t.screen(KeyOverviewScreen.class);
+            t.check("keys: holding Ctrl does not bind Left Control yet", id.equals(keys.waitingFor())
+                    && KeyCombos.valueOf(SelfTestRunner.binding(id)).equals(original[0]));
+            t.check("keys: the button shows the modifier being held", t.hasWidget("> Ctrl + ... <"));
+        });
+        t.step("keys: F15 goes down with Ctrl held", 2, () -> {
+            t.sendKey(InputUtil.GLFW_KEY_F15, true, KeyCombo.CTRL);
+            KeyBinding binding = SelfTestRunner.binding(id);
+            KeyOverviewScreen keys = t.screen(KeyOverviewScreen.class);
+            t.check("keys: Ctrl + F15 was recorded", KeyCombos.valueOf(binding).equals("ctrl+key.keyboard.f15") && keys.waitingFor() == null);
+            t.check("keys: the list shows Ctrl + F15", t.hasWidget("Ctrl + F15"));
+            t.sendKey(InputUtil.GLFW_KEY_F15, false, KeyCombo.CTRL);
+            t.sendKey(InputUtil.GLFW_KEY_LEFT_CONTROL, false, 0);
+            t.check("keys: releasing the keys afterwards changes nothing", KeyCombos.valueOf(binding).equals("ctrl+key.keyboard.f15"));
+            keys.charTyped(new net.minecraft.client.input.CharInput('x', 0));
+            t.check("keys: the character of the key just bound does not land in the search box", keys.visibleBindingCount() == 1);
+        });
+        t.step("keys: a modifier pressed and released alone is bound as a plain key", 2, () -> {
+            KeyOverviewScreen keys = t.screen(KeyOverviewScreen.class);
+            t.mouseClick(keys.keyButtonPoint(id), 0);
+            t.sendKey(InputUtil.GLFW_KEY_RIGHT_SHIFT, true, KeyCombo.SHIFT);
+            t.sendKey(InputUtil.GLFW_KEY_RIGHT_SHIFT, false, 0);
+            t.check("keys: Right Shift alone -> " + KeyCombos.valueOf(SelfTestRunner.binding(id)),
+                    KeyCombos.valueOf(SelfTestRunner.binding(id)).equals("key.keyboard.right.shift") && keys.waitingFor() == null);
+        });
+        t.step("keys: a mouse button can be bound", 2, () -> {
+            KeyOverviewScreen keys = t.screen(KeyOverviewScreen.class);
+            t.mouseClick(keys.keyButtonPoint(id), 0);
+            t.check("keys: waiting again", id.equals(keys.waitingFor()));
+            t.mouseClick(new int[]{5, 5}, 0);
+            t.check("keys: the next click binds that mouse button -> " + KeyCombos.valueOf(SelfTestRunner.binding(id)),
+                    KeyCombos.valueOf(SelfTestRunner.binding(id)).equals("key.mouse.left") && keys.waitingFor() == null);
+        });
+        t.step("keys: the reset button", 2, () -> {
+            KeyBinding binding = SelfTestRunner.binding(id);
+            t.click(translated("controls.reset"));
+            t.check("keys: Reset puts the default key back", binding.isDefault() && !t.widget(translated("controls.reset")).active);
+            t.bind(id, "alt+" + binding.getDefaultKey().getTranslationKey());
+            t.check("keys: a combination on the default key is not 'default'", !binding.isDefault());
+            t.screen(KeyOverviewScreen.class).reset(id);
+            t.check("keys: resetting drops the modifiers", binding.isDefault() && KeyCombos.modifiersOf(binding) == 0);
+        });
+        t.step("keys: escape unbinds", 2, () -> {
+            KeyBinding binding = SelfTestRunner.binding(id);
+            KeyOverviewScreen keys = t.screen(KeyOverviewScreen.class);
+            t.mouseClick(keys.keyButtonPoint(id), 0);
+            t.sendKey(InputUtil.GLFW_KEY_ESCAPE, true, 0);
+            t.sendKey(InputUtil.GLFW_KEY_ESCAPE, false, 0);
+            t.check("keys: Escape while waiting leaves the binding without a key and keeps the screen open",
+                    binding.isUnbound() && KeyCombos.modifiersOf(binding) == 0 && t.isScreen(KeyOverviewScreen.class));
+            t.bind(id, original[0]);
+            keys.setQuery("");
+        });
+        t.step("keys: reset all asks first", SCREEN_SETTLE_TICKS, () -> {
+            layout.putAll(SelfTestRunner.currentKeyValues());
+            t.bind("key.jump", "key.keyboard.f18");
+            client().setScreen(new KeybindsScreen(t.homeScreen, client().options));
+        });
+        t.step("keys: reset all asks first (2)", SCREEN_SETTLE_TICKS, () -> {
+            t.click(translated("controls.resetAll"));
+            t.check("keys: Reset Keys asks for confirmation", t.isScreen(ConfirmScreen.class));
+        });
+        t.step("keys: reset all, no", SCREEN_SETTLE_TICKS, () -> {
+            t.click(translated("gui.no"));
+            t.check("keys: answering No changes nothing", t.isScreen(KeyOverviewScreen.class)
+                    && "key.keyboard.f18".equals(SelfTestRunner.binding("key.jump").getBoundKeyTranslationKey()));
+            t.click(translated("controls.resetAll"));
+        });
+        t.step("keys: reset all, yes", SCREEN_SETTLE_TICKS, () -> {
+            t.click(translated("gui.yes"));
+            boolean allDefault = true;
+            for (KeyBinding binding : client().options.allKeys) {
+                allDefault &= binding.isDefault();
+            }
+            t.check("keys: answering Yes puts every binding back on its default key", t.isScreen(KeyOverviewScreen.class) && allDefault
+                    && !t.widget(translated("controls.resetAll")).active);
+            layout.forEach(t::bind);
+        });
+        t.step("keys: done", SCREEN_SETTLE_TICKS, () -> {
+            t.click(translated("gui.done"));
+            t.check("keys: Done leads back to where the vanilla screen would have", client().currentScreen == t.homeScreen);
+        });
+    }
+
+    /**
+     * With "replace the vanilla Key Binds screen" switched off the vanilla screen is kept, and
+     * combinations are recorded on it by the same real key events.
+     */
+    void recordCombinationsOnVanillaScreen() {
+        String[] original = new String[1];
+        t.step("vanilla mode: switch the replacement off", () -> KeyBindProfilesPlus.settings().setReplaceKeyBinds(false));
         t.open("vanilla key binds screen (recording)", () -> new KeybindsScreen(t.homeScreen, client().options));
         t.step("record: start waiting for a key", 2, () -> {
             KeyBinding binding = SelfTestRunner.binding("key.socialInteractions");
             original[0] = KeyCombos.valueOf(binding);
+            t.check("vanilla mode: with the replacement off the vanilla Key Binds screen is kept", t.isScreen(KeybindsScreen.class));
             KeybindsScreen screen = t.screen(KeybindsScreen.class);
             screen.selectedKeyBinding = binding;
             screen.controlsList.update();
@@ -121,7 +235,10 @@ final class ScreenChecks {
             t.check("record: Escape leaves it unbound without modifiers", binding.isUnbound() && KeyCombos.modifiersOf(binding) == 0);
             t.bind("key.socialInteractions", original[0]);
         });
-        t.step("record: close", 2, () -> client().setScreen(t.homeScreen));
+        t.step("record: close", 2, () -> {
+            client().setScreen(t.homeScreen);
+            KeyBindProfilesPlus.settings().setReplaceKeyBinds(true);
+        });
     }
 
     // ------------------------------------------------------------------ examples that make the screenshots meaningful
@@ -151,7 +268,10 @@ final class ScreenChecks {
                     break;
                 }
             }
-            if (!usedElsewhere && !debug.getBoundKeyTranslationKey().equals("key.keyboard.z")) {
+            for (io.github.autyi6969.keybindprofilesplus.external.ExternalBinding external : io.github.autyi6969.keybindprofilesplus.external.ExternalKeys.active()) {
+                usedElsewhere |= external.key() != null && external.key().getTranslationKey().equals(debug.getBoundKeyTranslationKey());
+            }
+            if (!usedElsewhere) {
                 t.bind("key.advancements", debug.getBoundKeyTranslationKey());
                 SelfTestRunner.log("examples: advancements now shares " + SelfTestRunner.keyLabel("key.advancements") + " with F3 combination " + debug.getId());
                 break;
@@ -176,9 +296,10 @@ final class ScreenChecks {
             t.step("main: nothing selected yet", () -> {
                 KeyBindProfileScreen main = t.screen(KeyBindProfileScreen.class);
                 t.check("main: every profile is listed (" + main.visibleProfileCount() + ")", main.visibleProfileCount() == service.profiles().size());
-                t.check("main: Apply, Edit and Delete are disabled until a profile is selected",
+                t.check("main: Apply, Edit, Copy Code and Delete are disabled until a profile is selected",
                         !t.widget(translated("keybindprofilesplus.apply")).active && !t.widget(translated("keybindprofilesplus.edit")).active
-                                && !t.widget(translated("keybindprofilesplus.delete")).active);
+                                && !t.widget(translated("keybindprofilesplus.share.copy")).active
+                                && !t.widget(translated("keybindprofilesplus.delete")).active && main.shareCode() == null);
             });
         }
         t.step("main: click the row of " + PROFILE_A, 3, () -> {
@@ -234,13 +355,37 @@ final class ScreenChecks {
             t.step("main: unmark", () -> t.screen(KeyBindProfileScreen.class).toggleCompareMark(PROFILE_C));
         }
 
-        // --- key overview
-        t.step("main: open the key overview", SCREEN_SETTLE_TICKS, () -> {
+        // --- key binds screen
+        t.step("main: open the key binds screen", SCREEN_SETTLE_TICKS, () -> {
             t.click(translated("keybindprofilesplus.overview.open"));
             t.check("overview: opened", t.isScreen(KeyOverviewScreen.class));
         });
         t.shot(tag + "_overview_by_category");
+        t.step("overview: conflict markers", () -> {
+            String hardKey = SelfTestRunner.keyLabel("key.inventory");
+            String softKey = SelfTestRunner.keyLabel("key.loadToolbarActivator");
+            String debugKey = SelfTestRunner.keyLabel("key.advancements");
+            t.check("overview: the real conflict on " + hardKey + " is marked", t.hasWidget("[ " + hardKey + " ]"));
+            t.check("overview: the possible conflict on " + softKey + " is marked", t.hasWidget("[ " + softKey + " ]"));
+            t.check("overview: sharing " + debugKey + " with an F3 combination is not marked", !t.hasWidget("[ " + debugKey + " ]") && t.hasWidget(debugKey));
+            t.check("overview: a key that clashes with a Meteor module is marked", t.hasWidget("[ " + SelfTestRunner.keyLabel("key.smoothCamera") + " ]"));
+            t.check("overview: attack and use, which only share the mouse buttons with Litematica's tool, are not marked",
+                    !t.hasWidget("[ " + SelfTestRunner.keyLabel("key.attack") + " ]") && !t.hasWidget("[ " + SelfTestRunner.keyLabel("key.use") + " ]"));
+            t.check("overview: combinations are shown as such", t.hasWidget("Ctrl + F16"));
+            KeyConflicts.Summary summary = KeyConflicts.summarize(client().options);
+            t.check("overview: summary counts them (" + summary.hard() + " conflicts, " + summary.soft() + " possible)", summary.hard() >= 3 && summary.soft() >= 2);
+        });
         if (english) {
+            t.step("overview: compare button", SCREEN_SETTLE_TICKS, () -> {
+                t.click(translated("keybindprofilesplus.compare.open_short"));
+                t.check("overview: Compare Profiles opens the comparison against the current settings",
+                        t.isScreen(ProfileCompareScreen.class) && t.screen(ProfileCompareScreen.class).rightSide() == null);
+            });
+            t.shot(tag + "_compare_from_keybinds");
+            t.step("overview: compare done", SCREEN_SETTLE_TICKS, () -> {
+                t.click(translated("gui.done"));
+                t.check("overview: the comparison returns to the key binds screen", t.isScreen(KeyOverviewScreen.class));
+            });
             t.step("overview: external groups", () -> {
                 KeyOverviewScreen overview = t.screen(KeyOverviewScreen.class);
                 List<String> headings = overview.groupHeadings();
@@ -261,7 +406,7 @@ final class ScreenChecks {
             t.step("overview: one source only", 3, () -> {
                 KeyOverviewScreen overview = t.screen(KeyOverviewScreen.class);
                 overview.setSourceFilter("Meteor");
-                t.check("overview: filtering by Meteor shows its 4 hotkeys, got " + overview.visibleBindingCount(), overview.visibleBindingCount() == 4);
+                t.check("overview: filtering by Meteor shows its 8 hotkeys, got " + overview.visibleBindingCount(), overview.visibleBindingCount() == 8);
             });
             t.shot(tag + "_overview_meteor_only");
             t.step("overview: all mods", 3, () -> {
@@ -293,12 +438,30 @@ final class ScreenChecks {
             });
             t.step("overview: change when a mod key is active", 3, () -> {
                 KeyOverviewScreen overview = t.screen(KeyOverviewScreen.class);
-                t.check("overview: clicking a mod key row cycles automatic -> play -> screens -> automatic",
+                t.check("overview: clicking a mod key row cycles automatic -> play -> screens -> special situation -> automatic",
                         KeyConflicts.OVERRIDE_GENERAL.equals(overview.cycleScope(DEMO_MOD_BINDING))
                                 && KeyConflicts.OVERRIDE_SCREEN.equals(overview.cycleScope(DEMO_MOD_BINDING))
+                                && KeyConflicts.OVERRIDE_SITUATIONAL.equals(overview.cycleScope(DEMO_MOD_BINDING))
                                 && overview.cycleScope(DEMO_MOD_BINDING) == null);
                 t.check("overview: vanilla keys cannot be changed that way", overview.cycleScope("key.jump") == null
                         && KeyBindProfilesPlus.settings().scopeOverride("key.jump") == null);
+                t.check("overview: F3 combinations cannot be changed that way either", overview.cycleScope("key.debug.showHitboxes") == null);
+            });
+            t.step("overview: change when another mod's hotkey is in use", 3, () -> {
+                KeyOverviewScreen overview = t.screen(KeyOverviewScreen.class);
+                String attackKey = SelfTestRunner.keyLabel("key.attack");
+                t.check("overview: a click on Litematica's tool key row makes it count as used during play",
+                        KeyConflicts.OVERRIDE_GENERAL.equals(overview.cycleExternalScope("Litematica", "Tool Place Corner 1")));
+                t.check("overview: ... and attack is then marked as clashing with it", t.hasWidget("[ " + attackKey + " ]"));
+                overview.cycleExternalScope("Litematica", "Tool Place Corner 1");
+                overview.cycleExternalScope("Litematica", "Tool Place Corner 1");
+                t.check("overview: clicking on round to automatic removes the mark again",
+                        overview.cycleExternalScope("Litematica", "Tool Place Corner 1") == null && !t.hasWidget("[ " + attackKey + " ]"));
+            });
+            t.step("overview: manage profiles button", SCREEN_SETTLE_TICKS, () -> {
+                t.click(translated("keybindprofilesplus.open"));
+                t.check("overview: opened from the main screen, Manage Profiles simply goes back to it", t.isScreen(KeyBindProfileScreen.class));
+                t.click(translated("keybindprofilesplus.overview.open"));
             });
         }
         t.step("overview: done", SCREEN_SETTLE_TICKS, () -> {
@@ -343,12 +506,8 @@ final class ScreenChecks {
         t.shot(tag + "_contents_expanded");
         if (english) {
             contentsFlow();
-            t.step("edit: share code", 3, () -> {
-                // The code is taken from the screen directly: the self-test leaves the system clipboard alone.
-                shareCode = t.screen(ProfileEditScreen.class).shareCode();
-                t.check("edit: the profile has a share code and a button to copy it",
-                        shareCode.startsWith(ShareCode.PREFIX) && t.hasWidget(translated("keybindprofilesplus.share.copy")));
-            });
+            t.step("edit: no share button in here", () ->
+                    t.check("edit: the share code button is not hidden inside the edit screen", !t.hasWidget(translated("keybindprofilesplus.share.copy"))));
         } else {
             t.step("contents: cancel", SCREEN_SETTLE_TICKS, () -> t.click(translated("gui.cancel")));
         }
@@ -356,6 +515,14 @@ final class ScreenChecks {
             t.click(translated("gui.done"));
             t.check("edit: done returns to the main screen", t.isScreen(KeyBindProfileScreen.class));
         });
+        if (english) {
+            t.step("main: share code", 3, () -> {
+                // The code is taken from the screen directly: the self-test leaves the system clipboard alone.
+                shareCode = t.screen(KeyBindProfileScreen.class).shareCode();
+                t.check("main: the selected profile has a share code and an enabled button to copy it, right on the main screen",
+                        shareCode != null && shareCode.startsWith(ShareCode.PREFIX) && t.widget(translated("keybindprofilesplus.share.copy")).active);
+            });
+        }
 
         // --- new profile
         t.step("main: new profile", SCREEN_SETTLE_TICKS, () -> {
@@ -410,8 +577,70 @@ final class ScreenChecks {
             t.check("rules: done returns to the main screen", t.isScreen(KeyBindProfileScreen.class));
         });
 
-        // --- the vanilla Key Binds screen
-        vanillaKeyBinds(tag, english);
+        // --- the Key Binds screen as the options menu opens it
+        keyBindsFromOptions(tag);
+        if (english) {
+            // ... and the vanilla screen with the mod's additions, for players who switch the replacement off.
+            t.step("vanilla mode: switch the replacement off", () -> KeyBindProfilesPlus.settings().setReplaceKeyBinds(false));
+            vanillaKeyBinds(tag, true);
+            t.step("vanilla mode: switch the replacement back on", () -> KeyBindProfilesPlus.settings().setReplaceKeyBinds(true));
+        }
+    }
+
+    private void keyBindsFromOptions(String tag) {
+        t.open("key binds screen from the options", () -> new KeybindsScreen(t.homeScreen, client().options));
+        t.step("keys: buttons", () -> {
+            t.check("keys: the options menu's Key Binds button leads to the mod's screen", t.isScreen(KeyOverviewScreen.class));
+            t.check("keys: it has Manage Profiles, Compare Profiles, Reset Keys and Done",
+                    t.hasWidget(translated("keybindprofilesplus.open")) && t.hasWidget(translated("keybindprofilesplus.compare.open_short"))
+                            && t.hasWidget(translated("controls.resetAll")) && t.hasWidget(translated("gui.done")));
+        });
+        t.shot(tag + "_keybinds_from_options");
+        t.step("keys: manage button", SCREEN_SETTLE_TICKS, () -> {
+            t.click(translated("keybindprofilesplus.open"));
+            t.check("keys: Manage Profiles opens the main screen", t.isScreen(KeyBindProfileScreen.class));
+        });
+        t.step("keys: its Key Binds button goes back instead of stacking another screen", SCREEN_SETTLE_TICKS, () -> {
+            t.click(translated("keybindprofilesplus.overview.open"));
+            t.check("keys: back on the key binds screen", t.isScreen(KeyOverviewScreen.class));
+        });
+        t.step("keys: done", SCREEN_SETTLE_TICKS, () -> {
+            t.click(translated("gui.done"));
+            t.check("keys: Done leads back to where the options menu's screen would have", client().currentScreen == t.homeScreen);
+        });
+    }
+
+    /** The configure button Mod Menu shows for the mod: the settings screen, with the way on to everything else. */
+    void modMenu() {
+        Screen[] settingsScreen = new Screen[1];
+        t.step("mod menu: the mod offers a configure screen", SCREEN_SETTLE_TICKS, () -> {
+            if (!net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("modmenu")) {
+                t.fail("mod menu: Mod Menu is not in the dev client, its configure button cannot be checked");
+                return;
+            }
+            for (var container : net.fabricmc.loader.api.FabricLoader.getInstance().getEntrypointContainers("modmenu", com.terraformersmc.modmenu.api.ModMenuApi.class)) {
+                if (container.getProvider().getMetadata().getId().equals(KeyBindProfilesPlus.MOD_ID)) {
+                    settingsScreen[0] = container.getEntrypoint().getModConfigScreenFactory().create(t.homeScreen);
+                }
+            }
+            t.check("mod menu: the configure button opens the settings screen", settingsScreen[0] instanceof SettingsScreen);
+            if (settingsScreen[0] != null) {
+                client().setScreen(settingsScreen[0]);
+            }
+        });
+        t.shot("en_settings_from_mod_menu");
+        t.step("mod menu: on to the profiles", SCREEN_SETTLE_TICKS, () -> {
+            t.check("mod menu: opened from the mod list, the settings screen offers the profiles and the key binds",
+                    t.hasWidget(translated("keybindprofilesplus.open")) && t.hasWidget(translated("keybindprofilesplus.overview.open")));
+            t.click(translated("keybindprofilesplus.open"));
+            t.check("mod menu: Manage Profiles opens the main screen", t.isScreen(KeyBindProfileScreen.class));
+        });
+        t.step("mod menu: and back", SCREEN_SETTLE_TICKS, () -> {
+            t.click(translated("gui.done"));
+            t.check("mod menu: Done returns to the settings screen", client().currentScreen == settingsScreen[0]);
+            t.click(translated("gui.done"));
+        });
+        t.step("mod menu: done", 2, () -> t.check("mod menu: Done on the settings screen returns to the mod list", client().currentScreen == t.homeScreen));
     }
 
     private void editFlow() {
@@ -674,6 +903,15 @@ final class ScreenChecks {
             settings.setAutoSwitch(autoBefore);
             settings.setReturnToDefault(returnBefore);
         });
+        t.step("settings: replace-the-vanilla-screen switch", 3, () -> {
+            KeybindsScreen vanilla = new KeybindsScreen(t.homeScreen, client().options);
+            t.check("settings: the vanilla Key Binds screen is replaced to begin with", settings.replaceKeyBinds()
+                    && KeyOverviewScreen.replacementFor(vanilla) instanceof KeyOverviewScreen);
+            t.check("settings: opened from the main screen there is no extra 'Manage Profiles' row", !t.hasWidget(translated("keybindprofilesplus.open")));
+            t.click(translated("keybindprofilesplus.settings.replace_key_binds") + ": " + translated("options.on"));
+            t.check("settings: the switch turns the replacement off", !settings.replaceKeyBinds() && KeyOverviewScreen.replacementFor(vanilla) == vanilla);
+            settings.setReplaceKeyBinds(true);
+        });
         t.step("settings: default profile picker", 3, () -> {
             settings.setDefaultProfile(null);
             client().setScreen(new SettingsScreen(new KeyBindProfileScreen(null), service));
@@ -731,9 +969,6 @@ final class ScreenChecks {
             t.check("vanilla: it opens the compare screen against the current settings",
                     t.isScreen(ProfileCompareScreen.class) && t.screen(ProfileCompareScreen.class).rightSide() == null);
         });
-        if (english) {
-            t.shot(tag + "_compare_from_keybinds");
-        }
         t.step("vanilla: compare done", SCREEN_SETTLE_TICKS, () -> {
             t.click(translated("gui.done"));
             t.check("vanilla: compare returns to the Key Binds screen", t.isScreen(KeybindsScreen.class));

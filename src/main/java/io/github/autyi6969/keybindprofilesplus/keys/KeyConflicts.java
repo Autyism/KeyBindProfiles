@@ -23,14 +23,18 @@ import java.util.Set;
  *   <li>{@link Level#HARD} (red): same key in the same situation;</li>
  *   <li>{@link Level#SOFT} (yellow): they overlap only in theory or only in one situation
  *       (one game mode, or a key that only works inside screens against one used during play);</li>
- *   <li>{@link Level#NONE}: never active together, e.g. an F3 combination and a normal key, or
- *       "X" and "Ctrl + X".</li>
+ *   <li>{@link Level#NONE}: never active together, e.g. an F3 combination and a normal key,
+ *       "X" and "Ctrl + X", or a key that only acts in a special situation of its mod (Litematica's
+ *       tool on the mouse buttons).</li>
  * </ul>
  * Hotkeys that Meteor and malilib mods manage themselves take part as well.
  */
 public final class KeyConflicts {
     public static final String OVERRIDE_GENERAL = "general";
     public static final String OVERRIDE_SCREEN = "screen";
+    public static final String OVERRIDE_SITUATIONAL = "situational";
+    /** Prefix of the setting name under which the player's choice for a hotkey of another mod is stored. */
+    private static final String EXTERNAL_OVERRIDE_PREFIX = "external:";
 
     private static final Set<String> DEBUG_BASE_IDS = Set.of("key.debug.overlay", "key.debug.modifier");
     private static final Set<String> CREATIVE_ONLY_IDS = Set.of("key.saveToolbarActivator", "key.loadToolbarActivator");
@@ -86,6 +90,11 @@ public final class KeyConflicts {
         SPECTATOR_ONLY,
         /** Only while a screen (inventory, recipe viewer...) is open. Mod keys only. */
         SCREEN_ONLY,
+        /**
+         * Only in a special situation the mod sets up itself (its tool item held, one of its modes on,
+         * or held together with something else). Never counted as a conflict. Mod keys only.
+         */
+        SITUATIONAL,
         /** The F3 key itself: debug overlay and debug modifier, which share a key on purpose. */
         DEBUG_BASE,
         /** Only does something while F3 is held (F3+G and friends). */
@@ -129,21 +138,17 @@ public final class KeyConflicts {
 
     public static Scope scopeOf(KeyBinding binding, KeySourceResolver sources) {
         String id = binding.getId();
-        if (!sources.isVanilla(id)) {
-            String override = KeyBindProfilesPlus.settings().scopeOverride(id);
-            if (OVERRIDE_SCREEN.equals(override)) {
-                return Scope.SCREEN_ONLY;
-            }
-            if (OVERRIDE_GENERAL.equals(override)) {
-                return Scope.GENERAL;
-            }
-            return guessedScope(binding, sources);
-        }
+        // The debug keys first, by the game's own category: whatever else is known or guessed about a
+        // binding, an F3 combination never turns into an ordinary key.
         if (DEBUG_BASE_IDS.contains(id)) {
             return Scope.DEBUG_BASE;
         }
-        if (binding.getCategory() == KeyBinding.Category.DEBUG) {
+        if (KeyBinding.Category.DEBUG.equals(binding.getCategory())) {
             return Scope.DEBUG_COMBO;
+        }
+        if (!sources.isVanilla(id)) {
+            Scope chosen = fromOverride(KeyBindProfilesPlus.settings().scopeOverride(id));
+            return chosen != null ? chosen : guessedScope(binding, sources);
         }
         if (CREATIVE_ONLY_IDS.contains(id)) {
             return Scope.CREATIVE_ONLY;
@@ -178,7 +183,53 @@ public final class KeyConflicts {
 
     /** Whether this is a mod binding whose scope the player may set by hand. */
     public static boolean canOverrideScope(KeyBinding binding, KeySourceResolver sources) {
-        return !sources.isVanilla(binding.getId());
+        return !sources.isVanilla(binding.getId()) && !KeyBinding.Category.DEBUG.equals(binding.getCategory());
+    }
+
+    /** When a hotkey of another mod is in effect: the player's own choice if there is one, else what its reader worked out. */
+    public static Scope scopeOf(ExternalBinding external) {
+        Scope chosen = fromOverride(KeyBindProfilesPlus.settings().scopeOverride(overrideKey(external)));
+        return chosen != null ? chosen : guessedScope(external);
+    }
+
+    public static Scope guessedScope(ExternalBinding external) {
+        return switch (external.when()) {
+            case SCREEN_ONLY -> Scope.SCREEN_ONLY;
+            case SITUATIONAL -> Scope.SITUATIONAL;
+            case IN_GAME, ANYWHERE -> Scope.GENERAL;
+        };
+    }
+
+    /** The name under which the player's choice for this hotkey is kept in settings.json. */
+    public static String overrideKey(ExternalBinding external) {
+        return EXTERNAL_OVERRIDE_PREFIX + external.id();
+    }
+
+    /**
+     * The next choice when the player clicks through them: automatic (null), during play, only in
+     * screens, only in a special situation, and back to automatic.
+     */
+    public static String nextOverride(String current) {
+        if (current == null) {
+            return OVERRIDE_GENERAL;
+        }
+        return switch (current) {
+            case OVERRIDE_GENERAL -> OVERRIDE_SCREEN;
+            case OVERRIDE_SCREEN -> OVERRIDE_SITUATIONAL;
+            default -> null;
+        };
+    }
+
+    private static Scope fromOverride(String override) {
+        if (override == null) {
+            return null;
+        }
+        return switch (override) {
+            case OVERRIDE_GENERAL -> Scope.GENERAL;
+            case OVERRIDE_SCREEN -> Scope.SCREEN_ONLY;
+            case OVERRIDE_SITUATIONAL -> Scope.SITUATIONAL;
+            default -> null;
+        };
     }
 
     // ------------------------------------------------------------------ pairs
@@ -212,6 +263,10 @@ public final class KeyConflicts {
     }
 
     private static Verdict verdict(Scope a, Scope b, boolean aWorksInContainers, boolean bWorksInContainers) {
+        // Sharing a key with something that only acts in its own special situation is how that mod is meant to be used.
+        if (a == Scope.SITUATIONAL || b == Scope.SITUATIONAL) {
+            return null;
+        }
         if (a == Scope.DEBUG_COMBO || b == Scope.DEBUG_COMBO) {
             return a == b ? new Verdict(Level.HARD, "debug") : null;
         }
@@ -241,20 +296,31 @@ public final class KeyConflicts {
 
     /** A hotkey another mod manages itself, on the same key (and modifiers) as a game binding. */
     private static Conflict withExternal(KeyBinding binding, ExternalBinding external, KeySourceResolver sources) {
-        if (external.key() == null || !external.key().equals(binding.boundKey) || external.modifiers() != KeyCombos.modifiersOf(binding)) {
+        if (!sameTrigger(binding, external)) {
             return null;
         }
         Scope scope = scopeOf(binding, sources);
+        // An F3 combination only happens with F3 held; the other mod's plain key is a different press.
         if (scope == Scope.DEBUG_COMBO) {
             return null;
         }
-        Verdict verdict = verdict(scope, external.screenOnly() ? Scope.SCREEN_ONLY : Scope.GENERAL, isContainerKey(binding, sources), false);
+        Scope externalScope = scopeOf(external);
+        // Meteor and malilib leave their in-game hotkeys alone while a screen is open, so such a
+        // hotkey never meets a key that only works inside screens.
+        if (scope == Scope.SCREEN_ONLY && externalScope == Scope.GENERAL && external.when() == ExternalBinding.When.IN_GAME) {
+            return null;
+        }
+        Verdict verdict = verdict(scope, externalScope, isContainerKey(binding, sources), false);
         if (verdict == null) {
             return null;
         }
         // The other mod's key is only known from its file; say so instead of the usual explanation.
         String reason = verdict.level() == Level.HARD ? "external" : "external_partial";
         return new Conflict(null, external, verdict.level(), reason);
+    }
+
+    private static boolean sameTrigger(KeyBinding binding, ExternalBinding external) {
+        return external.key() != null && external.key().equals(binding.boundKey) && external.modifiers() == KeyCombos.modifiersOf(binding);
     }
 
     private static boolean isContainerKey(KeyBinding binding, KeySourceResolver sources) {
@@ -310,6 +376,66 @@ public final class KeyConflicts {
         }
         conflicts.sort((first, second) -> second.level().compareTo(first.level()));
         return conflicts;
+    }
+
+    /**
+     * What sits on the same key as this binding without counting as a conflict because it only acts
+     * in a special situation - so a tooltip can say why nothing is marked.
+     */
+    public static List<Text> sharedWithoutConflict(KeyBinding binding, GameOptions options) {
+        List<Text> names = new ArrayList<>();
+        if (binding.isUnbound()) {
+            return names;
+        }
+        KeySourceResolver sources = sources(options);
+        Scope own = scopeOf(binding, sources);
+        if (own == Scope.DEBUG_COMBO) {
+            return names;
+        }
+        for (KeyBinding other : options.allKeys) {
+            if (other != binding && !other.isUnbound() && KeyCombos.sameTrigger(binding, other)
+                    && (own == Scope.SITUATIONAL || scopeOf(other, sources) == Scope.SITUATIONAL)) {
+                names.add(KeyLabels.name(other));
+            }
+        }
+        for (ExternalBinding external : ExternalKeys.active()) {
+            if (sameTrigger(binding, external) && (own == Scope.SITUATIONAL || scopeOf(external) == Scope.SITUATIONAL)) {
+                names.add(external.label());
+            }
+        }
+        return names;
+    }
+
+    /** The same for a hotkey of another mod: the game bindings on its key that are not counted. */
+    public static List<Text> sharedWithoutConflict(ExternalBinding external, GameOptions options) {
+        List<Text> names = new ArrayList<>();
+        if (!external.active() || external.key() == null) {
+            return names;
+        }
+        KeySourceResolver sources = sources(options);
+        boolean situational = scopeOf(external) == Scope.SITUATIONAL;
+        for (KeyBinding binding : options.allKeys) {
+            if (binding.isUnbound() || !sameTrigger(binding, external)) {
+                continue;
+            }
+            Scope scope = scopeOf(binding, sources);
+            if (scope != Scope.DEBUG_COMBO && (situational || scope == Scope.SITUATIONAL)) {
+                names.add(KeyLabels.name(binding));
+            }
+        }
+        return names;
+    }
+
+    /** Tooltip lines for {@link #sharedWithoutConflict}; empty when there is nothing to say. */
+    public static List<Text> describeShared(List<Text> names) {
+        List<Text> lines = new ArrayList<>();
+        if (!names.isEmpty()) {
+            lines.add(Text.translatable("keybindprofilesplus.conflict.shared").formatted(Formatting.GRAY));
+            for (Text name : names) {
+                lines.add(Text.translatable("keybindprofilesplus.conflict.shared_line", name).formatted(Formatting.GRAY));
+            }
+        }
+        return lines;
     }
 
     public static Level worst(List<Conflict> conflicts) {

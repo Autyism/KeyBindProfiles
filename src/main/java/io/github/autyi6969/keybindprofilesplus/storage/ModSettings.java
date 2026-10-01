@@ -68,9 +68,21 @@ public final class ModSettings {
         save();
     }
 
+    /** Whether the mod's own Key Binds screen is shown in place of the vanilla one. */
+    public boolean replaceKeyBinds() {
+        return data().replaceKeyBinds;
+    }
+
+    public void setReplaceKeyBinds(boolean replaceKeyBinds) {
+        data().replaceKeyBinds = replaceKeyBinds;
+        save();
+    }
+
     /**
-     * The player's own say on when a mod's key binding is active: "general" (during play) or
-     * "screen" (only while a screen is open). Null means the mod decides by its built-in rules.
+     * The player's own say on when a mod's key binding (or, under an "external:" name, a hotkey
+     * another mod manages itself) is in use: "general" (during play), "screen" (only while a screen
+     * is open) or "situational" (only in a special situation, never a conflict). Null means the
+     * mod decides by its built-in rules.
      */
     public String scopeOverride(String bindingId) {
         Map<String, String> overrides = data().scopeOverrides;
@@ -138,6 +150,7 @@ public final class ModSettings {
         boolean autoSwitch = true;
         String defaultProfile;
         boolean returnToDefault;
+        boolean replaceKeyBinds = true;
         Map<String, String> scopeOverrides;
     }
 }

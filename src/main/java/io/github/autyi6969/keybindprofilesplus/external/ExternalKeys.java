@@ -65,6 +65,11 @@ public final class ExternalKeys {
         cached = false;
     }
 
+    /** For the self-test: what the malilib reader makes of a hotkey whose file says nothing about its context. */
+    public static ExternalBinding.When malilibWhen(String modId, String name, boolean bareModifier, boolean bareMouseClick) {
+        return MalilibKeys.when(modId, name, null, bareModifier, bareMouseClick);
+    }
+
     /** For the self-test: use this environment instead of the real one (null restores it). */
     public static synchronized void setEnvironmentForTesting(Environment testEnvironment) {
         environment = testEnvironment == null ? new LoadedMods() : testEnvironment;

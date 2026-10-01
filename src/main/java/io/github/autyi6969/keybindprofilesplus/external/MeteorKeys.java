@@ -22,14 +22,23 @@ import java.util.stream.Stream;
  * {@code meteor-client/profiles/<name>/modules.nbt}). Read-only: the files are opened for reading
  * and never written.
  *
- * <p>Layout of the file (uncompressed NBT): a list "modules"; every module has a "name" and a
- * "keybind" {@code {isKey, value, modifiers}} where value is a GLFW key or mouse button code, and
- * a "settings" tree that may contain further key bind settings of the same shape.
+ * <p>Layout of the file (uncompressed NBT): a list "modules"; every module has a "name", a
+ * "keybind" and a "settings" tree that may contain further key bind settings of the same shape.
+ * A key bind is written in one of two ways, depending on the Meteor version:
+ * <ul>
+ *   <li>older: {@code {isKey, value, modifiers}} - a GLFW key or mouse button code and the GLFW
+ *       modifier bits;</li>
+ *   <li>newer: {@code {key, modifiers}} - the game's own key name ("key.keyboard.z") and a list
+ *       of modifier names ("CONTROL", "SHIFT", "ALT", "SUPER").</li>
+ * </ul>
+ * A module's own key toggles it during play (Meteor ignores it while a screen is open or F3 is
+ * held); keys in its settings only matter inside that module.
  */
 final class MeteorKeys {
     static final String MOD_ID = "meteor-client";
     private static final String DIRECTORY = "meteor-client";
     private static final String MODULES_FILE = "modules.nbt";
+    private static final int GLFW_MOD_SUPER = 8;
 
     private MeteorKeys() {
     }
@@ -76,7 +85,7 @@ final class MeteorKeys {
             if (moduleName.isEmpty()) {
                 continue;
             }
-            module.getCompound("keybind").ifPresent(keybind -> add(moduleName, keybind, group, active, relativePath, out));
+            module.getCompound("keybind").ifPresent(keybind -> add(moduleName, keybind, ExternalBinding.When.IN_GAME, group, active, relativePath, out));
             scanSettings(module.get("settings"), moduleName, group, active, relativePath, out);
         }
     }
@@ -84,9 +93,10 @@ final class MeteorKeys {
     /** Key bind settings inside a module ("value" holding the same {isKey, value, modifiers} shape). */
     private static void scanSettings(NbtElement element, String moduleName, Text group, boolean active, String file, List<ExternalBinding> out) {
         if (element instanceof NbtCompound compound) {
-            if (compound.get("value") instanceof NbtCompound value && value.contains("isKey") && value.contains("value")) {
+            if (compound.get("value") instanceof NbtCompound value && isKeybind(value)) {
                 String settingName = title(compound.getString("name", ""));
-                add(settingName.isEmpty() ? moduleName : moduleName + " / " + settingName, value, group, active, file, out);
+                // A key inside a module's settings only does something within that module's own feature.
+                add(settingName.isEmpty() ? moduleName : moduleName + " / " + settingName, value, ExternalBinding.When.SITUATIONAL, group, active, file, out);
                 return;
             }
             for (String key : compound.getKeys()) {
@@ -99,21 +109,59 @@ final class MeteorKeys {
         }
     }
 
-    private static void add(String name, NbtCompound keybind, Text group, boolean active, String file, List<ExternalBinding> out) {
-        boolean isKey = keybind.getBoolean("isKey", true);
-        int value = keybind.getInt("value", -1);
-        // -1 is "not bound"; key code 0 does not exist either.
-        if (value < 0 || (isKey && value == 0)) {
+    private static boolean isKeybind(NbtCompound tag) {
+        return (tag.contains("isKey") && tag.contains("value")) || (tag.contains("key") && tag.contains("modifiers"));
+    }
+
+    private static void add(String name, NbtCompound keybind, ExternalBinding.When when, Text group, boolean active, String file, List<ExternalBinding> out) {
+        InputUtil.Key key;
+        int modifiers = 0;
+        boolean needsSuper = false;
+        if (keybind.contains("key")) {
+            try {
+                key = InputUtil.fromTranslationKey(keybind.getString("key", ""));
+            } catch (IllegalArgumentException e) {
+                return;
+            }
+            NbtList names = keybind.getListOrEmpty("modifiers");
+            for (int i = 0; i < names.size(); i++) {
+                switch (names.getString(i, "")) {
+                    case "SHIFT" -> modifiers |= KeyCombo.SHIFT;
+                    case "CONTROL" -> modifiers |= KeyCombo.CTRL;
+                    case "ALT" -> modifiers |= KeyCombo.ALT;
+                    case "SUPER" -> needsSuper = true;
+                    default -> {
+                        // Caps Lock / Num Lock states are never part of a key press as the game reports it.
+                    }
+                }
+            }
+        } else {
+            boolean isKey = keybind.getBoolean("isKey", true);
+            int value = keybind.getInt("value", -1);
+            // -1 is "not bound"; key code 0 does not exist either.
+            if (value < 0 || (isKey && value == 0)) {
+                return;
+            }
+            int bits = isKey ? keybind.getInt("modifiers", 0) : 0;
+            modifiers = bits & KeyCombo.ALL;
+            needsSuper = (bits & GLFW_MOD_SUPER) != 0;
+            key = (isKey ? InputUtil.Type.KEYSYM : InputUtil.Type.MOUSE).createFromCode(value);
+        }
+        if (key.equals(InputUtil.UNKNOWN_KEY)) {
             return;
         }
-
-        int modifiers = keybind.getInt("modifiers", 0) & KeyCombo.ALL;
-        InputUtil.Key key = (isKey ? InputUtil.Type.KEYSYM : InputUtil.Type.MOUSE).createFromCode(value);
-        if (isKey) {
-            modifiers &= ~KeyCombo.modifierOfKeyCode(value);
+        if (key.getCategory() == InputUtil.Type.KEYSYM) {
+            // A modifier key as the key itself reports its own bit.
+            modifiers &= ~KeyCombo.modifierOfKeyCode(key.getCode());
         }
-        out.add(new ExternalBinding("meteor", group, name, modifiers, key, KeyCombo.withModifiers(modifiers, key.getLocalizedText()),
-                false, active, file));
+
+        Text keyText = KeyCombo.withModifiers(modifiers, key.getLocalizedText());
+        if (needsSuper) {
+            // The Windows / Command key is not something a game key binding can ask for: shown, but not compared.
+            out.add(new ExternalBinding("meteor", group, name, 0, null, Text.literal("Super + ").append(keyText), when, active, file));
+            return;
+        }
+        out.add(new ExternalBinding("meteor", group, name, modifiers, key, keyText, when, active, file));
     }
 
     /** "auto-totem" -> "Auto Totem". */

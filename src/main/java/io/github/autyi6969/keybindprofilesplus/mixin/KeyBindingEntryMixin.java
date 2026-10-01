@@ -57,18 +57,12 @@ public abstract class KeyBindingEntryMixin {
         if (duplicate) {
             keybindprofilesplus$markerColor = level.color();
             editButton.setMessage(Text.literal("[ ").append(key.copy().formatted(Formatting.WHITE)).append(" ]").formatted(level.formatting()));
-            MutableText tooltip = Text.empty();
-            List<Text> lines = KeyConflicts.describe(conflicts);
-            for (int i = 0; i < lines.size(); i++) {
-                if (i > 0) {
-                    tooltip.append("\n");
-                }
-                tooltip.append(lines.get(i));
-            }
-            editButton.setTooltip(Tooltip.of(tooltip));
+            editButton.setTooltip(Tooltip.of(lines(KeyConflicts.describe(conflicts))));
         } else {
             editButton.setMessage(key);
-            editButton.setTooltip(null);
+            // Not marked, but worth a word: something of another mod is on this key on purpose.
+            List<Text> shared = KeyConflicts.describeShared(KeyConflicts.sharedWithoutConflict(binding, client.options));
+            editButton.setTooltip(shared.isEmpty() ? null : Tooltip.of(lines(shared)));
         }
 
         // Same "waiting for a key" decoration as vanilla, which the lines above just overwrote.
@@ -80,6 +74,18 @@ public abstract class KeyBindingEntryMixin {
                     .append(" <")
                     .formatted(Formatting.YELLOW));
         }
+    }
+
+    @Unique
+    private static Text lines(List<Text> lines) {
+        MutableText text = Text.empty();
+        for (int i = 0; i < lines.size(); i++) {
+            if (i > 0) {
+                text.append("\n");
+            }
+            text.append(lines.get(i));
+        }
+        return text;
     }
 
     /** The little bar left of the key button: vanilla always paints it yellow. */

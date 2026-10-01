@@ -19,7 +19,8 @@
 	"icon": "assets/keybindprofilesplus/icon.png",
 	"environment": "client",
 	"entrypoints": {
-		"client": ["io.github.autyi6969.keybindprofilesplus.KeyBindProfilesPlus"]
+		"client": ["io.github.autyi6969.keybindprofilesplus.KeyBindProfilesPlus"],
+		"modmenu": ["io.github.autyi6969.keybindprofilesplus.compat.ModMenuIntegration"]
 	},
 	"accessWidener": "keybindprofilesplus.accesswidener",
 	"mixins": [

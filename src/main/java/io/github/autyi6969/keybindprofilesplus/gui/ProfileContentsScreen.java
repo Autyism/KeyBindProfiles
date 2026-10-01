@@ -42,7 +42,7 @@ import java.util.function.Function;
  * down to the single setting). Ticking something stores its current value in the profile;
  * unticking removes it, so applying the profile leaves that setting alone.
  */
-public class ProfileContentsScreen extends Screen {
+public class ProfileContentsScreen extends ResizingScreen {
     private static final int HEADER_HEIGHT = 58;
     private static final int HEADER_HEIGHT_NEW = 82;
     private static final int ROW_HEIGHT = 18;
@@ -55,7 +55,7 @@ public class ProfileContentsScreen extends Screen {
     private final String profileName;
     private final boolean creating;
     private final Consumer<String> onSaved;
-    private final ThreePartsLayoutWidget layout;
+    private ThreePartsLayoutWidget layout;
     private final Group root = new Group("root", Text.empty());
     private final Map<String, Node> nodesById = new HashMap<>();
 
@@ -92,11 +92,11 @@ public class ProfileContentsScreen extends Screen {
         this.profileName = profileName;
         this.creating = creating;
         this.onSaved = onSaved;
-        this.layout = new ThreePartsLayoutWidget(this, creating ? HEADER_HEIGHT_NEW : HEADER_HEIGHT, 33);
     }
 
     @Override
     protected void init() {
+        layout = startLayout(creating ? HEADER_HEIGHT_NEW : HEADER_HEIGHT, 33);
         if (!built) {
             buildTree();
             built = true;
@@ -155,6 +155,9 @@ public class ProfileContentsScreen extends Screen {
 
     @Override
     protected void refreshWidgetPositions() {
+        if (rebuiltAfterResize()) {
+            return;
+        }
         layout.refreshPositions();
         if (list != null) {
             list.position(width, layout);

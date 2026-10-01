@@ -16,13 +16,13 @@ import java.util.ArrayList;
 import java.util.List;
 
 /** The mod's own preferences. */
-public class SettingsScreen extends Screen {
+public class SettingsScreen extends ResizingScreen {
     /** Stands for "no default profile" in the picker. */
     private static final String NONE = "";
 
     private final Screen parent;
     private final ProfileService service;
-    private final ThreePartsLayoutWidget layout = new ThreePartsLayoutWidget(this, 33, 33);
+    private ThreePartsLayoutWidget layout;
     private final ScreenStatusMessage statusMessage = new ScreenStatusMessage();
     private WidgetRowList rows;
 
@@ -34,6 +34,7 @@ public class SettingsScreen extends Screen {
 
     @Override
     protected void init() {
+        layout = startLayout(33, 33);
         layout.addHeader(title, textRenderer);
         rows = layout.addBody(new WidgetRowList(client, width, layout));
         layout.addFooter(ButtonWidget.builder(ScreenTexts.DONE, button -> close()).width(200).build());
@@ -43,6 +44,9 @@ public class SettingsScreen extends Screen {
 
     @Override
     protected void refreshWidgetPositions() {
+        if (rebuiltAfterResize()) {
+            return;
+        }
         layout.refreshPositions();
         if (rows != null) {
             rows.position(width, layout);
@@ -68,6 +72,19 @@ public class SettingsScreen extends Screen {
         ModSettings settings = KeyBindProfilesPlus.settings();
         double scroll = rows.getScrollY();
         rows.clear();
+
+        if (!(parent instanceof KeyBindProfileScreen)) {
+            // Opened from outside the mod's own screens (the mod list): offer the way in.
+            rows.addHeading(Text.translatable("keybindprofilesplus.title"));
+            rows.addWidgets(
+                    ButtonWidget.builder(Text.translatable("keybindprofilesplus.open"), button -> client.setScreen(new KeyBindProfileScreen(this))).build(),
+                    ButtonWidget.builder(Text.translatable("keybindprofilesplus.overview.open"), button -> client.setScreen(new KeyOverviewScreen(this))).build());
+        }
+
+        rows.addHeading(Text.translatable("keybindprofilesplus.settings.section.keys"));
+        rows.addWidgets(CyclingButtonWidget.onOffBuilder(settings.replaceKeyBinds())
+                .tooltip(value -> Tooltip.of(Text.translatable("keybindprofilesplus.settings.replace_key_binds.tooltip")))
+                .build(0, 0, 100, 20, Text.translatable("keybindprofilesplus.settings.replace_key_binds"), (button, value) -> settings.setReplaceKeyBinds(value)));
 
         rows.addHeading(Text.translatable("keybindprofilesplus.settings.section.apply"));
         rows.addWidgets(CyclingButtonWidget.onOffBuilder(settings.confirmApply())
