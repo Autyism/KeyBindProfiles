@@ -71,7 +71,9 @@ final class LogicChecks {
     static final String DEMO_SCREEN_BINDING = "key.fabric-api.selftest_inventory_sort";
     static final String DEMO_UNKNOWN_BINDING = "key.selftest.unknown_demo";
     static final String MOD_MENU_BINDING = "key.modmenu.open_menu";
-    static final int DEMO_BINDINGS = 3;
+    /** Stands for an F3 combination added by a mod, like Language Reload's F3+J: a mod key in the game's Debug category. */
+    static final String DEMO_DEBUG_BINDING = "key.debug.selftestReloadLanguages";
+    static final int DEMO_BINDINGS = 4;
     private static final String LANG_PATH = "assets/" + KeyBindProfilesPlus.MOD_ID + "/lang/";
 
     private final SelfTestRunner t;
@@ -673,6 +675,7 @@ final class LogicChecks {
         external(all, "Litematica", "Tool Place Corner 2", "Right Button", true);
         external(all, "Litematica", "Rerender Schematic", "F3 + M", true);
         external(all, "Meteor", "Light Overlay", "B", true);
+        external(all, "Meteor", "Auto Eat", "J", true);
         external(all, "Meteor", "Anti Afk", "Ctrl + H", true);
         external(all, "Meteor", "Anti Afk / Pause Key", "Button 5", true);
         t.check("external: a Meteor key bind in the newer format without a key is left out, one that needs the Windows key is shown but not compared",
@@ -728,6 +731,20 @@ final class LogicChecks {
             conflict("the player can overrule that: counted as used during play, the tool key clashes with attack", "key.attack", KeyConflicts.Level.HARD, 1, "external");
             settings.setScopeOverride(KeyConflicts.overrideKey(corner1), null);
             conflict("... and removing the choice makes it no conflict again", "key.attack", KeyConflicts.Level.NONE, 0, null);
+
+            // The case from real play: Language Reload adds F3+J as a key binding of its own in the Debug
+            // category, and a Meteor module sits on J. An F3 combination stays one whoever registered it.
+            KeyBinding modDebugKey = SelfTestRunner.binding(DEMO_DEBUG_BINDING);
+            KeySourceResolver sources = KeyConflicts.sources(client().options);
+            t.check("external: a mod's key binding in the Debug category counts as an F3 combination, and cannot be re-labelled by hand",
+                    !sources.isVanilla(DEMO_DEBUG_BINDING) && KeyConflicts.scopeOf(modDebugKey, sources) == KeyConflicts.Scope.DEBUG_COMBO
+                            && !KeyConflicts.canOverrideScope(modDebugKey, sources));
+            conflict("a mod's F3+J and a Meteor module on J do not conflict", DEMO_DEBUG_BINDING, KeyConflicts.Level.NONE, 0, null);
+            ExternalBinding autoEat = all.stream().filter(binding -> binding.name().equals("Auto Eat")).findFirst().orElseThrow();
+            t.check("external: ... seen from the Meteor module's side neither", KeyConflicts.conflictsOf(autoEat, client().options).isEmpty());
+            t.bind("key.jump", "key.keyboard.j");
+            conflict("a normal key on J still clashes with that Meteor module, and only with it", "key.jump", KeyConflicts.Level.HARD, 1, "external");
+            t.bind("key.jump", "key.keyboard.space");
 
             // F3 combinations against keys of other mods.
             ExternalBinding lightOverlay = all.stream().filter(binding -> binding.name().equals("Light Overlay")).findFirst().orElseThrow();
@@ -842,6 +859,7 @@ final class LogicChecks {
         modules.add(meteorModule("unbound-module", true, -1, 0));
         modules.add(meteorModule("mouse-module", false, 3, 0));
         modules.add(meteorModule("light-overlay", true, 66, 0));
+        modules.add(meteorModule("auto-eat", true, 74, 0));
         // The same things the way newer Meteor versions write them: key names and modifier names.
         NbtCompound antiAfk = meteorModule("anti-afk", "key.keyboard.h", "CONTROL");
         NbtCompound pauseKey = new NbtCompound();
