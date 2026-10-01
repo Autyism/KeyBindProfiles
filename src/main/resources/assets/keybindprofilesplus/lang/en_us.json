@@ -86,5 +86,16 @@
   "keybindprofilesplus.compare.only_differences": "Only differences",
   "keybindprofilesplus.compare.summary": "%s of %s differ - %s saved on one side only",
   "keybindprofilesplus.compare.no_differences": "No differences",
-  "keybindprofilesplus.compare.group_differs": " (%s differ)"
+  "keybindprofilesplus.compare.group_differs": " (%s differ)",
+  "keybindprofilesplus.overview.conflicts_only": "Conflicts only",
+  "keybindprofilesplus.conflict.hard": "Conflicts with:",
+  "keybindprofilesplus.conflict.soft": "May conflict with:",
+  "keybindprofilesplus.conflict.line": " - %s (%s)",
+  "keybindprofilesplus.conflict.reason.general": "same key during normal play",
+  "keybindprofilesplus.conflict.reason.debug": "both are F3 combinations on this key",
+  "keybindprofilesplus.conflict.reason.creative": "only in Creative mode",
+  "keybindprofilesplus.conflict.reason.spectator": "only in Spectator mode",
+  "keybindprofilesplus.conflict.reason.creative_both": "both are used in Creative mode",
+  "keybindprofilesplus.conflict.reason.spectator_both": "both are used in Spectator mode",
+  "keybindprofilesplus.conflict.summary": "%s conflicts, %s possible"
 }
