@@ -1,10 +1,11 @@
 package io.github.autyi6969.keybindprofilesplus.profile;
 
+import io.github.autyi6969.keybindprofilesplus.keys.KeyCombo;
+import io.github.autyi6969.keybindprofilesplus.keys.KeyCombos;
 import io.github.autyi6969.keybindprofilesplus.options.GameOptionsBridge;
 import io.github.autyi6969.keybindprofilesplus.options.OptionCatalog;
 import net.minecraft.client.option.GameOptions;
 import net.minecraft.client.option.KeyBinding;
-import net.minecraft.client.util.InputUtil;
 import net.minecraft.text.Text;
 
 import java.util.ArrayList;
@@ -52,8 +53,8 @@ public final class ProfileComparison {
         Set<String> liveIds = new LinkedHashSet<>();
         for (KeyBinding binding : bindings) {
             liveIds.add(binding.getId());
-            String left = leftProfile == null ? binding.getBoundKeyTranslationKey() : leftKeys.get(binding.getId());
-            String right = rightProfile == null ? binding.getBoundKeyTranslationKey() : rightKeys.get(binding.getId());
+            String left = leftProfile == null ? KeyCombos.valueOf(binding) : leftKeys.get(binding.getId());
+            String right = rightProfile == null ? KeyCombos.valueOf(binding) : rightKeys.get(binding.getId());
             addRow(rows, true, binding.getId(), Text.translatable(binding.getId()), binding.getCategory().getLabel(),
                     left, right, describeKey(left), describeKey(right));
         }
@@ -119,10 +120,6 @@ public final class ProfileComparison {
         if (translationKey == null) {
             return null;
         }
-        try {
-            return InputUtil.fromTranslationKey(translationKey).getLocalizedText();
-        } catch (IllegalArgumentException e) {
-            return Text.literal(translationKey);
-        }
+        return KeyCombo.describe(translationKey);
     }
 }

@@ -10,6 +10,8 @@ import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
 import net.minecraft.util.Util;
 import io.github.autyi6969.keybindprofilesplus.KeyBindProfilesPlus;
+import io.github.autyi6969.keybindprofilesplus.keys.KeyCombo;
+import io.github.autyi6969.keybindprofilesplus.keys.KeyCombos;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -66,7 +68,7 @@ public final class ProfileFileStore {
         Map<String, String> keyMap = new HashMap<>();
         for (KeyBinding binding : bindings) {
             if (binding != null) {
-                keyMap.put(binding.getId(), binding.getBoundKeyTranslationKey());
+                keyMap.put(binding.getId(), KeyCombos.valueOf(binding));
             }
         }
 
@@ -185,6 +187,8 @@ public final class ProfileFileStore {
             String name = (String) data.get("name");
             @SuppressWarnings("unchecked")
             Map<String, String> bindings = (Map<String, String>) data.get("keybindings");
+            // Same spelling for every combination, however the file was written ("Shift+ctrl+..." by hand).
+            bindings.replaceAll((id, value) -> value == null ? null : KeyCombo.parse(value).encode());
             String legacyOpenKey = bindings.get(LEGACY_OPEN_KEY_ID);
             if (legacyOpenKey != null && !bindings.containsKey(OPEN_KEY_ID)) {
                 bindings.put(OPEN_KEY_ID, legacyOpenKey);

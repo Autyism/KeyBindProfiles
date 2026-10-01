@@ -1,5 +1,7 @@
 package io.github.autyi6969.keybindprofilesplus.mixin;
 
+import io.github.autyi6969.keybindprofilesplus.input.ComboRecorder;
+import io.github.autyi6969.keybindprofilesplus.keys.KeyCombo;
 import io.github.autyi6969.keybindprofilesplus.keys.KeyConflicts;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.screen.option.ControlsListWidget;
@@ -71,8 +73,10 @@ public abstract class KeyBindingEntryMixin {
 
         // Same "waiting for a key" decoration as vanilla, which the lines above just overwrote.
         if (client.currentScreen instanceof KeybindsScreen screen && screen.selectedKeyBinding == binding) {
+            int pending = ComboRecorder.pendingModifiers(binding);
+            Text waiting = pending == 0 ? editButton.getMessage() : KeyCombo.withModifiers(pending, Text.literal("..."));
             editButton.setMessage(Text.literal("> ")
-                    .append(editButton.getMessage().copy().formatted(Formatting.WHITE, Formatting.UNDERLINE))
+                    .append(waiting.copy().formatted(Formatting.WHITE, Formatting.UNDERLINE))
                     .append(" <")
                     .formatted(Formatting.YELLOW));
         }

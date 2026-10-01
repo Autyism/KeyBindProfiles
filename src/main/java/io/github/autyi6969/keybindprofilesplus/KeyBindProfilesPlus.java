@@ -16,7 +16,9 @@ import net.minecraft.util.Identifier;
 import io.github.autyi6969.keybindprofilesplus.gui.ConflictSummaryOverlay;
 import io.github.autyi6969.keybindprofilesplus.gui.ControlsScreenProfileButton;
 import io.github.autyi6969.keybindprofilesplus.gui.KeyBindProfileScreen;
+import io.github.autyi6969.keybindprofilesplus.input.ComboRecorder;
 import io.github.autyi6969.keybindprofilesplus.input.ProfileHotkeyController;
+import io.github.autyi6969.keybindprofilesplus.keys.KeyCombos;
 import io.github.autyi6969.keybindprofilesplus.notification.ProfileNoticeHud;
 import io.github.autyi6969.keybindprofilesplus.notification.ProfileNotification;
 import io.github.autyi6969.keybindprofilesplus.profile.ProfileService;
@@ -180,6 +182,7 @@ public class KeyBindProfilesPlus implements ClientModInitializer {
                 ControlsScreenProfileButton.addOrReplace(screen, scaledWidth, scaledHeight);
                 // The vanilla screen moves its own buttons back on a window resize without
                 // re-initialising, so lay the row out again whenever the size has changed.
+                ComboRecorder.install((KeybindsScreen) screen);
                 ConflictSummaryOverlay conflictSummary = new ConflictSummaryOverlay();
                 ScreenEvents.afterRender(screen).register((current, context, mouseX, mouseY, tickDelta) -> conflictSummary.render(current, context));
                 int[] lastSize = {scaledWidth, scaledHeight};
@@ -197,6 +200,7 @@ public class KeyBindProfilesPlus implements ClientModInitializer {
     private static void loadProfilesOnClientStart() {
         ClientLifecycleEvents.CLIENT_STARTED.register(client -> {
             carryOverLegacyOpenKey(client);
+            KeyCombos.load(PROFILE_SERVICE.profilesDirectory());
             PROFILE_SERVICE.loadProfiles();
             PROFILE_SERVICE.loadCurrentProfile();
         });

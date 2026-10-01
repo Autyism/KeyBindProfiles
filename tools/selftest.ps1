@@ -61,7 +61,7 @@ Stop-SelfTestGames
 
 # Files the self-test may touch; restored afterwards no matter how the run ends.
 $backups = @()
-$candidates = @('options.txt', 'config\keybindprofiles\current_profile.txt', 'config\keybindprofilesplus\current_profile.txt', 'config\keybindprofilesplus\settings.json')
+$candidates = @('options.txt', 'config\keybindprofiles\current_profile.txt', 'config\keybindprofilesplus\current_profile.txt', 'config\keybindprofilesplus\settings.json', 'config\keybindprofilesplus\combos.json')
 foreach ($rel in $candidates) {
     $src = Join-Path $runDir $rel
     if (Test-Path $src) {

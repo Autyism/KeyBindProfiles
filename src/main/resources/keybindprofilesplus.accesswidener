@@ -11,3 +11,10 @@ accessible field net/minecraft/client/option/SimpleOption textGetter Ljava/util/
 # Returning from the mod's screens to the vanilla Key Binds screen and refreshing its list.
 accessible field net/minecraft/client/gui/screen/option/GameOptionsScreen parent Lnet/minecraft/client/gui/screen/Screen;
 accessible field net/minecraft/client/gui/screen/option/KeybindsScreen controlsList Lnet/minecraft/client/gui/screen/option/ControlsListWidget;
+
+# Modifier combinations: finding the bindings that share a key.
+accessible field net/minecraft/client/option/KeyBinding KEY_TO_BINDINGS Ljava/util/Map;
+accessible field net/minecraft/client/option/KeyBinding boundKey Lnet/minecraft/client/util/InputUtil$Key;
+
+# Self-test only: feeding key events through the game's real key handling.
+accessible method net/minecraft/client/Keyboard onKey (JILnet/minecraft/client/input/KeyInput;)V
