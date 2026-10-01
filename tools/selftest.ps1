@@ -110,6 +110,10 @@ $left = @(Get-SelfTestGames).Count
 
 foreach ($b in $backups) { Copy-Item $b.Backup $b.Source -Force }
 
+# The throwaway flat world the self-test creates for its in-game checks.
+$testWorld = Join-Path $runDir 'saves\selftest_world'
+if ($left -eq 0 -and (Test-Path $testWorld)) { Remove-Item -Recurse -Force $testWorld -ErrorAction SilentlyContinue }
+
 $text = Read-LogText
 $lines = @($text -split "`r?`n" | Where-Object { $_ -match '\[SelfTest\]' })
 $failed = @($lines | Where-Object { $_ -match '\[SelfTest\] FAIL' }).Count

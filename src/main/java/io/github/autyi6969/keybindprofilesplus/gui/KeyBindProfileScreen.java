@@ -61,13 +61,15 @@ public class KeyBindProfileScreen extends Screen {
         });
         addDrawableChild(searchField);
 
-        openFolderButton = ButtonWidget.builder(Text.literal("📁"), button -> {
+        Text openFolderLabel = Text.translatable("keybindprofilesplus.open_folder");
+        int openFolderWidth = textRenderer.getWidth(openFolderLabel) + 12;
+        openFolderButton = ButtonWidget.builder(openFolderLabel, button -> {
             if (KeyBindProfilesPlus.openProfilesFolder()) {
                 showStatus("keybindprofilesplus.status.folder_opened");
             } else {
                 showStatus("keybindprofilesplus.status.folder_open_failed");
             }
-        }).dimensions(layout.folderButtonX(), 10, 20, 20).build();
+        }).dimensions(width - 10 - openFolderWidth, 6, openFolderWidth, 20).build();
         addDrawableChild(openFolderButton);
 
         createButton = ButtonWidget.builder(Text.translatable("keybindprofilesplus.create"), button -> createProfile())

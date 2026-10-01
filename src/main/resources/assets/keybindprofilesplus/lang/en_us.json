@@ -32,5 +32,8 @@
   "keybindprofilesplus.status.server_list_trimmed": "Showing %s of %s servers",
   "keybindprofilesplus.status.folder_opened": "Profiles folder opened",
   "keybindprofilesplus.status.folder_open_failed": "Failed to open profiles folder",
-  "keybindprofilesplus.hotkey_hint": "Press 1-2 keys, then ENTER to save, BACKSPACE to clear, ESC to cancel"
+  "keybindprofilesplus.hotkey_hint": "Press 1-2 keys, then ENTER to save, BACKSPACE to clear, ESC to cancel",
+  "keybindprofilesplus.open_folder": "Open Folder",
+  "keybindprofilesplus.hud.profile_applied": "Profile \"%s\" applied",
+  "keybindprofilesplus.key.keypad": "Num %s"
 }
