@@ -23,10 +23,10 @@ import java.util.Map;
  * All auto-switch rules of all profiles in one place: which place leads to which profile.
  * Rules can be added to any profile and removed here.
  */
-public class ServerRulesScreen extends Screen {
+public class ServerRulesScreen extends ResizingScreen {
     private final Screen parent;
     private final ProfileService service;
-    private final ThreePartsLayoutWidget layout = new ThreePartsLayoutWidget(this, 33, 33);
+    private ThreePartsLayoutWidget layout;
     private final ScreenStatusMessage statusMessage = new ScreenStatusMessage();
 
     private WidgetRowList rows;
@@ -42,6 +42,7 @@ public class ServerRulesScreen extends Screen {
 
     @Override
     protected void init() {
+        layout = startLayout(33, 33);
         layout.addHeader(title, textRenderer);
         rows = layout.addBody(new WidgetRowList(client, width, layout));
         layout.addFooter(ButtonWidget.builder(ScreenTexts.DONE, button -> close()).width(200).build());
@@ -51,6 +52,9 @@ public class ServerRulesScreen extends Screen {
 
     @Override
     protected void refreshWidgetPositions() {
+        if (rebuiltAfterResize()) {
+            return;
+        }
         layout.refreshPositions();
         if (rows != null) {
             rows.position(width, layout);

@@ -24,7 +24,7 @@ import java.util.List;
  * Shown before a profile is applied from the profile screen: lists every key binding and game
  * setting that is about to change, with a "don't ask again" box.
  */
-public class ApplyConfirmScreen extends Screen {
+public class ApplyConfirmScreen extends ResizingScreen {
     private static final int ROW_HEIGHT = 18;
     private static final String ARROW = " -> ";
 
@@ -32,10 +32,11 @@ public class ApplyConfirmScreen extends Screen {
     private final List<ProfileChange> changes;
     private final ModSettings settings;
     private final Runnable onConfirm;
-    private final ThreePartsLayoutWidget layout = new ThreePartsLayoutWidget(this, 42, 62);
+    private ThreePartsLayoutWidget layout;
 
     private ChangeList list;
     private CheckboxWidget dontAskAgain;
+    private boolean dontAsk;
 
     public ApplyConfirmScreen(Screen parent, String profileName, List<ProfileChange> changes, ModSettings settings, Runnable onConfirm) {
         super(Text.translatable("keybindprofilesplus.confirm.title", profileName));
@@ -47,6 +48,7 @@ public class ApplyConfirmScreen extends Screen {
 
     @Override
     protected void init() {
+        layout = startLayout(42, 62);
         DirectionalLayoutWidget header = layout.addHeader(DirectionalLayoutWidget.vertical().spacing(4));
         header.getMainPositioner().alignHorizontalCenter();
         header.add(new TextWidget(title, textRenderer));
@@ -56,7 +58,10 @@ public class ApplyConfirmScreen extends Screen {
 
         DirectionalLayoutWidget footer = layout.addFooter(DirectionalLayoutWidget.vertical().spacing(4));
         footer.getMainPositioner().alignHorizontalCenter();
-        dontAskAgain = footer.add(CheckboxWidget.builder(Text.translatable("keybindprofilesplus.confirm.dont_ask"), textRenderer).build());
+        dontAskAgain = footer.add(CheckboxWidget.builder(Text.translatable("keybindprofilesplus.confirm.dont_ask"), textRenderer)
+                .checked(dontAsk)
+                .callback((checkbox, checked) -> dontAsk = checked)
+                .build());
         DirectionalLayoutWidget buttons = footer.add(DirectionalLayoutWidget.horizontal().spacing(8));
         buttons.add(ButtonWidget.builder(Text.translatable("keybindprofilesplus.confirm.apply"), button -> confirm(dontAskAgain.isChecked())).width(150).build());
         buttons.add(ButtonWidget.builder(ScreenTexts.CANCEL, button -> close()).width(150).build());
@@ -67,6 +72,9 @@ public class ApplyConfirmScreen extends Screen {
 
     @Override
     protected void refreshWidgetPositions() {
+        if (rebuiltAfterResize()) {
+            return;
+        }
         layout.refreshPositions();
         if (list != null) {
             list.position(width, layout);

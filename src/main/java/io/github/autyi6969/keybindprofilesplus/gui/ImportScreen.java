@@ -17,13 +17,13 @@ import java.util.function.Consumer;
  * Turns a pasted share code into a profile. The code is checked as it is typed or pasted; a
  * broken one produces an explanation, never an error screen.
  */
-public class ImportScreen extends Screen {
+public class ImportScreen extends ResizingScreen {
     private static final int MAX_CODE_LENGTH = 400_000;
 
     private final Screen parent;
     private final ProfileService service;
     private final Consumer<String> onImported;
-    private final ThreePartsLayoutWidget layout = new ThreePartsLayoutWidget(this, 33, 33);
+    private ThreePartsLayoutWidget layout;
 
     private WidgetRowList rows;
     private TextFieldWidget codeField;
@@ -47,6 +47,7 @@ public class ImportScreen extends Screen {
 
     @Override
     protected void init() {
+        layout = startLayout(33, 33);
         layout.addHeader(title, textRenderer);
         rows = layout.addBody(new WidgetRowList(client, width, layout));
 
@@ -82,6 +83,9 @@ public class ImportScreen extends Screen {
 
     @Override
     protected void refreshWidgetPositions() {
+        if (rebuiltAfterResize()) {
+            return;
+        }
         layout.refreshPositions();
         if (rows != null) {
             rows.position(width, layout);

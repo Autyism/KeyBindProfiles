@@ -23,6 +23,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Reads the hotkeys of malilib-based mods (Litematica, MiniHUD, Tweakeroo, Item Scroller...) from
@@ -30,10 +31,17 @@ import java.util.Map;
  *
  * <p>malilib writes a hotkey as an object with a "keys" text such as {@code "LEFT_CONTROL,X"}:
  * the GLFW key names without the "GLFW_KEY_" prefix, mouse buttons as "BUTTON_n". Its optional
- * "settings.context" says whether it works in game, in screens ("GUI") or both.
+ * "settings.context" says whether it works in game, in screens ("GUI") or both; see
+ * {@link #when} for how the rest is worked out.
  */
 final class MalilibKeys {
     static final String LIBRARY_ID = "malilib";
+    /** Mods whose hotkeys work inside inventory screens unless their file says otherwise. */
+    private static final Set<String> SCREEN_ONLY_MODS = Set.of("itemscroller");
+    /** Hotkeys known to act only in a situation of the mod's own (tool item held, looking at a schematic block...). */
+    private static final Map<String, Set<String>> SITUATIONAL_HOTKEYS = Map.of(
+            "litematica", Set.of("toolPlaceCorner1", "toolPlaceCorner2", "toolSelectElements", "toolSelectModifierBlock1",
+                    "toolSelectModifierBlock2", "pickBlockFirst", "pickBlockLast", "easyPlaceActivation", "renderOverlayThroughBlocks"));
     private static final Map<String, Integer> KEY_CODES = glfwKeyCodes();
 
     private MalilibKeys() {
@@ -121,11 +129,42 @@ final class MalilibKeys {
             modifiers = 0;
         }
 
-        boolean screenOnly = false;
+        String context = null;
         if (hotkey.get("settings") instanceof JsonObject settings && settings.get("context") != null && settings.get("context").isJsonPrimitive()) {
-            screenOnly = "GUI".equalsIgnoreCase(settings.get("context").getAsString());
+            context = settings.get("context").getAsString();
         }
-        out.add(new ExternalBinding(modId, group, readableName(name), modifiers, mainKey, keyText, screenOnly, true, file));
+        boolean bareModifier = allKnown && ordinary.isEmpty() && modifierKeys.size() == 1;
+        boolean bareMouseClick = allKnown && modifiers == 0 && ordinary.size() == 1 && ordinary.get(0).getCategory() == InputUtil.Type.MOUSE
+                && ordinary.get(0).getCode() <= 1;
+        ExternalBinding.When when = when(modId, name, context, bareModifier, bareMouseClick);
+        out.add(new ExternalBinding(modId, group, readableName(name), modifiers, mainKey, keyText, when, true, file));
+    }
+
+    /**
+     * When the hotkey does something. malilib only writes a hotkey's settings to the file once the
+     * player has changed them, so most of this comes from what is known about these mods:
+     * <ul>
+     *   <li>Item Scroller's hotkeys work inside inventory screens;</li>
+     *   <li>a hotkey that is one bare Ctrl / Shift / Alt key, or is called "...Modifier", is held
+     *       together with something else (scrolling, clicking) and does nothing on its own;</li>
+     *   <li>a hotkey on the bare left or right mouse button cannot be meant to replace attacking and
+     *       using: it only acts in a situation of the mod's own, like Litematica's tool item being held;</li>
+     *   <li>Litematica's tool and schematic pick-block hotkeys, which share their keys with the game
+     *       on purpose.</li>
+     * </ul>
+     */
+    static ExternalBinding.When when(String modId, String name, String context, boolean bareModifier, boolean bareMouseClick) {
+        if ("GUI".equalsIgnoreCase(context)) {
+            return ExternalBinding.When.SCREEN_ONLY;
+        }
+        if (context == null && SCREEN_ONLY_MODS.contains(modId) && !name.startsWith("openConfigGui") && !name.startsWith("openGui")) {
+            return ExternalBinding.When.SCREEN_ONLY;
+        }
+        if (bareModifier || bareMouseClick || name.contains("Modifier")
+                || SITUATIONAL_HOTKEYS.getOrDefault(modId, Set.of()).contains(name)) {
+            return ExternalBinding.When.SITUATIONAL;
+        }
+        return "ANY".equalsIgnoreCase(context) ? ExternalBinding.When.ANYWHERE : ExternalBinding.When.IN_GAME;
     }
 
     /** "LEFT_CONTROL" / "BUTTON_3" -> the game's key object; null for names that are not keys (scroll wheel...). */
@@ -143,7 +182,7 @@ final class MalilibKeys {
         return code == null ? null : InputUtil.Type.KEYSYM.createFromCode(code);
     }
 
-    /** "toggleAllRendering" -> "Toggle All Rendering". */
+    /** "toggleAllRendering" -> "Toggle All Rendering", "toolPlaceCorner1" -> "Tool Place Corner 1". */
     static String readableName(String camelCase) {
         StringBuilder name = new StringBuilder();
         for (int i = 0; i < camelCase.length(); i++) {
@@ -152,7 +191,9 @@ final class MalilibKeys {
                 name.append(' ');
                 continue;
             }
-            if (i > 0 && Character.isUpperCase(c) && !Character.isUpperCase(camelCase.charAt(i - 1)) && name.charAt(name.length() - 1) != ' ') {
+            char previous = i > 0 ? camelCase.charAt(i - 1) : ' ';
+            boolean newWord = (Character.isUpperCase(c) && !Character.isUpperCase(previous)) || (Character.isDigit(c) && Character.isLetter(previous));
+            if (i > 0 && newWord && name.charAt(name.length() - 1) != ' ') {
                 name.append(' ');
             }
             name.append(i == 0 || name.charAt(name.length() - 1) == ' ' ? Character.toUpperCase(c) : c);

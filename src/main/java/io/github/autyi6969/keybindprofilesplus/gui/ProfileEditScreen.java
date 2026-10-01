@@ -3,7 +3,6 @@ package io.github.autyi6969.keybindprofilesplus.gui;
 import io.github.autyi6969.keybindprofilesplus.KeyBindProfilesPlus;
 import io.github.autyi6969.keybindprofilesplus.profile.ProfileNames;
 import io.github.autyi6969.keybindprofilesplus.profile.ProfileService;
-import io.github.autyi6969.keybindprofilesplus.profile.ShareCode;
 import io.github.autyi6969.keybindprofilesplus.server.ServerProfileMatcher;
 import net.minecraft.client.gui.Click;
 import net.minecraft.client.gui.DrawContext;
@@ -26,14 +25,14 @@ import java.util.Map;
 import java.util.function.Consumer;
 
 /**
- * Everything about one profile: its name, the hotkey that switches to it, what it saves, its
- * share code, the places it is applied automatically, and deleting it.
+ * Everything about one profile: its name, the hotkey that switches to it, what it saves, the
+ * places it is applied automatically, and deleting it.
  */
-public class ProfileEditScreen extends Screen {
+public class ProfileEditScreen extends ResizingScreen {
     private final Screen parent;
     private final ProfileService service;
     private final Consumer<String> onRenamed;
-    private final ThreePartsLayoutWidget layout = new ThreePartsLayoutWidget(this, 33, 33);
+    private ThreePartsLayoutWidget layout;
     private final ScreenStatusMessage statusMessage = new ScreenStatusMessage();
     private final ProfileHotkeyCapture hotkeyCapture;
 
@@ -60,6 +59,7 @@ public class ProfileEditScreen extends Screen {
 
     @Override
     protected void init() {
+        layout = startLayout(33, 33);
         layout.addHeader(title, textRenderer);
         rows = layout.addBody(new WidgetRowList(client, width, layout));
         layout.addFooter(ButtonWidget.builder(ScreenTexts.DONE, button -> close()).width(200).build());
@@ -69,6 +69,9 @@ public class ProfileEditScreen extends Screen {
 
     @Override
     protected void refreshWidgetPositions() {
+        if (rebuiltAfterResize()) {
+            return;
+        }
         layout.refreshPositions();
         if (rows != null) {
             rows.position(width, layout);
@@ -154,11 +157,8 @@ public class ProfileEditScreen extends Screen {
         rows.addHeading(Text.translatable("keybindprofilesplus.edit.section.contents"));
         rows.addText(() -> Text.translatable("keybindprofilesplus.contents.summary",
                 service.profiles().getOrDefault(profileName, Map.of()).size(), service.getProfileOptions(profileName).size()), GuiUtil.GRAY);
-        rows.addWidgets(
-                ButtonWidget.builder(Text.translatable("keybindprofilesplus.contents.open"), button -> client.setScreen(
-                        new ProfileContentsScreen(this, service, profileName, name -> showStatus("keybindprofilesplus.status.contents_saved", name)))).build(),
-                ButtonWidget.builder(Text.translatable("keybindprofilesplus.share.copy"), button -> copyShareCode())
-                        .tooltip(Tooltip.of(Text.translatable("keybindprofilesplus.share.copy.tooltip"))).build());
+        rows.addWidgets(ButtonWidget.builder(Text.translatable("keybindprofilesplus.contents.open"), button -> client.setScreen(
+                new ProfileContentsScreen(this, service, profileName, name -> showStatus("keybindprofilesplus.status.contents_saved", name)))).build());
 
         rows.addHeading(Text.translatable("keybindprofilesplus.auto_switch_servers"));
         ruleField = new TextFieldWidget(textRenderer, 100, 20, Text.translatable("keybindprofilesplus.server_address"));
@@ -302,18 +302,6 @@ public class ProfileEditScreen extends Screen {
         service.setProfileAutoSwitchServers(profileName, rules);
         rebuild();
         showStatus("keybindprofilesplus.status.server_removed", rule);
-    }
-
-    /** The profile as a share code. */
-    public String shareCode() {
-        return ShareCode.encode(new ShareCode.Content(profileName,
-                service.profiles().getOrDefault(profileName, Map.of()), service.getProfileOptions(profileName)));
-    }
-
-    private void copyShareCode() {
-        String code = shareCode();
-        client.keyboard.setClipboard(code);
-        showStatus("keybindprofilesplus.status.share_copied", code.length());
     }
 
     public void setNameText(String text) {

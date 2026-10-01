@@ -29,7 +29,7 @@ import java.util.List;
  * Two sets of settings side by side: any saved profile, or the game as it is right now, on each
  * side. Rows whose values differ are highlighted; a switch hides everything else.
  */
-public class ProfileCompareScreen extends Screen {
+public class ProfileCompareScreen extends ResizingScreen {
     /** Stands for "the game as it is set up right now" in the side pickers. */
     private static final String CURRENT = "";
     private static final int HEADER_HEIGHT = 58;
@@ -38,7 +38,7 @@ public class ProfileCompareScreen extends Screen {
 
     private final Screen parent;
     private final ProfileService service;
-    private final ThreePartsLayoutWidget layout = new ThreePartsLayoutWidget(this, HEADER_HEIGHT, 33);
+    private ThreePartsLayoutWidget layout;
 
     private String left;
     private String right;
@@ -64,6 +64,7 @@ public class ProfileCompareScreen extends Screen {
 
     @Override
     protected void init() {
+        layout = startLayout(HEADER_HEIGHT, 33);
         List<String> sides = new ArrayList<>();
         sides.add(CURRENT);
         List<String> names = new ArrayList<>(service.profiles().keySet());
@@ -112,6 +113,9 @@ public class ProfileCompareScreen extends Screen {
 
     @Override
     protected void refreshWidgetPositions() {
+        if (rebuiltAfterResize()) {
+            return;
+        }
         layout.refreshPositions();
         if (list != null) {
             list.position(width, layout);

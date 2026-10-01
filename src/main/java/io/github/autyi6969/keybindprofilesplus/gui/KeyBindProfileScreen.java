@@ -4,6 +4,7 @@ import io.github.autyi6969.keybindprofilesplus.KeyBindProfilesPlus;
 import io.github.autyi6969.keybindprofilesplus.keys.KeyCombo;
 import io.github.autyi6969.keybindprofilesplus.profile.ProfileChange;
 import io.github.autyi6969.keybindprofilesplus.profile.ProfileService;
+import io.github.autyi6969.keybindprofilesplus.profile.ShareCode;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gui.Click;
@@ -17,7 +18,6 @@ import net.minecraft.client.gui.tooltip.Tooltip;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.DirectionalLayoutWidget;
 import net.minecraft.client.gui.widget.ElementListWidget;
-import net.minecraft.client.gui.widget.GridWidget;
 import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.client.gui.widget.TextWidget;
 import net.minecraft.client.gui.widget.ThreePartsLayoutWidget;
@@ -38,14 +38,15 @@ import java.util.Objects;
  * One click selects a profile, a double click applies it, Ctrl+click (or a right click) marks a
  * second profile so the two can be compared.
  */
-public class KeyBindProfileScreen extends Screen {
+public class KeyBindProfileScreen extends ResizingScreen {
     private static final int HEADER_HEIGHT = 56;
     private static final int FOOTER_HEIGHT = 82;
     private static final int ROW_HEIGHT = 34;
+    private static final int BUTTON_GAP = 4;
 
     private final Screen parent;
     private final ProfileService service = KeyBindProfilesPlus.profileService();
-    private final ThreePartsLayoutWidget layout = new ThreePartsLayoutWidget(this, HEADER_HEIGHT, FOOTER_HEIGHT);
+    private ThreePartsLayoutWidget layout;
     private final ScreenStatusMessage statusMessage = new ScreenStatusMessage();
 
     private TextFieldWidget searchField;
@@ -53,6 +54,7 @@ public class KeyBindProfileScreen extends Screen {
     private ButtonWidget applyButton;
     private ButtonWidget editButton;
     private ButtonWidget compareButton;
+    private ButtonWidget shareButton;
     private ButtonWidget deleteButton;
     private String query = "";
     private String selected;
@@ -65,6 +67,7 @@ public class KeyBindProfileScreen extends Screen {
 
     @Override
     protected void init() {
+        layout = startLayout(HEADER_HEIGHT, FOOTER_HEIGHT);
         service.reloadProfiles();
         if (selected != null && !service.profiles().containsKey(selected)) {
             selected = null;
@@ -88,24 +91,38 @@ public class KeyBindProfileScreen extends Screen {
 
         list = layout.addBody(new ProfileList(client));
 
-        int column = Math.max(58, Math.min(76, (width - 28) / 4));
-        GridWidget grid = layout.addFooter(new GridWidget().setColumnSpacing(4).setRowSpacing(4));
-        GridWidget.Adder adder = grid.createAdder(4);
-        applyButton = adder.add(button("keybindprofilesplus.apply", column * 2 + 4, this::applySelectedProfile), 2);
-        adder.add(button("keybindprofilesplus.new", column * 2 + 4,
-                () -> client.setScreen(ProfileContentsScreen.forNewProfile(this, service, this::onProfileCreated))), 2);
-        editButton = adder.add(button("keybindprofilesplus.edit", column, this::editSelectedProfile));
-        compareButton = adder.add(ButtonWidget.builder(Text.translatable("keybindprofilesplus.compare.open"), button -> openCompare())
-                .width(column)
+        // Three rows of the same total width: what is done most on top, then the selected profile, then the other screens.
+        int total = Math.max(280, Math.min(380, width - 28));
+        DirectionalLayoutWidget footer = layout.addFooter(DirectionalLayoutWidget.vertical().spacing(4));
+        footer.getMainPositioner().alignHorizontalCenter();
+
+        int[] top = split(total, 2);
+        DirectionalLayoutWidget first = footer.add(DirectionalLayoutWidget.horizontal().spacing(BUTTON_GAP));
+        applyButton = first.add(button("keybindprofilesplus.apply", top[0], this::applySelectedProfile));
+        first.add(button("keybindprofilesplus.new", top[1],
+                () -> client.setScreen(ProfileContentsScreen.forNewProfile(this, service, this::onProfileCreated))));
+
+        int[] middle = split(total, 5);
+        DirectionalLayoutWidget second = footer.add(DirectionalLayoutWidget.horizontal().spacing(BUTTON_GAP));
+        editButton = second.add(button("keybindprofilesplus.edit", middle[0], this::editSelectedProfile));
+        compareButton = second.add(ButtonWidget.builder(Text.translatable("keybindprofilesplus.compare.open"), button -> openCompare())
+                .width(middle[1])
                 .tooltip(Tooltip.of(Text.translatable("keybindprofilesplus.compare.hint")))
                 .build());
-        adder.add(button("keybindprofilesplus.import", column,
+        shareButton = second.add(ButtonWidget.builder(Text.translatable("keybindprofilesplus.share.copy"), button -> copyShareCode())
+                .width(middle[2])
+                .tooltip(Tooltip.of(Text.translatable("keybindprofilesplus.share.copy.tooltip")))
+                .build());
+        second.add(button("keybindprofilesplus.import", middle[3],
                 () -> client.setScreen(new ImportScreen(this, service, this::onProfileCreated))));
-        deleteButton = adder.add(button("keybindprofilesplus.delete", column, this::deleteSelectedProfile));
-        adder.add(button("keybindprofilesplus.overview.open", column, () -> client.setScreen(new KeyOverviewScreen(this))));
-        adder.add(button("keybindprofilesplus.rules.open", column, () -> client.setScreen(new ServerRulesScreen(this, service))));
-        adder.add(button("keybindprofilesplus.settings.open", column, () -> client.setScreen(new SettingsScreen(this, service))));
-        adder.add(ButtonWidget.builder(ScreenTexts.DONE, button -> close()).width(column).build());
+        deleteButton = second.add(button("keybindprofilesplus.delete", middle[4], this::deleteSelectedProfile));
+
+        int[] bottom = split(total, 4);
+        DirectionalLayoutWidget third = footer.add(DirectionalLayoutWidget.horizontal().spacing(BUTTON_GAP));
+        third.add(button("keybindprofilesplus.overview.open", bottom[0], this::openKeyBinds));
+        third.add(button("keybindprofilesplus.rules.open", bottom[1], () -> client.setScreen(new ServerRulesScreen(this, service))));
+        third.add(button("keybindprofilesplus.settings.open", bottom[2], () -> client.setScreen(new SettingsScreen(this, service))));
+        third.add(ButtonWidget.builder(ScreenTexts.DONE, button -> close()).width(bottom[3]).build());
 
         layout.forEachChild(this::addDrawableChild);
         refreshList();
@@ -116,8 +133,22 @@ public class KeyBindProfileScreen extends Screen {
         return ButtonWidget.builder(Text.translatable(translationKey), button -> action.run()).width(buttonWidth).build();
     }
 
+    /** Widths of {@code count} buttons that fill {@code total} together with the gaps between them. */
+    private static int[] split(int total, int count) {
+        int[] widths = new int[count];
+        int available = total - BUTTON_GAP * (count - 1);
+        for (int i = 0; i < count; i++) {
+            // The first ones take the pixels left over by the division.
+            widths[i] = available / count + (i < available % count ? 1 : 0);
+        }
+        return widths;
+    }
+
     @Override
     protected void refreshWidgetPositions() {
+        if (rebuiltAfterResize()) {
+            return;
+        }
         layout.refreshPositions();
         if (list != null) {
             list.position(width, layout);
@@ -203,6 +234,34 @@ public class KeyBindProfileScreen extends Screen {
         statusMessage.show(translationKey, args);
     }
 
+    /** The selected profile as a share code; null when nothing is selected. */
+    public String shareCode() {
+        if (selected == null) {
+            return null;
+        }
+        return ShareCode.encode(new ShareCode.Content(selected,
+                service.profiles().getOrDefault(selected, Map.of()), service.getProfileOptions(selected)));
+    }
+
+    private void copyShareCode() {
+        String code = shareCode();
+        if (code == null) {
+            showStatus("keybindprofilesplus.status.select_profile");
+            return;
+        }
+        client.keyboard.setClipboard(code);
+        showStatus("keybindprofilesplus.status.share_copied", selected, code.length());
+    }
+
+    /** The key binds screen; when this screen was opened from it, simply back to it. */
+    private void openKeyBinds() {
+        if (parent instanceof KeyOverviewScreen) {
+            close();
+        } else {
+            client.setScreen(new KeyOverviewScreen(this));
+        }
+    }
+
     private void onProfileCreated(String name) {
         selected = name;
         compareWith = null;
@@ -268,6 +327,7 @@ public class KeyBindProfileScreen extends Screen {
         boolean hasSelection = selected != null;
         applyButton.active = hasSelection;
         editButton.active = hasSelection;
+        shareButton.active = hasSelection;
         deleteButton.active = hasSelection;
         compareButton.setMessage(Text.translatable(compareWith != null ? "keybindprofilesplus.compare.open_two" : "keybindprofilesplus.compare.open"));
     }

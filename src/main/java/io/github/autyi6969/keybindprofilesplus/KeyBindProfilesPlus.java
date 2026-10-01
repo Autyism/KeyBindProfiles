@@ -80,6 +80,10 @@ public class KeyBindProfilesPlus implements ClientModInitializer {
         return AUTO_SWITCH_CONTROLLER;
     }
 
+    public static ProfileHotkeyController hotkeyController() {
+        return HOTKEY_CONTROLLER;
+    }
+
     public static void openConfigScreen(Screen parent) {
         MinecraftClient.getInstance().setScreen(new KeyBindProfileScreen(parent));
     }
