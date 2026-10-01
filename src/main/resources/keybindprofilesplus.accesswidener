@@ -7,3 +7,7 @@ accessible class net/minecraft/client/option/GameOptions$Visitor
 accessible method net/minecraft/client/option/GameOptions accept (Lnet/minecraft/client/option/GameOptions$Visitor;)V
 accessible field net/minecraft/client/option/SimpleOption text Lnet/minecraft/text/Text;
 accessible field net/minecraft/client/option/SimpleOption textGetter Ljava/util/function/Function;
+
+# Returning from the mod's screens to the vanilla Key Binds screen and refreshing its list.
+accessible field net/minecraft/client/gui/screen/option/GameOptionsScreen parent Lnet/minecraft/client/gui/screen/Screen;
+accessible field net/minecraft/client/gui/screen/option/KeybindsScreen controlsList Lnet/minecraft/client/gui/screen/option/ControlsListWidget;
