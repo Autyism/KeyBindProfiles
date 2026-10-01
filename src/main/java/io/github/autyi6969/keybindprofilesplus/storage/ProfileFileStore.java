@@ -20,6 +20,7 @@ import java.lang.reflect.Type;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -40,7 +41,8 @@ public final class ProfileFileStore {
     public void loadProfiles(
             Map<String, Map<String, String>> profiles,
             Map<String, List<String>> profileHotkeys,
-            Map<String, List<String>> profileAutoSwitchServers
+            Map<String, List<String>> profileAutoSwitchServers,
+            Map<String, Map<String, String>> profileOptions
     ) {
         File dir = getProfilesDir();
         if (dir == null || !dir.exists()) {
@@ -53,7 +55,7 @@ public final class ProfileFileStore {
         }
 
         for (File file : files) {
-            readProfileFile(file, profiles, profileHotkeys, profileAutoSwitchServers);
+            readProfileFile(file, profiles, profileHotkeys, profileAutoSwitchServers, profileOptions);
         }
     }
 
@@ -75,7 +77,8 @@ public final class ProfileFileStore {
             String name,
             Map<String, Map<String, String>> profiles,
             Map<String, List<String>> profileHotkeys,
-            Map<String, List<String>> profileAutoSwitchServers
+            Map<String, List<String>> profileAutoSwitchServers,
+            Map<String, Map<String, String>> profileOptions
     ) {
         Map<String, String> keyMap = profiles.get(name);
         File dir = getProfilesDir();
@@ -93,6 +96,11 @@ public final class ProfileFileStore {
 
         if (profileAutoSwitchServers.containsKey(name)) {
             exportData.put("autoSwitchServers", profileAutoSwitchServers.get(name));
+        }
+
+        Map<String, String> options = profileOptions.get(name);
+        if (options != null && !options.isEmpty()) {
+            exportData.put("options", options);
         }
 
         File exportFile = new File(dir, name + PROFILE_EXTENSION);
@@ -164,7 +172,8 @@ public final class ProfileFileStore {
             File file,
             Map<String, Map<String, String>> profiles,
             Map<String, List<String>> profileHotkeys,
-            Map<String, List<String>> profileAutoSwitchServers
+            Map<String, List<String>> profileAutoSwitchServers,
+            Map<String, Map<String, String>> profileOptions
     ) {
         try (FileReader reader = new FileReader(file)) {
             Type type = new TypeToken<Map<String, Object>>() {}.getType();
@@ -191,6 +200,11 @@ public final class ProfileFileStore {
             if (!autoSwitchServers.isEmpty()) {
                 profileAutoSwitchServers.put(name, autoSwitchServers);
             }
+
+            Map<String, String> options = readStringMap(data.get("options"));
+            if (!options.isEmpty()) {
+                profileOptions.put(name, options);
+            }
         } catch (IOException | JsonSyntaxException | ClassCastException e) {
             KeyBindProfilesPlus.LOGGER.error("Failed to read keybind profile file '{}'", file.getAbsolutePath(), e);
         }
@@ -216,6 +230,19 @@ public final class ProfileFileStore {
             }
         }
         return hotkeys;
+    }
+
+    /** Other game settings saved in the profile: options.txt name -> raw value. */
+    private Map<String, String> readStringMap(Object value) {
+        Map<String, String> result = new LinkedHashMap<>();
+        if (value instanceof Map<?, ?> map) {
+            for (Map.Entry<?, ?> entry : map.entrySet()) {
+                if (entry.getKey() instanceof String key && entry.getValue() instanceof String text) {
+                    result.put(key, text);
+                }
+            }
+        }
+        return result;
     }
 
     private List<String> readStringList(Object value) {

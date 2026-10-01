@@ -11,6 +11,8 @@ base {
 }
 
 loom {
+	accessWidenerPath = file("src/main/resources/keybindprofilesplus.accesswidener")
+
 	runs {
 		// Dev client that runs the automated self-test and quits (see tools/selftest.ps1).
 		selfTest {

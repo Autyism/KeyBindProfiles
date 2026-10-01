@@ -4,11 +4,17 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
 import io.github.autyi6969.keybindprofilesplus.KeyBindProfilesPlus;
+import io.github.autyi6969.keybindprofilesplus.options.GameOptionsBridge;
+import io.github.autyi6969.keybindprofilesplus.options.OptionCatalog;
 import io.github.autyi6969.keybindprofilesplus.storage.ProfileFileStore;
+import net.minecraft.text.Text;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -18,6 +24,8 @@ public final class ProfileService {
     private final Map<String, Map<String, String>> profiles = new HashMap<>();
     private final Map<String, List<String>> profileHotkeys = new HashMap<>();
     private final Map<String, List<String>> profileAutoSwitchServers = new HashMap<>();
+    /** Other game settings a profile saves besides key bindings: options.txt name -> raw value. */
+    private final Map<String, Map<String, String>> profileOptions = new HashMap<>();
 
     private String currentProfile;
     private Runnable autoSwitchResetCallback = () -> {
@@ -45,13 +53,14 @@ public final class ProfileService {
     }
 
     public void loadProfiles() {
-        fileStore.loadProfiles(profiles, profileHotkeys, profileAutoSwitchServers);
+        fileStore.loadProfiles(profiles, profileHotkeys, profileAutoSwitchServers, profileOptions);
     }
 
     public void reloadProfiles() {
         profiles.clear();
         profileHotkeys.clear();
         profileAutoSwitchServers.clear();
+        profileOptions.clear();
         loadProfiles();
     }
 
@@ -77,6 +86,7 @@ public final class ProfileService {
         applyKeyBindings(client.options.allKeys, keyMap);
         KeyBinding.updateKeysByCode();
         releaseAllKeys(client.options.allKeys);
+        applyGameOptions(client, profileOptions.get(name));
         writeOptions(client);
 
         currentProfile = name;
@@ -91,6 +101,7 @@ public final class ProfileService {
 
         profileHotkeys.remove(name);
         profileAutoSwitchServers.remove(name);
+        profileOptions.remove(name);
         fileStore.deleteProfileFile(name);
 
         if (Objects.equals(currentProfile, name)) {
@@ -106,8 +117,12 @@ public final class ProfileService {
 
         List<String> hotkeys = profileHotkeys.remove(oldName);
         List<String> autoSwitchServers = profileAutoSwitchServers.remove(oldName);
+        Map<String, String> options = profileOptions.remove(oldName);
         profiles.remove(oldName);
         profiles.put(newName, keyMap);
+        if (options != null) {
+            profileOptions.put(newName, options);
+        }
         if (hotkeys != null) {
             profileHotkeys.put(newName, hotkeys);
         }
@@ -125,7 +140,69 @@ public final class ProfileService {
     }
 
     public void exportProfile(String name) {
-        fileStore.exportProfile(name, profiles, profileHotkeys, profileAutoSwitchServers);
+        fileStore.exportProfile(name, profiles, profileHotkeys, profileAutoSwitchServers, profileOptions);
+    }
+
+    /** The other game settings saved in a profile (options.txt name -> raw value); empty if none. */
+    public Map<String, String> getProfileOptions(String name) {
+        Map<String, String> options = profileOptions.get(name);
+        return options == null ? Map.of() : Collections.unmodifiableMap(options);
+    }
+
+    /**
+     * Replaces what a profile saves: exactly these key bindings (id -> key) and exactly these other
+     * game settings. Hotkey and auto-switch servers are kept.
+     */
+    public void setProfileContents(String name, Map<String, String> keyBindings, Map<String, String> options) {
+        if (!profiles.containsKey(name)) {
+            return;
+        }
+
+        profiles.put(name, new HashMap<>(keyBindings));
+        if (options == null || options.isEmpty()) {
+            profileOptions.remove(name);
+        } else {
+            profileOptions.put(name, new LinkedHashMap<>(options));
+        }
+        exportProfile(name);
+    }
+
+    /** Everything that applying the profile right now would change. Empty if it already matches. */
+    public List<ProfileChange> previewApply(String name) {
+        List<ProfileChange> changes = new ArrayList<>();
+        Map<String, String> keyMap = profiles.get(name);
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (keyMap == null || client == null || client.options == null) {
+            return changes;
+        }
+
+        KeyBinding[] bindings = client.options.allKeys.clone();
+        Arrays.sort(bindings);
+        for (KeyBinding binding : bindings) {
+            String savedKey = keyMap.get(binding.getId());
+            if (savedKey == null || savedKey.equals(binding.getBoundKeyTranslationKey())) {
+                continue;
+            }
+            try {
+                changes.add(new ProfileChange(ProfileChange.Kind.KEY_BINDING, binding.getId(), Text.translatable(binding.getId()),
+                        binding.getBoundKeyLocalizedText(), InputUtil.fromTranslationKey(savedKey).getLocalizedText()));
+            } catch (IllegalArgumentException ignored) {
+                // An unreadable key in the file is skipped when applying, so it is no change either.
+            }
+        }
+
+        Map<String, String> options = profileOptions.get(name);
+        if (options != null && !options.isEmpty()) {
+            Map<String, GameOptionsBridge.Entry> current = GameOptionsBridge.readAll(client.options);
+            for (Map.Entry<String, String> saved : options.entrySet()) {
+                GameOptionsBridge.Entry entry = current.get(saved.getKey());
+                if (entry != null && OptionCatalog.isOffered(saved.getKey()) && !saved.getValue().equals(entry.rawValue())) {
+                    changes.add(new ProfileChange(ProfileChange.Kind.OPTION, saved.getKey(), entry.name(),
+                            entry.describe(entry.rawValue()), entry.describe(saved.getValue())));
+                }
+            }
+        }
+        return changes;
     }
 
     public void setProfileHotkey(String profileName, List<String> keys) {
@@ -194,6 +271,24 @@ public final class ProfileService {
             binding.setBoundKey(InputUtil.fromTranslationKey(savedKey));
         } catch (IllegalArgumentException ignored) {
             // Invalid key values from old or manually edited profile files are ignored.
+        }
+    }
+
+    private void applyGameOptions(MinecraftClient client, Map<String, String> options) {
+        if (options == null || options.isEmpty()) {
+            return;
+        }
+
+        Map<String, String> allowed = new LinkedHashMap<>();
+        for (Map.Entry<String, String> entry : options.entrySet()) {
+            if (OptionCatalog.isOffered(entry.getKey())) {
+                allowed.put(entry.getKey(), entry.getValue());
+            }
+        }
+        try {
+            GameOptionsBridge.apply(client.options, allowed);
+        } catch (RuntimeException e) {
+            KeyBindProfilesPlus.LOGGER.error("Failed to apply the saved game settings of a profile", e);
         }
     }
 
