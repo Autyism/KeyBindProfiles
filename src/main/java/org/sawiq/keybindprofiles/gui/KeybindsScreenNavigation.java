@@ -44,7 +44,7 @@ final class KeybindsScreenNavigation {
     private static void reinitialize(KeybindsScreen keybindsScreen) {
         MinecraftClient client = MinecraftClient.getInstance();
         if (client != null) {
-            keybindsScreen.init(client, keybindsScreen.width, keybindsScreen.height);
+            keybindsScreen.init(keybindsScreen.width, keybindsScreen.height);
         }
     }
 }

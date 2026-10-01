@@ -5,6 +5,7 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonSyntaxException;
 import com.google.gson.reflect.TypeToken;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.input.KeyInput;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
 import net.minecraft.util.Util;
@@ -58,7 +59,7 @@ public final class ProfileFileStore {
         Map<String, String> keyMap = new HashMap<>();
         for (KeyBinding binding : bindings) {
             if (binding != null) {
-                keyMap.put(binding.getTranslationKey(), binding.getBoundKeyTranslationKey());
+                keyMap.put(binding.getId(), binding.getBoundKeyTranslationKey());
             }
         }
 
@@ -202,7 +203,7 @@ public final class ProfileFileStore {
             if (item instanceof String key) {
                 hotkeys.add(key);
             } else if (item instanceof Number code) {
-                hotkeys.add(InputUtil.fromKeyCode(code.intValue(), 0).getTranslationKey());
+                hotkeys.add(InputUtil.fromKeyCode(new KeyInput(code.intValue(), -1, 0)).getTranslationKey());
             }
         }
         return hotkeys;

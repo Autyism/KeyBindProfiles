@@ -154,7 +154,7 @@ public final class ProfileService {
             return;
         }
 
-        String savedKey = keyMap.get(binding.getTranslationKey());
+        String savedKey = keyMap.get(binding.getId());
         if (savedKey == null) {
             return;
         }

@@ -118,7 +118,7 @@ public class KeyBindProfiles implements ClientModInitializer {
                 "key.keybindprofiles.open",
                 InputUtil.Type.KEYSYM,
                 InputUtil.GLFW_KEY_O,
-                "key.categories.misc"
+                KeyBinding.Category.MISC
         ));
     }
 
