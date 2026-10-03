@@ -64,6 +64,7 @@ public final class SelfTest extends SelfTestRunner {
 
     private final LogicChecks logic;
     private final ScreenChecks screens;
+    private final LiveExternalChecks live;
     private final Map<String, String> savedBindings = new LinkedHashMap<>();
 
     private Map<String, String> savedOptions = Map.of();
@@ -85,6 +86,7 @@ public final class SelfTest extends SelfTestRunner {
         super(service);
         this.logic = new LogicChecks(this, service);
         this.screens = new ScreenChecks(this, logic, service);
+        this.live = new LiveExternalChecks(this, logic, service);
     }
 
     public static boolean isRequested() {
@@ -183,6 +185,8 @@ public final class SelfTest extends SelfTestRunner {
         // Screens.
         screens.rebindOnKeyBindsScreen();
         screens.recordCombinationsOnVanillaScreen();
+        // Meteor's and malilib's own hotkeys, changed for real in the running mods.
+        live.register();
         step("examples for the screenshots", screens::setUpVisibleExamples);
         screens.tour("en");
         screens.modMenu();

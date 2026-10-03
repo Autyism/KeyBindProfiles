@@ -99,6 +99,7 @@ public class ApplyConfirmScreen extends ResizingScreen {
         ChangeList(MinecraftClient client) {
             super(client, ApplyConfirmScreen.this.width, layout.getContentHeight(), layout.getHeaderHeight(), ROW_HEIGHT);
             addGroup(ProfileChange.Kind.KEY_BINDING, "keybindprofilesplus.confirm.group.keys");
+            addGroup(ProfileChange.Kind.EXTERNAL, "keybindprofilesplus.confirm.group.external");
             addGroup(ProfileChange.Kind.OPTION, "keybindprofilesplus.confirm.group.settings");
         }
 

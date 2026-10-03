@@ -1,5 +1,7 @@
 package io.github.autyi6969.keybindprofilesplus.gui;
 
+import io.github.autyi6969.keybindprofilesplus.external.ExternalBinding;
+import io.github.autyi6969.keybindprofilesplus.external.ExternalKeys;
 import io.github.autyi6969.keybindprofilesplus.keys.KeyCombo;
 import io.github.autyi6969.keybindprofilesplus.keys.KeyCombos;
 import io.github.autyi6969.keybindprofilesplus.keys.KeyLabels;
@@ -38,7 +40,8 @@ import java.util.function.Function;
 
 /**
  * "What does this profile save?" - a tree with a check box on every branch and leaf.
- * Key bindings (by category, down to the single binding) and the game's other settings (by group,
+ * Key bindings (by category, down to the single binding), the hotkeys Meteor and malilib mods
+ * manage themselves (by mod, down to the single hotkey) and the game's other settings (by group,
  * down to the single setting). Ticking something stores its current value in the profile;
  * unticking removes it, so applying the profile leaves that setting alone.
  */
@@ -286,8 +289,9 @@ public class ProfileContentsScreen extends ResizingScreen {
     }
 
     /**
-     * Screen coordinates {x, y} of a visible row, either on its check box or on its label.
-     * Null when the row is not shown. Lets the self-test click rows the way a mouse would.
+     * Screen coordinates {x, y} of a row, either on its check box or on its label, after scrolling
+     * it into view. Null when the row is not shown (inside a collapsed group, or not matching the
+     * search). Lets the self-test click rows the way a mouse would.
      */
     public int[] hitPoint(String nodeId, boolean onCheckbox) {
         return list.hitPoint(nodeId, onCheckbox);
@@ -324,10 +328,38 @@ public class ProfileContentsScreen extends ResizingScreen {
             }
             unknownKeys.remove(binding.getId());
         }
+        // Hotkeys of other mods: one group per mod (Meteor, Meteor addons, Meteor macros, Litematica...), only
+        // those that can be changed from here.
+        Group external = null;
+        for (ExternalBinding hotkey : ExternalKeys.all()) {
+            if (!hotkey.editable()) {
+                continue;
+            }
+            if (external == null) {
+                external = addGroup(root, "external", Text.translatable("keybindprofilesplus.contents.external"));
+                external.expanded = true;
+            }
+            String groupId = "external/" + hotkey.group().getString();
+            Group modGroup = nodesById.get(groupId) instanceof Group existing ? existing : addGroup(external, groupId, hotkey.group());
+            String id = hotkey.hotkeyId();
+            addItem(modGroup, "key:" + id, hotkey.title(), true, id, savedKeys.get(id), hotkey.value(), value -> ExternalKeys.describeValue(id, value));
+            if (creating) {
+                nodesById.get("key:" + id).setChecked(true);
+            }
+            unknownKeys.remove(id);
+        }
+
         if (!unknownKeys.isEmpty()) {
             // Saved for a mod that is not installed right now; kept so nothing is lost silently.
             Group missing = addGroup(keys, "keys/missing", Text.translatable("keybindprofilesplus.contents.keys_missing"));
-            unknownKeys.forEach((id, key) -> addItem(missing, "key:" + id, KeyLabels.name(id), true, id, key, null, ProfileContentsScreen::describeKey));
+            unknownKeys.forEach((id, key) -> {
+                if (ExternalKeys.isExternalId(id)) {
+                    Text name = ExternalKeys.nameOf(id).copy().append(" [").append(ExternalKeys.groupOf(id)).append("]");
+                    addItem(missing, "key:" + id, name, true, id, key, null, value -> ExternalKeys.describeValue(id, value));
+                } else {
+                    addItem(missing, "key:" + id, KeyLabels.name(id), true, id, key, null, ProfileContentsScreen::describeKey);
+                }
+            });
         }
 
         Group settings = addGroup(root, "options", Text.translatable("keybindprofilesplus.contents.settings"));
@@ -532,6 +564,8 @@ public class ProfileContentsScreen extends ResizingScreen {
         int[] hitPoint(String nodeId, boolean onCheckbox) {
             for (Entry entry : children()) {
                 if (entry.node.id.equals(nodeId)) {
+                    // Scrolled into view first, as a player would before clicking it.
+                    scrollTo(entry);
                     int x = onCheckbox ? entry.checkboxX() + GuiUtil.CHECKBOX_SIZE / 2 : entry.checkboxX() + GuiUtil.CHECKBOX_SIZE + 30;
                     return new int[]{x, entry.getContentMiddleY()};
                 }

@@ -43,11 +43,17 @@ final class MeteorKeys {
     private MeteorKeys() {
     }
 
-    static List<ExternalBinding> read(Path gameDirectory) {
+    /**
+     * @param includeMain whether to read the configuration in use too ({@code meteor-client/modules.nbt});
+     *                    false when those binds come from the running Meteor instead
+     */
+    static List<ExternalBinding> read(Path gameDirectory, boolean includeMain) {
         List<ExternalBinding> bindings = new ArrayList<>();
         Path root = gameDirectory.resolve(DIRECTORY);
-        readFile(root.resolve(MODULES_FILE), DIRECTORY + "/" + MODULES_FILE,
-                Text.translatable("keybindprofilesplus.external.meteor"), true, bindings);
+        if (includeMain) {
+            readFile(root.resolve(MODULES_FILE), DIRECTORY + "/" + MODULES_FILE,
+                    Text.translatable("keybindprofilesplus.external.meteor"), true, bindings);
+        }
 
         Path profiles = root.resolve("profiles");
         if (Files.isDirectory(profiles)) {
@@ -158,10 +164,10 @@ final class MeteorKeys {
         Text keyText = KeyCombo.withModifiers(modifiers, key.getLocalizedText());
         if (needsSuper) {
             // The Windows / Command key is not something a game key binding can ask for: shown, but not compared.
-            out.add(new ExternalBinding("meteor", group, name, 0, null, Text.literal("Super + ").append(keyText), when, active, file));
+            out.add(ExternalBinding.readOnly("meteor", group, name, 0, null, Text.literal("Super + ").append(keyText), when, active, file));
             return;
         }
-        out.add(new ExternalBinding("meteor", group, name, modifiers, key, keyText, when, active, file));
+        out.add(ExternalBinding.readOnly("meteor", group, name, modifiers, key, keyText, when, active, file));
     }
 
     /** "auto-totem" -> "Auto Totem". */

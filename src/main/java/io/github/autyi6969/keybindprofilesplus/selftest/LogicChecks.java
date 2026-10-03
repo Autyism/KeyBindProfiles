@@ -255,8 +255,21 @@ final class LogicChecks {
             t.check("key source: Mod Menu's own key binding is traced to Mod Menu (" + modMenu.description().getString() + ")",
                     modMenu.kind() == KeySource.Kind.MOD && "modmenu".equals(modMenu.modId()) && KeyOrigins.creatorClassOf(modMenuKey) != null);
         }
-        t.check("key sources: every binding except the mod ones is vanilla (" + vanilla + " of " + client().options.allKeys.length + ")",
-                vanilla == client().options.allKeys.length - DEMO_BINDINGS - 1 - (modMenuKey == null ? 0 : 1));
+        // Other mods in the dev client (Mod Menu, Meteor, ...) register bindings of their own: each must be traced to its mod.
+        int otherMods = 0;
+        for (KeyBinding binding : client().options.allKeys) {
+            String creator = KeyOrigins.modOf(binding).map(mod -> mod.getMetadata().getId()).orElse("minecraft");
+            if (!creator.equals("minecraft") && !creator.equals(KeyBindProfilesPlus.MOD_ID)) {
+                otherMods++;
+                KeySource traced = resolver.resolve(binding);
+                if (traced.kind() != KeySource.Kind.MOD || !creator.equals(traced.modId())) {
+                    t.fail("key source: " + binding.getId() + " was created by " + creator + " but is labelled " + traced.description().getString());
+                }
+            }
+        }
+        t.check("key sources: every binding except the mod ones is vanilla (" + vanilla + " of " + client().options.allKeys.length
+                        + ", " + otherMods + " from other mods in the dev client)",
+                vanilla == client().options.allKeys.length - DEMO_BINDINGS - 1 - otherMods);
     }
 
     private void source(KeySourceResolver resolver, String bindingId, KeySource.Kind kind, String modId) {

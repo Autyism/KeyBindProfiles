@@ -4,6 +4,8 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
 import io.github.autyi6969.keybindprofilesplus.KeyBindProfilesPlus;
+import io.github.autyi6969.keybindprofilesplus.external.ExternalBinding;
+import io.github.autyi6969.keybindprofilesplus.external.ExternalKeys;
 import io.github.autyi6969.keybindprofilesplus.keys.KeyCombo;
 import io.github.autyi6969.keybindprofilesplus.keys.KeyCombos;
 import io.github.autyi6969.keybindprofilesplus.keys.KeyLabels;
@@ -22,6 +24,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
+/**
+ * The profiles and what applying one does. A profile's "keybindings" map holds the game's key
+ * bindings (by id) and, under ids starting with {@code ext:}, hotkeys that Meteor and malilib mods
+ * manage themselves; applying the profile sets both.
+ */
 public final class ProfileService {
     private final ProfileFileStore fileStore;
     private final Map<String, Map<String, String>> profiles = new HashMap<>();
@@ -74,8 +81,10 @@ public final class ProfileService {
         }
     }
 
+    /** Saves every key binding as it is now, and the hotkeys of other mods that can be changed from here. */
     public void saveProfile(String name, KeyBinding[] bindings) {
         fileStore.saveProfile(name, bindings, profiles);
+        profiles.get(name).putAll(ExternalKeys.currentValues());
         exportProfile(name);
     }
 
@@ -89,6 +98,7 @@ public final class ProfileService {
         KeyCombos.batch(() -> applyKeyBindings(client.options.allKeys, keyMap));
         KeyBinding.updateKeysByCode();
         releaseAllKeys(client.options.allKeys);
+        applyExternalHotkeys(keyMap);
         applyGameOptions(client, profileOptions.get(name));
         writeOptions(client);
 
@@ -204,6 +214,18 @@ public final class ProfileService {
                     binding.getBoundKeyLocalizedText(), KeyCombo.describe(savedKey)));
         }
 
+        for (Map.Entry<String, String> saved : keyMap.entrySet()) {
+            if (!ExternalKeys.isExternalId(saved.getKey())) {
+                continue;
+            }
+            // Only what can be set right now (the mod is running) is a change.
+            ExternalBinding current = ExternalKeys.find(saved.getKey());
+            if (current != null && !sameExternalValue(current.value(), saved.getValue())) {
+                changes.add(new ProfileChange(ProfileChange.Kind.EXTERNAL, saved.getKey(), current.label(),
+                        current.keyText(), ExternalKeys.describeValue(saved.getKey(), saved.getValue())));
+            }
+        }
+
         Map<String, String> options = profileOptions.get(name);
         if (options != null && !options.isEmpty()) {
             Map<String, GameOptionsBridge.Entry> current = GameOptionsBridge.readAll(client.options);
@@ -282,6 +304,33 @@ public final class ProfileService {
 
         // Invalid key values from old or manually edited profile files are ignored.
         KeyCombos.applyValue(binding, savedKey);
+    }
+
+    /** Sets the saved hotkeys of other mods; each mod saves its config itself. */
+    private void applyExternalHotkeys(Map<String, String> keyMap) {
+        Map<String, String> external = new LinkedHashMap<>();
+        for (Map.Entry<String, String> entry : keyMap.entrySet()) {
+            if (!ExternalKeys.isExternalId(entry.getKey())) {
+                continue;
+            }
+            ExternalBinding current = ExternalKeys.find(entry.getKey());
+            if (current != null && !sameExternalValue(current.value(), entry.getValue())) {
+                external.put(entry.getKey(), entry.getValue());
+            }
+        }
+        if (external.isEmpty()) {
+            return;
+        }
+        try {
+            ExternalKeys.applyValues(external);
+        } catch (RuntimeException e) {
+            KeyBindProfilesPlus.LOGGER.error("Failed to apply the saved hotkeys of other mods", e);
+        }
+    }
+
+    /** "No key" is written differently by different mods; any two of those count as the same. */
+    private static boolean sameExternalValue(String current, String saved) {
+        return Objects.equals(current, saved) || (ExternalKeys.isUnboundValue(current) && ExternalKeys.isUnboundValue(saved));
     }
 
     private void applyGameOptions(MinecraftClient client, Map<String, String> options) {
