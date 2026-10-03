@@ -16,8 +16,8 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Hotkeys that other mods manage themselves: Meteor Client (with its addons and macros) and the
- * malilib family. While such a mod runs, its hotkeys are taken from the mod itself and can be
+ * Hotkeys that other mods manage themselves: Meteor Client (with its addons and macros), the
+ * malilib family and Inventory Profiles Next. While such a mod runs, its hotkeys are taken from the mod itself and can be
  * changed here ({@link #bind}, {@link #setValue}, {@link #applyValues}); the mod then saves them with
  * its own save code. What cannot be reached that way (Meteor profiles that are not loaded, or a mod
  * version whose insides are unexpected) is read from the config files and stays read-only. Nothing
@@ -188,7 +188,8 @@ public final class ExternalKeys {
         if (isUnboundValue(value)) {
             return Text.translatable("key.keyboard.unknown");
         }
-        if (hotkeyId.startsWith(MalilibLive.PREFIX)) {
+        if (hotkeyId.startsWith(MalilibLive.PREFIX) || hotkeyId.startsWith(IpnLive.PREFIX)) {
+            // libIPN writes keys with the same names as malilib.
             MalilibKeys.Trigger trigger = MalilibKeys.parse(value);
             return trigger == null ? Text.translatable("key.keyboard.unknown") : trigger.text();
         }
@@ -211,7 +212,8 @@ public final class ExternalKeys {
             if (!name.isEmpty()) {
                 name.append(" / ");
             }
-            name.append(hotkeyId.startsWith(MalilibLive.PREFIX) ? MalilibKeys.readableName(part) : MeteorKeys.title(part));
+            name.append(hotkeyId.startsWith(MeteorLive.PREFIX) || hotkeyId.startsWith(MeteorLive.MACRO_PREFIX)
+                    ? MeteorKeys.title(part) : MalilibKeys.readableName(part));
         }
         return Text.literal(name.toString());
     }
@@ -227,6 +229,9 @@ public final class ExternalKeys {
         }
         if (hotkeyId.startsWith(MeteorLive.PREFIX)) {
             return Text.translatable("keybindprofilesplus.external.meteor");
+        }
+        if (hotkeyId.startsWith(IpnLive.PREFIX)) {
+            return Text.literal(FabricLoader.getInstance().getModContainer(IpnLive.MOD_ID).map(mod -> mod.getMetadata().getName()).orElse("Inventory Profiles Next"));
         }
         if (hotkeyId.startsWith(MalilibLive.PREFIX)) {
             String rest = hotkeyId.substring(MalilibLive.PREFIX.length());
@@ -250,10 +255,15 @@ public final class ExternalKeys {
         cached = false;
     }
 
-    /** For the self-test: whether hotkeys of this kind ("malilib" / "meteor") are read from the running mod. */
+    /** For the self-test: whether hotkeys of this kind ("malilib" / "meteor" / "ipn") are read from the running mod. */
     public static boolean isLive(String kind) {
         for (LiveSource source : environment.liveSources()) {
-            if (source.available() && (kind.equals("malilib") ? source.coversMalilib() : source.coversMeteor())) {
+            boolean matches = switch (kind) {
+                case "malilib" -> source.coversMalilib();
+                case "meteor" -> source.coversMeteor();
+                default -> source instanceof IpnLive;
+            };
+            if (source.available() && matches) {
                 return true;
             }
         }
@@ -300,6 +310,9 @@ public final class ExternalKeys {
             }
             if (FabricLoader.getInstance().isModLoaded(MalilibKeys.LIBRARY_ID)) {
                 sources.add(new MalilibLive());
+            }
+            if (FabricLoader.getInstance().isModLoaded(IpnLive.MOD_ID)) {
+                sources.add(new IpnLive());
             }
             return List.copyOf(sources);
         }

@@ -43,18 +43,19 @@ dependencies {
 	modCompileOnly "com.terraformersmc:modmenu:${project.modmenu_version}"
 	modLocalRuntime "com.terraformersmc:modmenu:${project.modmenu_version}"
 
-	// Other mods whose own hotkeys are listed and edited (external/): Meteor Client and the malilib family.
+	// Other mods whose own hotkeys are listed and edited (external/): Meteor Client, the malilib family and
+	// Inventory Profiles Next.
 	// They are reached by reflection on their own class and method names (which are the same in every
 	// environment), so the mod needs none of them to build or to run. Their current jars are built with a
 	// newer Loom than this project uses, which Loom refuses to put on the class path.
 	//
 	// For the dev client (and with it the self-test) tools/prepare-dev-mods.ps1 puts copies of malilib,
-	// Litematica and Meteor (with the Loom version in their manifests lowered, plus the libraries Meteor
+	// Litematica, Meteor and IPN (with the Loom version in their manifests lowered, plus the libraries Meteor
 	// carries inside its jar) into libs/, which is not committed. Without libs/ the dev client simply runs
 	// without them.
-	for (String dir : ["libs/malilib", "libs/meteor"]) {
+	for (String dir : ["libs/malilib", "libs/meteor", "libs/ipn"]) {
 		if (file(dir).isDirectory()) {
-			modLocalRuntime fileTree(dir) { include "*.jar"; exclude "fabric-*.jar" }
+			modLocalRuntime fileTree(dir) { include "*.jar" }
 		}
 	}
 }

@@ -49,6 +49,7 @@ final class LiveExternalChecks {
     private static final String LITEMATICA_ID = "ext:malilib:litematica/" + LITEMATICA_HOTKEY;
     private static final String METEOR_MODULE = "auto-totem";
     private static final String METEOR_ID = "ext:meteor:" + METEOR_MODULE;
+    private static final String IPN_ID = "ext:ipn:sort_inventory";
 
     private final SelfTestRunner t;
     private final LogicChecks logic;
@@ -56,6 +57,7 @@ final class LiveExternalChecks {
     private final Map<String, String> originals = new LinkedHashMap<>();
     private boolean litematica;
     private boolean meteor;
+    private boolean ipn;
 
     LiveExternalChecks(SelfTestRunner runner, LogicChecks logic, ProfileService service) {
         this.t = runner;
@@ -69,6 +71,7 @@ final class LiveExternalChecks {
 
     void register() {
         t.step("live external: the running mods", this::start);
+        t.step("live external: Inventory Profiles Next", this::ipn);
         litematicaOnScreen();
         meteorOnScreen();
         t.step("live external: conflicts between edited hotkeys", this::conflicts);
@@ -83,7 +86,8 @@ final class LiveExternalChecks {
         ExternalKeys.setEnvironmentForTesting(null);
         litematica = FabricLoader.getInstance().isModLoaded("litematica");
         meteor = FabricLoader.getInstance().isModLoaded("meteor-client");
-        SelfTestRunner.log("live external: litematica=" + litematica + " meteor=" + meteor
+        ipn = FabricLoader.getInstance().isModLoaded("inventoryprofilesnext");
+        SelfTestRunner.log("live external: litematica=" + litematica + " meteor=" + meteor + " ipn=" + ipn
                 + (litematica && meteor ? "" : " (run tools/prepare-dev-mods.ps1 to have them in the dev client; their checks are skipped)"));
 
         List<ExternalBinding> all = ExternalKeys.all();
@@ -115,6 +119,37 @@ final class LiveExternalChecks {
             }
             t.check("live external: key bind settings inside modules are listed too",
                     all.stream().anyMatch(binding -> binding.editable() && binding.hotkeyId().startsWith("ext:meteor:") && binding.hotkeyId().contains("/")));
+        }
+    }
+
+    /** Inventory Profiles Next keeps its hotkeys in its own library: listed, changed and saved by IPN. */
+    private void ipn() {
+        if (!ipn) {
+            return;
+        }
+        t.check("live external: Inventory Profiles Next's hotkeys come from the running mod", ExternalKeys.isLive("ipn"));
+        ExternalBinding sort = ExternalKeys.find(IPN_ID);
+        t.check("live external: IPN's 'sort inventory' is listed as an inventory-screen key (" + (sort == null ? "missing" : sort.value() + ", " + sort.when()) + ")",
+                sort != null && sort.when() == ExternalBinding.When.SCREEN_ONLY);
+        if (sort == null) {
+            return;
+        }
+        String before = sort.value();
+        t.check("live external: IPN takes Ctrl + F23", ExternalKeys.bind(sort, InputUtil.Type.KEYSYM.createFromCode(InputUtil.GLFW_KEY_F23), KeyCombo.CTRL)
+                && "LEFT_CONTROL,F23".equals(ExternalKeys.find(IPN_ID).value()));
+        t.check("live external: ... and IPN saved it to its own config file", fileContains(
+                FabricLoader.getInstance().getConfigDir().resolve("inventoryprofilesnext").resolve("inventoryprofiles.json"), "LEFT_CONTROL,F23"));
+        t.check("live external: Reset puts IPN's default back", ExternalKeys.reset(ExternalKeys.find(IPN_ID))
+                && ExternalKeys.find(IPN_ID).value().equals(ExternalKeys.find(IPN_ID).defaultValue()));
+        ExternalKeys.setValue(ExternalKeys.find(IPN_ID), before);
+        t.check("live external: IPN's key is back as before (" + before + ")", before.equals(ExternalKeys.find(IPN_ID).value()));
+    }
+
+    private static boolean fileContains(Path file, String text) {
+        try {
+            return Files.readString(file, StandardCharsets.UTF_8).contains(text);
+        } catch (IOException e) {
+            return false;
         }
     }
 

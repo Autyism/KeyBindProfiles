@@ -40,7 +40,6 @@ final class MalilibLive implements LiveSource {
     private Method getKeybindCategories;
     private Method updateUsedKeys;
     private Method categoryModName;
-    private Method categoryName;
     private Method categoryHotkeys;
     private Method hotkeyName;
     private Method hotkeyPrettyName;
@@ -94,9 +93,8 @@ final class MalilibLive implements LiveSource {
                 String modName = String.valueOf(categoryModName.invoke(category));
                 String modId = modIds.getOrDefault(normalize(modName), normalize(modName));
                 Text group = Text.literal(modName);
-                String categoryLabel = String.valueOf(categoryName.invoke(category));
                 for (Object hotkey : (Collection<?>) categoryHotkeys.invoke(category)) {
-                    add(hotkey, modId, registered.contains(modId), group, categoryLabel, out);
+                    add(hotkey, modId, registered.contains(modId), group, out);
                 }
             }
         } catch (ReflectiveOperationException | RuntimeException e) {
@@ -108,7 +106,7 @@ final class MalilibLive implements LiveSource {
     /**
      * @param knownMod whether the mod registered its config under this id, so that exactly its config can be saved
      */
-    private void add(Object hotkey, String modId, boolean knownMod, Text group, String categoryLabel, List<ExternalBinding> out)
+    private void add(Object hotkey, String modId, boolean knownMod, Text group, List<ExternalBinding> out)
             throws ReflectiveOperationException {
         String rawName = String.valueOf(hotkeyName.invoke(hotkey));
         Object keybind = hotkeyKeybind.invoke(hotkey);
@@ -271,7 +269,6 @@ final class MalilibLive implements LiveSource {
             getKeybindCategories = keybindManager.getMethod("getKeybindCategories");
             updateUsedKeys = keybindManager.getMethod("updateUsedKeys");
             categoryModName = category.getMethod("getModName");
-            categoryName = category.getMethod("getCategory");
             categoryHotkeys = category.getMethod("getHotkeys");
             hotkeyName = hotkey.getMethod("getName");
             hotkeyPrettyName = optional(hotkey, "getPrettyName");

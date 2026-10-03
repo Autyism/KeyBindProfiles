@@ -283,6 +283,8 @@ final class LogicChecks {
     void conflicts() {
         Map<String, String> before = SelfTestRunner.currentKeyValues();
         ModSettings settings = KeyBindProfilesPlus.settings();
+        // Only the game's own bindings here: the other mods in the dev client (IPN, Meteor...) have their own checks.
+        ExternalKeys.setEnvironmentForTesting(new FixtureEnvironment(null, false, List.of()));
         try {
             for (KeyBinding binding : client().options.allKeys) {
                 KeyCombos.bind(binding, binding.getDefaultKey(), 0);
@@ -367,6 +369,7 @@ final class LogicChecks {
             settings.setScopeOverride(DEMO_SCREEN_BINDING, null);
             settings.setScopeOverride(DEMO_MOD_BINDING, null);
             before.forEach(t::bind);
+            ExternalKeys.setEnvironmentForTesting(null);
         }
     }
 

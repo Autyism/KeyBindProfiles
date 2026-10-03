@@ -1,5 +1,5 @@
-# Puts copies of malilib, Litematica and Meteor Client into libs\ so the dev client (and the
-# self-test) runs with them and editing their hotkeys can be exercised for real.
+# Puts copies of malilib, Litematica, Meteor Client and Inventory Profiles Next (with libIPN and
+# Fabric Language Kotlin, which it needs) into libs\ so the dev client (and the self-test) runs with them and editing their hotkeys can be exercised for real.
 #
 #   powershell -NoProfile -ExecutionPolicy Bypass -File tools\prepare-dev-mods.ps1 [-ModsDir <folder with the jars>]
 #
@@ -52,7 +52,8 @@ function Copy-Mod([string]$pattern, [string]$target) {
 
 $malilibDir = Join-Path $root 'libs\malilib'
 $meteorDir = Join-Path $root 'libs\meteor'
-foreach ($dir in @($malilibDir, $meteorDir)) {
+$ipnDir = Join-Path $root 'libs\ipn'
+foreach ($dir in @($malilibDir, $meteorDir, $ipnDir)) {
     if (Test-Path $dir) { Remove-Item -Recurse -Force $dir }
 }
 
@@ -78,6 +79,13 @@ function Expand-Bundled([string]$jar, [string]$target) {
 foreach ($jar in @(Get-ChildItem -LiteralPath $malilibDir -Filter '*.jar' -ErrorAction SilentlyContinue)) {
     Expand-Bundled $jar.FullName $malilibDir
 }
+Copy-Mod '*InventoryProfilesNext-fabric-*.jar' $ipnDir | Out-Null
+Copy-Mod 'libIPN-fabric-*.jar' $ipnDir | Out-Null
+Copy-Mod 'fabric-language-kotlin-*.jar' $ipnDir | Out-Null
+foreach ($jar in @(Get-ChildItem -LiteralPath $ipnDir -Filter '*.jar' -ErrorAction SilentlyContinue)) {
+    Expand-Bundled $jar.FullName $ipnDir
+}
+
 $meteor = Copy-Mod 'meteor-client-*.jar' $meteorDir
 if ($meteor) {
     Expand-Bundled $meteor $meteorDir
