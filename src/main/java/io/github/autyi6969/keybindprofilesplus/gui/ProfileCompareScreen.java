@@ -1,6 +1,8 @@
 package io.github.autyi6969.keybindprofilesplus.gui;
 
 import io.github.autyi6969.keybindprofilesplus.keys.KeyConflicts;
+import io.github.autyi6969.keybindprofilesplus.external.ExternalBinding;
+import io.github.autyi6969.keybindprofilesplus.external.ExternalKeys;
 import io.github.autyi6969.keybindprofilesplus.keys.KeySource;
 import io.github.autyi6969.keybindprofilesplus.profile.ProfileComparison;
 import io.github.autyi6969.keybindprofilesplus.profile.ProfileService;
@@ -270,6 +272,10 @@ public class ProfileCompareScreen extends ResizingScreen {
                 this.row = row;
                 KeyBinding binding = row.keyBinding() ? KeyBinding.byId(row.id()) : null;
                 KeySource resolved = binding == null ? null : KeyConflicts.sources(client.options).resolve(binding);
+                if (resolved == null && row.keyBinding() && ExternalKeys.isExternalId(row.id())) {
+                    ExternalBinding external = ExternalKeys.find(row.id());
+                    resolved = external == null ? null : KeySource.external(external.sourceId(), external.group().getString());
+                }
                 this.source = resolved == null || resolved.isVanilla() ? null : resolved;
             }
 

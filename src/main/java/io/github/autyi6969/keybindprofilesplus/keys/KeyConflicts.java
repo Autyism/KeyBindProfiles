@@ -374,8 +374,34 @@ public final class KeyConflicts {
                 conflicts.add(new Conflict(binding, null, conflict.level(), conflict.reason()));
             }
         }
+        for (ExternalBinding other : ExternalKeys.active()) {
+            Conflict conflict = betweenExternal(external, other);
+            if (conflict != null) {
+                conflicts.add(conflict);
+            }
+        }
         conflicts.sort((first, second) -> second.level().compareTo(first.level()));
         return conflicts;
+    }
+
+    /** Two hotkeys of other mods (Meteor, malilib) on the same key and modifiers. */
+    private static Conflict betweenExternal(ExternalBinding external, ExternalBinding other) {
+        if (other.equals(external) || other.key() == null || external.key() == null
+                || !other.key().equals(external.key()) || other.modifiers() != external.modifiers()) {
+            return null;
+        }
+        // Hotkeys of one malilib mod on one key are that mod's own business (they ship several on purpose and
+        // tell them apart by their own settings). Two Meteor modules on one key do both toggle: that is reported.
+        if (other.sourceId().equals(external.sourceId()) && !other.sourceId().equals("meteor")) {
+            return null;
+        }
+        Scope a = scopeOf(external);
+        Scope b = scopeOf(other);
+        Verdict verdict = verdict(a, b, false, false);
+        if (verdict == null) {
+            return null;
+        }
+        return new Conflict(null, other, verdict.level(), verdict.level() == Level.HARD ? "external" : "external_partial");
     }
 
     /**

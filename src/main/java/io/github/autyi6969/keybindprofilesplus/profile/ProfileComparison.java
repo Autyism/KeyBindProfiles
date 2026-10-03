@@ -1,5 +1,7 @@
 package io.github.autyi6969.keybindprofilesplus.profile;
 
+import io.github.autyi6969.keybindprofilesplus.external.ExternalBinding;
+import io.github.autyi6969.keybindprofilesplus.external.ExternalKeys;
 import io.github.autyi6969.keybindprofilesplus.keys.KeyCombo;
 import io.github.autyi6969.keybindprofilesplus.keys.KeyCombos;
 import io.github.autyi6969.keybindprofilesplus.keys.KeyLabels;
@@ -57,7 +59,19 @@ public final class ProfileComparison {
             String left = leftProfile == null ? KeyCombos.valueOf(binding) : leftKeys.get(binding.getId());
             String right = rightProfile == null ? KeyCombos.valueOf(binding) : rightKeys.get(binding.getId());
             addRow(rows, true, binding.getId(), KeyLabels.name(binding), KeyLabels.category(binding.getCategory()),
-                    left, right, describeKey(left), describeKey(right));
+                    left, right, describeKey(binding.getId(), left), describeKey(binding.getId(), right));
+        }
+
+        // Hotkeys of other mods (Meteor, malilib) that are running and can be saved in profiles.
+        for (ExternalBinding external : ExternalKeys.all()) {
+            if (!external.editable()) {
+                continue;
+            }
+            String id = external.hotkeyId();
+            liveIds.add(id);
+            String left = leftProfile == null ? external.value() : leftKeys.get(id);
+            String right = rightProfile == null ? external.value() : rightKeys.get(id);
+            addRow(rows, true, id, external.title(), external.group(), left, right, describeKey(id, left), describeKey(id, right));
         }
 
         // Bindings saved for mods that are not installed right now.
@@ -68,7 +82,8 @@ public final class ProfileComparison {
         for (String id : orphanIds) {
             String left = leftKeys.get(id);
             String right = rightKeys.get(id);
-            addRow(rows, true, id, KeyLabels.name(id), orphanGroup, left, right, describeKey(left), describeKey(right));
+            Text name = ExternalKeys.isExternalId(id) ? ExternalKeys.nameOf(id).copy().append(" [").append(ExternalKeys.groupOf(id)).append("]") : KeyLabels.name(id);
+            addRow(rows, true, id, name, orphanGroup, left, right, describeKey(id, left), describeKey(id, right));
         }
 
         Map<String, String> leftOptions = leftProfile == null ? Map.of() : service.getProfileOptions(leftProfile);
@@ -105,7 +120,7 @@ public final class ProfileComparison {
         if (leftRaw == null && rightRaw == null) {
             return;
         }
-        State state = leftRaw == null || rightRaw == null ? State.ONE_SIDED : leftRaw.equals(rightRaw) ? State.SAME : State.DIFFERENT;
+        State state = leftRaw == null || rightRaw == null ? State.ONE_SIDED : sameValue(id, leftRaw, rightRaw) ? State.SAME : State.DIFFERENT;
         rows.add(new Row(keyBinding, id, name, group, left, right, state));
     }
 
@@ -117,10 +132,15 @@ public final class ProfileComparison {
         return keys == null ? Map.of() : new LinkedHashMap<>(keys);
     }
 
-    private static Text describeKey(String translationKey) {
-        if (translationKey == null) {
+    private static boolean sameValue(String id, String left, String right) {
+        // Other mods write "no key" in different ways.
+        return left.equals(right) || (ExternalKeys.isExternalId(id) && ExternalKeys.isUnboundValue(left) && ExternalKeys.isUnboundValue(right));
+    }
+
+    private static Text describeKey(String id, String value) {
+        if (value == null) {
             return null;
         }
-        return KeyCombo.describe(translationKey);
+        return ExternalKeys.isExternalId(id) ? ExternalKeys.describeValue(id, value) : KeyCombo.describe(value);
     }
 }

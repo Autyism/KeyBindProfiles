@@ -50,8 +50,10 @@ import java.util.Set;
  * The mod's Key Binds screen, shown instead of the vanilla one (unless that is switched off in the
  * settings). Every key binding registered with the game can be rebound here - including
  * Ctrl / Shift / Alt combinations - with the mod each one comes from next to it and conflicts
- * marked as they arise. The hotkeys Meteor and malilib mods manage on their own are listed too,
- * read-only. Searchable, filterable by source, groupable by category or by source.
+ * marked as they arise. The hotkeys Meteor and malilib mods manage on their own are listed too and
+ * can be rebound the same way while those mods run (only what is known from a file alone, such as
+ * Meteor profiles that are not loaded, stays read-only). Searchable, filterable by source,
+ * groupable by category or by source.
  */
 public class KeyOverviewScreen extends ResizingScreen {
     /** Filter values that are not the name of a particular source. */
@@ -88,6 +90,9 @@ public class KeyOverviewScreen extends ResizingScreen {
 
     /** The binding that is waiting for its new key, or null. */
     private KeyBinding waiting;
+    /** The hotkey of another mod that is waiting for its new key, or null (at most one of the two is set). */
+    private ExternalBinding waitingExternal;
+    private final ScreenStatusMessage statusMessage = new ScreenStatusMessage();
     /** Ctrl / Shift / Alt pressed since the binding started waiting. */
     private int pendingModifiers;
     /** The key that was just bound also arrives as a typed character; it must not end up in the search box. */
@@ -207,7 +212,11 @@ public class KeyOverviewScreen extends ResizingScreen {
 
     @Override
     public boolean shouldCloseOnEsc() {
-        return waiting == null;
+        return !isWaiting();
+    }
+
+    private boolean isWaiting() {
+        return waiting != null || waitingExternal != null;
     }
 
     @Override
@@ -216,9 +225,13 @@ public class KeyOverviewScreen extends ResizingScreen {
         super.render(context, mouseX, mouseY, deltaTicks);
 
         int summaryY = filterButton.getY() + 24;
-        if (waiting != null) {
-            context.drawCenteredTextWithShadow(textRenderer, Text.translatable("keybindprofilesplus.overview.waiting", KeyLabels.name(waiting)),
+        Text status = statusMessage.getVisibleText();
+        if (isWaiting()) {
+            Text waitingName = waiting != null ? KeyLabels.name(waiting) : waitingExternal.label();
+            context.drawCenteredTextWithShadow(textRenderer, Text.translatable("keybindprofilesplus.overview.waiting", waitingName),
                     width / 2, summaryY, GuiUtil.YELLOW);
+        } else if (status != null) {
+            context.drawCenteredTextWithShadow(textRenderer, status, width / 2, summaryY, GuiUtil.YELLOW);
         } else if (conflictSummary.isEmpty()) {
             context.drawCenteredTextWithShadow(textRenderer, summary, width / 2, summaryY, GuiUtil.GRAY);
         } else {
@@ -233,7 +246,7 @@ public class KeyOverviewScreen extends ResizingScreen {
             context.drawCenteredTextWithShadow(textRenderer, Text.translatable("keybindprofilesplus.overview.empty"),
                     width / 2, layout.getHeaderHeight() + layout.getContentHeight() / 2 - 4, GuiUtil.GRAY);
         }
-        if (hoveredRow != null && waiting == null) {
+        if (hoveredRow != null && !isWaiting()) {
             // Over the key: only what matters while rebinding (conflicts). Over the name: everything about the binding.
             List<Text> lines = hoveredOverKey ? hoveredRow.keyTooltip() : hoveredRow.tooltip();
             if (!lines.isEmpty()) {
@@ -246,7 +259,7 @@ public class KeyOverviewScreen extends ResizingScreen {
 
     @Override
     public boolean mouseClicked(Click click, boolean doubled) {
-        if (waiting != null) {
+        if (isWaiting()) {
             finishRebind(InputUtil.Type.MOUSE.createFromCode(click.button()), click.modifiers());
             return true;
         }
@@ -255,7 +268,7 @@ public class KeyOverviewScreen extends ResizingScreen {
 
     @Override
     public boolean keyPressed(KeyInput input) {
-        if (waiting == null) {
+        if (!isWaiting()) {
             return super.keyPressed(input);
         }
         if (input.isEscape()) {
@@ -277,7 +290,7 @@ public class KeyOverviewScreen extends ResizingScreen {
     @Override
     public boolean keyReleased(KeyInput input) {
         int modifier = KeyCombo.modifierOfKeyCode(input.key());
-        if (waiting != null && modifier != 0 && (pendingModifiers & modifier) != 0) {
+        if (isWaiting() && modifier != 0 && (pendingModifiers & modifier) != 0) {
             // The modifier came back up without another key: it is the key the player wants.
             finishRebind(InputUtil.fromKeyCode(input), pendingModifiers & ~modifier);
             return true;
@@ -287,7 +300,7 @@ public class KeyOverviewScreen extends ResizingScreen {
 
     @Override
     public boolean charTyped(CharInput input) {
-        if (waiting != null || swallowTypedCharacter) {
+        if (isWaiting() || swallowTypedCharacter) {
             return true;
         }
         return super.charTyped(input);
@@ -295,21 +308,32 @@ public class KeyOverviewScreen extends ResizingScreen {
 
     private void finishRebind(InputUtil.Key key, int modifiers) {
         KeyBinding binding = waiting;
+        ExternalBinding external = waitingExternal;
         waiting = null;
+        waitingExternal = null;
         pendingModifiers = 0;
         swallowTypedCharacter = true;
-        KeyCombos.bind(binding, key, modifiers & KeyCombo.ALL);
+        if (external != null) {
+            // The other mod has the last word (Meteor never binds a module to the left / right mouse button).
+            if (!ExternalKeys.bind(external, key, modifiers & KeyCombo.ALL)) {
+                statusMessage.show("keybindprofilesplus.overview.external_refused", external.label(), key.getLocalizedText());
+            }
+        } else {
+            KeyCombos.bind(binding, key, modifiers & KeyCombo.ALL);
+        }
         reloadKeys();
     }
 
     private void cancelRebind() {
         waiting = null;
+        waitingExternal = null;
         pendingModifiers = 0;
     }
 
     /** After any key change: lets the game know and shows the list (and its conflicts) as it is now. */
     private void reloadKeys() {
         KeyBinding.updateKeysByCode();
+        ExternalKeys.refresh();
         collectRows();
         refreshList(true);
     }
@@ -322,16 +346,62 @@ public class KeyOverviewScreen extends ResizingScreen {
         if (binding == null) {
             return false;
         }
+        cancelRebind();
         waiting = binding;
-        pendingModifiers = 0;
         setFocused(null);
         list.updateLabels();
         return true;
     }
 
-    /** The id of the binding that is waiting for its new key, or null. */
+    /** The same for a hotkey of another mod, by its {@link ExternalBinding#hotkeyId()}. False if it is not listed as editable. */
+    public boolean startExternalRebind(String hotkeyId) {
+        Row row = externalRow(hotkeyId);
+        if (row == null) {
+            return false;
+        }
+        cancelRebind();
+        waitingExternal = row.external();
+        setFocused(null);
+        list.updateLabels();
+        return true;
+    }
+
+    /** The id of the binding (or {@link ExternalBinding#hotkeyId()} of the hotkey) that is waiting for its new key, or null. */
     public String waitingFor() {
-        return waiting == null ? null : waiting.getId();
+        return waiting != null ? waiting.getId() : waitingExternal != null ? waitingExternal.hotkeyId() : null;
+    }
+
+    /** The message shown above the list right now (e.g. a key another mod refused), or null. */
+    public String statusText() {
+        Text status = statusMessage.getVisibleText();
+        return status == null ? null : status.getString();
+    }
+
+    /** Puts a hotkey of another mod back on that mod's default, as its Reset button does. */
+    public boolean resetExternal(String hotkeyId) {
+        Row row = externalRow(hotkeyId);
+        if (row == null) {
+            return false;
+        }
+        cancelRebind();
+        boolean done = ExternalKeys.reset(row.external());
+        reloadKeys();
+        return done;
+    }
+
+    /** What the list shows for a hotkey of another mod right now: its key text, or null when it is not listed. */
+    public String externalKeyText(String hotkeyId) {
+        Row row = externalRow(hotkeyId);
+        return row == null ? null : row.keyText().getString();
+    }
+
+    private Row externalRow(String hotkeyId) {
+        for (Row row : rows) {
+            if (row.external() != null && hotkeyId.equals(row.external().hotkeyId())) {
+                return row;
+            }
+        }
+        return null;
     }
 
     /** Puts one binding back on its default key, as its Reset button does. */
@@ -355,7 +425,7 @@ public class KeyOverviewScreen extends ResizingScreen {
         reloadKeys();
     }
 
-    /** Screen coordinates {x, y} of a binding's key button, or null when its row is not listed. */
+    /** Screen coordinates {x, y} of a binding's (or another mod's hotkey's) key button, or null when its row is not listed. */
     public int[] keyButtonPoint(String bindingId) {
         return list.keyButtonPoint(bindingId);
     }
@@ -515,6 +585,8 @@ public class KeyOverviewScreen extends ResizingScreen {
             }
             if (row.binding() != null) {
                 anyChanged |= row.changed();
+            }
+            if (row.binding() != null || row.external().active()) {
                 if (row.level() == KeyConflicts.Level.HARD) {
                     hard++;
                 } else if (row.level() == KeyConflicts.Level.SOFT) {
@@ -569,8 +641,8 @@ public class KeyOverviewScreen extends ResizingScreen {
         }
 
         static Row of(ExternalBinding external, List<KeyConflicts.Conflict> conflicts, List<Text> shared) {
-            return new Row(null, external, Text.literal(external.name()), external.group(),
-                    KeySource.external(external.sourceId(), external.group().getString()), external.keyText(), false, false,
+            return new Row(null, external, external.title(), external.group(),
+                    KeySource.external(external.sourceId(), external.group().getString()), external.keyText(), external.unbound(), external.changed(),
                     KeyConflicts.scopeOf(external), true,
                     KeyBindProfilesPlus.settings().scopeOverride(KeyConflicts.overrideKey(external)) != null, conflicts, shared);
         }
@@ -587,7 +659,8 @@ public class KeyOverviewScreen extends ResizingScreen {
                     || contains(keyText.getString(), needle)
                     || contains(source.description().getString(), needle)
                     || contains(category.getString(), needle)
-                    || (binding != null && contains(binding.getId(), needle));
+                    || (binding != null && contains(binding.getId(), needle))
+                    || (external != null && contains(external.name(), needle));
         }
 
         List<Text> tooltip() {
@@ -597,6 +670,15 @@ public class KeyOverviewScreen extends ResizingScreen {
             if (binding != null) {
                 lines.add(Text.translatable("keybindprofilesplus.overview.tooltip.category", category).formatted(Formatting.GRAY));
                 lines.add(Text.translatable("keybindprofilesplus.overview.tooltip.default", binding.getDefaultKey().getLocalizedText()).formatted(Formatting.GRAY));
+                if (changed) {
+                    lines.add(Text.translatable("keybindprofilesplus.overview.tooltip.changed").formatted(Formatting.GRAY));
+                }
+            } else if (external.editable()) {
+                lines.add(Text.translatable("keybindprofilesplus.external.editable", external.file()).formatted(Formatting.GRAY));
+                if (external.defaultValue() != null) {
+                    lines.add(Text.translatable("keybindprofilesplus.overview.tooltip.default",
+                            ExternalKeys.describeValue(external.hotkeyId(), external.defaultValue())).formatted(Formatting.GRAY));
+                }
                 if (changed) {
                     lines.add(Text.translatable("keybindprofilesplus.overview.tooltip.changed").formatted(Formatting.GRAY));
                 }
@@ -615,6 +697,8 @@ public class KeyOverviewScreen extends ResizingScreen {
             lines.addAll(KeyConflicts.describeShared(shared));
             if (binding != null) {
                 lines.add(Text.literal(binding.getId()).formatted(Formatting.DARK_GRAY));
+            } else if (external.editable()) {
+                lines.add(Text.literal(external.hotkeyId()).formatted(Formatting.DARK_GRAY));
             }
             return lines;
         }
@@ -666,7 +750,8 @@ public class KeyOverviewScreen extends ResizingScreen {
 
         int[] keyButtonPoint(String bindingId) {
             for (Entry entry : children()) {
-                if (entry instanceof BindingEntry binding && binding.row.binding() != null && binding.row.binding().getId().equals(bindingId)) {
+                if (entry instanceof BindingEntry binding && binding.keyButton != null && (binding.row.binding() != null
+                        ? binding.row.binding().getId().equals(bindingId) : bindingId.equals(binding.row.external().hotkeyId()))) {
                     return new int[]{binding.keyLeft() + KEY_BUTTON_WIDTH / 2, binding.getContentMiddleY()};
                 }
             }
@@ -715,15 +800,20 @@ public class KeyOverviewScreen extends ResizingScreen {
             BindingEntry(Row row) {
                 this.row = row;
                 KeyBinding binding = row.binding();
-                if (binding == null) {
+                ExternalBinding external = row.external();
+                if (binding == null && !external.editable()) {
                     keyButton = null;
                     resetButton = null;
                     buttons = List.of();
                     return;
                 }
                 keyButton = ButtonWidget.builder(row.keyText(), button -> {
-                            waiting = binding;
-                            pendingModifiers = 0;
+                            cancelRebind();
+                            if (binding != null) {
+                                waiting = binding;
+                            } else {
+                                waitingExternal = external;
+                            }
                             updateLabels();
                         })
                         .dimensions(0, 0, KEY_BUTTON_WIDTH, 20)
@@ -731,7 +821,13 @@ public class KeyOverviewScreen extends ResizingScreen {
                                 ? Text.translatable("narrator.controls.unbound", row.name())
                                 : Text.translatable("narrator.controls.bound", row.name(), text.get()))
                         .build();
-                resetButton = ButtonWidget.builder(RESET_TEXT, button -> reset(binding.getId()))
+                resetButton = ButtonWidget.builder(RESET_TEXT, button -> {
+                            if (binding != null) {
+                                reset(binding.getId());
+                            } else {
+                                resetExternal(external.hotkeyId());
+                            }
+                        })
                         .dimensions(0, 0, resetWidth, 20)
                         .narrationSupplier(text -> Text.translatable("narrator.controls.reset", row.name()))
                         .build();
@@ -748,7 +844,9 @@ public class KeyOverviewScreen extends ResizingScreen {
                 Text key = row.keyText();
                 KeyConflicts.Level level = row.level();
                 MutableText label;
-                if (waiting == row.binding()) {
+                boolean rowWaiting = row.binding() != null ? waiting == row.binding()
+                        : waitingExternal != null && waitingExternal.hotkeyId().equals(row.external().hotkeyId());
+                if (rowWaiting) {
                     Text shown = pendingModifiers == 0 ? key : KeyCombo.withModifiers(pendingModifiers, Text.literal("..."));
                     label = Text.literal("> ").append(shown.copy().formatted(Formatting.WHITE, Formatting.UNDERLINE)).append(" <").formatted(Formatting.YELLOW);
                 } else if (level != KeyConflicts.Level.NONE) {

@@ -81,6 +81,32 @@ final class MalilibKeys {
     }
 
     private static void add(String name, String keysText, JsonObject hotkey, String modId, Text group, String file, List<ExternalBinding> out) {
+        Trigger trigger = parse(keysText);
+        if (trigger == null) {
+            return;
+        }
+        String context = null;
+        if (hotkey.get("settings") instanceof JsonObject settings && settings.get("context") != null && settings.get("context").isJsonPrimitive()) {
+            context = settings.get("context").getAsString();
+        }
+        ExternalBinding.When when = when(modId, name, context, trigger.bareModifier(), trigger.bareMouseClick());
+        out.add(ExternalBinding.readOnly(modId, group, readableName(name), trigger.modifiers(), trigger.key(), trigger.text(), when, true, file));
+    }
+
+    /**
+     * What a malilib key text ("LEFT_CONTROL,X") means.
+     *
+     * @param key            the main key when the hotkey is one key plus (optionally) Ctrl / Shift / Alt, else null
+     * @param modifiers      Ctrl / Shift / Alt bits held with {@code key} (0 when {@code key} is null)
+     * @param text           the whole trigger as shown to the player
+     * @param bareModifier   it is a single Ctrl / Shift / Alt key
+     * @param bareMouseClick it is the bare left or right mouse button
+     */
+    record Trigger(InputUtil.Key key, int modifiers, Text text, boolean bareModifier, boolean bareMouseClick) {
+    }
+
+    /** Reads a malilib key text; null when it holds no key at all. */
+    static Trigger parse(String keysText) {
         List<String> names = new ArrayList<>();
         for (String part : keysText.split(",")) {
             if (!part.isBlank()) {
@@ -88,7 +114,7 @@ final class MalilibKeys {
             }
         }
         if (names.isEmpty()) {
-            return;
+            return null;
         }
 
         int modifiers = 0;
@@ -129,15 +155,10 @@ final class MalilibKeys {
             modifiers = 0;
         }
 
-        String context = null;
-        if (hotkey.get("settings") instanceof JsonObject settings && settings.get("context") != null && settings.get("context").isJsonPrimitive()) {
-            context = settings.get("context").getAsString();
-        }
         boolean bareModifier = allKnown && ordinary.isEmpty() && modifierKeys.size() == 1;
         boolean bareMouseClick = allKnown && modifiers == 0 && ordinary.size() == 1 && ordinary.get(0).getCategory() == InputUtil.Type.MOUSE
                 && ordinary.get(0).getCode() <= 1;
-        ExternalBinding.When when = when(modId, name, context, bareModifier, bareMouseClick);
-        out.add(new ExternalBinding(modId, group, readableName(name), modifiers, mainKey, keyText, when, true, file));
+        return new Trigger(mainKey, modifiers, keyText, bareModifier, bareMouseClick);
     }
 
     /**
