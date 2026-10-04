@@ -3,24 +3,28 @@
 	"id": "keybindprofilesplus",
 	"version": "${version}",
 	"name": "KeyBind Profiles+",
-	"description": "Save, compare and instantly switch between key binding profiles. Based on KeyBindProfiles by sawiq_ (MIT).",
+	"description": "Save, compare, share and instantly switch whole sets of key bindings, optionally together with chosen game settings. Its Key Binds screen shows which mod every key comes from, marks real conflicts, supports Ctrl/Shift/Alt combinations and also edits the hotkeys of Meteor Client, MaLiLib mods and Inventory Profiles Next. Based on KeyBindProfiles by sawiq_.",
 	"authors": [
-		"Autyi6969"
-	],
-	"contributors": [
-		"sawiq_ (original KeyBindProfiles)"
+		"Autyism"
 	],
 	"contact": {
-		"homepage": "https://github.com/Autyi6969/KeyBindProfiles",
-		"sources": "https://github.com/Autyi6969/KeyBindProfiles",
-		"issues": "https://github.com/Autyi6969/KeyBindProfiles/issues"
+		"homepage": "https://github.com/Autyism/KeyBindProfiles",
+		"sources": "https://github.com/Autyism/KeyBindProfiles",
+		"issues": "https://github.com/Autyism/KeyBindProfiles/issues"
 	},
 	"license": "GPL-3.0-only",
 	"icon": "assets/keybindprofilesplus/icon.png",
+	"contributors": [
+		"sawiq_ (original KeyBindProfiles)"
+	],
 	"environment": "client",
 	"entrypoints": {
-		"client": ["io.github.autyi6969.keybindprofilesplus.KeyBindProfilesPlus"],
-		"modmenu": ["io.github.autyi6969.keybindprofilesplus.compat.ModMenuIntegration"]
+		"client": [
+			"io.github.autyism.keybindprofilesplus.KeyBindProfilesPlus"
+		],
+		"modmenu": [
+			"io.github.autyism.keybindprofilesplus.compat.ModMenuIntegration"
+		]
 	},
 	"accessWidener": "keybindprofilesplus.accesswidener",
 	"mixins": [
@@ -31,5 +35,11 @@
 		"minecraft": "1.21.11",
 		"java": ">=21",
 		"fabric-api": "*"
+	},
+	"suggests": {
+		"modmenu": "*"
+	},
+	"breaks": {
+		"keybindprofiles": "*"
 	}
 }
