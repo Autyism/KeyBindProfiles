@@ -1,6 +1,6 @@
 {
   "required": true,
-  "package": "io.github.autyi6969.keybindprofilesplus.mixin",
+  "package": "io.github.autyism.keybindprofilesplus.mixin",
   "compatibilityLevel": "JAVA_21",
   "client": [
     "KeyBindingComboMixin",
