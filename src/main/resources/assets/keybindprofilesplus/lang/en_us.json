@@ -236,5 +236,6 @@
   "keybindprofilesplus.import.confirm": "Import",
 
   "keybindprofilesplus.hud.profile_applied": "Profile \"%s\" applied",
-  "keybindprofilesplus.key.keypad": "Num %s"
+  "keybindprofilesplus.key.keypad": "Num %s",
+  "modmenu.descriptionTranslation.keybindprofilesplus": "Save, compare, share and instantly switch whole sets of key bindings, optionally together with chosen game settings. Its Key Binds screen shows which mod every key comes from, marks real conflicts, supports Ctrl/Shift/Alt combinations and also edits the hotkeys of Meteor Client, MaLiLib mods and Inventory Profiles Next. Based on KeyBindProfiles by sawiq_."
 }

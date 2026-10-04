@@ -236,5 +236,6 @@
   "keybindprofilesplus.import.confirm": "导入",
 
   "keybindprofilesplus.hud.profile_applied": "已应用档案“%s”",
-  "keybindprofilesplus.key.keypad": "小键盘 %s"
+  "keybindprofilesplus.key.keypad": "小键盘 %s",
+  "modmenu.descriptionTranslation.keybindprofilesplus": "保存、对比、分享整套键位并一键切换，还可以顺带保存选中的游戏设置。自带的按键绑定界面标出每个键来自哪个模组、提示真正的冲突、支持 Ctrl/Shift/Alt 组合键，还能修改 Meteor Client、MaLiLib 系模组和 Inventory Profiles Next 的热键。基于 sawiq_ 的 KeyBindProfiles。"
 }
