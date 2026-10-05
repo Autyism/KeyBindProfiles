@@ -13,6 +13,15 @@ base {
 loom {
 	accessWidenerPath = file("src/main/resources/keybindprofilesplus.accesswidener")
 
+	// Tells the dev client that the compiled classes and the resources are one mod. Without it the
+	// classes only become visible once the game is loading, too late for the early config importer
+	// (a language adapter, created before the mods' mixins are read). Release jars are not affected.
+	mods {
+		keybindprofilesplus {
+			sourceSet sourceSets.main
+		}
+	}
+
 	runs {
 		// Dev client that runs the automated self-test and quits (see tools/selftest.ps1).
 		selfTest {
@@ -108,4 +117,16 @@ publishing {
 		// The repositories here will be used for publishing your artifact, not for
 		// retrieving dependencies.
 	}
+}
+// Development tool: runs the mod config scan on a game folder and writes a report
+// (gradlew scanConfigs -Pinstance=<game folder>). Not part of the mod.
+tasks.register('scanConfigs', JavaExec) {
+	group = 'verification'
+	description = 'Scans a game folder for mod config files and writes build/config-scan/report.txt'
+	dependsOn 'classes'
+	classpath = sourceSets.main.runtimeClasspath
+	mainClass = 'io.github.autyism.keybindprofilesplus.selftest.ConfigScanTool'
+	args = [project.findProperty('instance') ?: file('run').absolutePath,
+			layout.buildDirectory.file('config-scan/report.txt').get().asFile.absolutePath,
+			layout.buildDirectory.file('config-scan/cache.json').get().asFile.absolutePath]
 }

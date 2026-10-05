@@ -61,7 +61,7 @@ Stop-SelfTestGames
 
 # Files the self-test may touch; restored afterwards no matter how the run ends.
 $backups = @()
-$candidates = @('options.txt', 'config\keybindprofiles\current_profile.txt', 'config\keybindprofilesplus\current_profile.txt', 'config\keybindprofilesplus\settings.json', 'config\keybindprofilesplus\combos.json')
+$candidates = @('options.txt', 'config\keybindprofiles\current_profile.txt', 'config\keybindprofilesplus\current_profile.txt', 'config\keybindprofilesplus\settings.json', 'config\keybindprofilesplus\combos.json', 'config\keybindprofilesplus\config-import-result.json', 'config\keybindprofilesplus\pending-config-import.zip')
 foreach ($rel in $candidates) {
     $src = Join-Path $runDir $rel
     if (Test-Path $src) {
@@ -72,6 +72,25 @@ foreach ($rel in $candidates) {
 }
 
 if (Test-Path $shotDir) { Get-ChildItem $shotDir -Filter 'selftest_*.png' | Remove-Item -Force }
+
+# A mod config import staged before the start: the game must write it before any mod reads its settings
+# (checked by the self-test, which also removes the written file and the backup it caused).
+$ownDir = Join-Path $runDir 'config\keybindprofilesplus'
+New-Item -ItemType Directory -Force $ownDir | Out-Null
+$resultFile = Join-Path $ownDir 'config-import-result.json'
+$hadResult = Test-Path $resultFile
+$pendingFile = Join-Path $ownDir 'pending-config-import.zip'
+Add-Type -AssemblyName System.IO.Compression
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+if (Test-Path $pendingFile) { Remove-Item $pendingFile -Force }
+$zip = [System.IO.Compression.ZipFile]::Open($pendingFile, [System.IO.Compression.ZipArchiveMode]::Create)
+try {
+    foreach ($entry in @(@('files/config/kbp_selftest_early.json', '{"selftest": "early-import"}'), @('source.txt', 'selftest_early.zip'))) {
+        $writer = New-Object System.IO.StreamWriter(($zip.CreateEntry($entry[0])).Open(), (New-Object System.Text.UTF8Encoding($false)))
+        $writer.Write($entry[1])
+        $writer.Dispose()
+    }
+} finally { $zip.Dispose() }
 Remove-Item (Join-Path $runDir 'selftest.pid') -Force -ErrorAction SilentlyContinue
 
 $start = Get-Date
@@ -107,6 +126,12 @@ if (-not $proc.HasExited) {
 }
 Start-Sleep -Seconds 1
 $left = @(Get-SelfTestGames).Count
+
+# Whatever the run left of the config import test (normally nothing: the self-test cleans up itself).
+if (Test-Path $pendingFile) { Remove-Item $pendingFile -Force -ErrorAction SilentlyContinue }
+Remove-Item (Join-Path $runDir 'config\kbp_selftest_early.json') -Force -ErrorAction SilentlyContinue
+Remove-Item (Join-Path $runDir 'selftest_configs') -Recurse -Force -ErrorAction SilentlyContinue
+if (-not $hadResult) { Remove-Item $resultFile -Force -ErrorAction SilentlyContinue }
 
 foreach ($b in $backups) { Copy-Item $b.Backup $b.Source -Force }
 
