@@ -5,6 +5,9 @@
 - New: **Export / Import Mod Configs** (Settings). Saves the settings files of all mods into one file and imports such files; profiles and share codes are unchanged.
 - Finds the files of every installed mod by reading which file and folder names its code really uses, including mods with their own folder outside `config/`; recognises the leftovers of switched-off and removed mods.
 - Never exports login data, maps, caches, logs, backups, dated records or machine state; per-world and per-server data is offered but not ticked.
+- This mod's own profiles and settings can go along too; its working files (exports, a waiting import, the scan cache) never do.
+- Add-ons whose settings another mod saves are named with that mod ("Meteor Client (incl. ...)").
+- Per-world data shows the world's real name, also when a mod turned it into a file name ("local_New_World__1_"), and is recognised when one file holds the data of every world.
 - Choose what to export in a tick tree, by mod and by file, with search.
 - Import preview per file (new, replaces, already the same, mod not installed here); the files are written on the next start before any mod reads its settings, with a backup that undoes the import.
 
@@ -13,6 +16,9 @@
 - 新功能：**导出 / 导入模组配置**（在设置里）。把所有模组的设置文件存成一个文件，或导入这样的文件；档案和分享码不受影响。
 - 通过读取每个已安装模组的代码、看它真正使用的文件和文件夹名，找出它的配置，包括在 `config/` 以外自建文件夹的模组；也认得已停用、已删除的模组留下的文件。
 - 登录信息、地图、缓存、日志、备份、带日期的记录和本机状态永远不会导出；按世界或服务器保存的数据会列出，但默认不勾选。
+- 本模组自己的档案和设置也可以一起导出；它的工作文件（导出文件、待导入、扫描缓存）永远不会。
+- 设置由另一个模组保存的附属模组会写在那个模组旁边（"Meteor Client（含 ……）"）。
+- 按世界保存的数据会显示世界的真实名字，模组把名字改成文件名（"local_New_World__1_"）时也一样；一个文件里装着所有世界数据的情况也能认出来。
 - 用勾选树按模组、按文件选择要导出的内容，可以搜索。
 - 导入前逐个文件预览（新增、替换、已经一样、这里没装这个模组）；文件在下次启动、任何模组读取设置之前写入，并留有可撤销的备份。
 

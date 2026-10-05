@@ -131,7 +131,7 @@ public final class ConfigImport {
         if (path == null || !ConfigImportApplier.staysInside(path, gameDir, configDir)) {
             return "path";
         }
-        if (target.ownerOf(path).own() || ConfigRules.isOwnFile(path)) {
+        if (target.ownerOf(path).own() || ConfigRules.isOwnWorkingFile(path)) {
             return "own";
         }
         if (!ConfigRules.isWritableTarget(path)) {

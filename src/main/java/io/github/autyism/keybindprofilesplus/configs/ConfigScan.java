@@ -41,7 +41,11 @@ import java.util.stream.Collectors;
  * (Xaero's minimap and world map), a subfolder goes to the one whose code names it.</p>
  *
  * <p>This mod itself is never an owner of anything but its own folder, although its code names the
- * files of other mods (it edits Meteor's and malilib's hotkeys).</p>
+ * files of other mods (it edits Meteor's and malilib's hotkeys). Its profiles and settings are offered
+ * like any mod's settings; its working files (exports, a waiting import, the scan cache) never.</p>
+ *
+ * <p>Add-ons that have no files for their settings are named with the mod that saves them: a Meteor
+ * add-on's modules extend Meteor's {@code Module} and are saved in Meteor's {@code modules.nbt}.</p>
  */
 public final class ConfigScan {
     public enum Kind {
@@ -71,7 +75,8 @@ public final class ConfigScan {
     public record Skipped(String path, int files, long size, Reason reason, String detail, List<String> owners) {
     }
 
-    public record Result(List<Found> files, List<Skipped> skipped, Map<String, ModInfo> mods) {
+    /** {@code addOns}: mod id -> the installed add-ons whose settings that mod saves in its files. */
+    public record Result(List<Found> files, List<Skipped> skipped, Map<String, ModInfo> mods, Map<String, List<String>> addOns) {
         public List<Found> files(Kind kind) {
             return files.stream().filter(f -> f.kind() == kind).toList();
         }
@@ -163,7 +168,7 @@ public final class ConfigScan {
         learnWorlds();
         likeTheirNeighbours();
         found.sort(Comparator.comparing(Found::path, String.CASE_INSENSITIVE_ORDER));
-        return new Result(List.copyOf(found), aggregate(skippedFiles), Map.copyOf(modsById));
+        return new Result(List.copyOf(found), aggregate(skippedFiles), Map.copyOf(modsById), addOns());
     }
 
     /** Who owns a file at this path in this game, without looking at the disk (used for imports). */
@@ -171,8 +176,11 @@ public final class ConfigScan {
     }
 
     public PathOwner ownerOf(String path) {
-        if (isOwnTopLevel(path)) {
+        if (ConfigRules.isOwnWorkingFile(path) || path.equalsIgnoreCase(ConfigRules.OWN_DIR)) {
             return new PathOwner(List.of(), List.of(), true, true);
+        }
+        if (ConfigRules.isOwnFile(path)) {
+            return new PathOwner(List.of(ownModId), List.of(), true, false);
         }
         String[] parts = path.split("/");
         boolean inConfig = parts[0].equals("config") && parts.length > 1;
@@ -185,8 +193,11 @@ public final class ConfigScan {
                 owner.sure(), false);
     }
 
-    /** The world or server a path belongs to in this game, or null. */
+    /** The world or server a path belongs to in this game, or null (never for this mod's profiles, whatever they are called). */
     public String perWorldReason(String path) {
+        if (ConfigRules.isOwnFile(path)) {
+            return null;
+        }
         return worlds.perWorldReason(path.startsWith(ConfigRules.CONFIG_PREFIX) ? path.substring(ConfigRules.CONFIG_PREFIX.length()) : path);
     }
 
@@ -204,40 +215,54 @@ public final class ConfigScan {
         skippedFiles.forEach(s -> paths.add(s.path()));
         for (int k = 0; k < paths.size(); k++) {
             String[] parts = paths.get(k).split("/");
-            String last = ConfigRules.stem(parts[parts.length - 1].toLowerCase(Locale.ROOT));
-            int dim = last.indexOf("_dim_");
+            String last = ConfigRules.stem(parts[parts.length - 1]);
+            int dim = last.toLowerCase(Locale.ROOT).indexOf("_dim_");
             if (dim > 0) {
                 List<String> owners = k < found.size() ? found.get(k).owners() : List.of();
                 learned.add(stripOwnerPrefix(last.substring(0, dim), owners));
             }
             for (int i = 1; i < parts.length; i++) {
                 if (WorldNames.DIMENSION_FOLDER.matcher(parts[i]).matches()) {
-                    learned.add(parts[i - 1].toLowerCase(Locale.ROOT));
+                    learned.add(parts[i - 1]);
                 }
             }
         }
-        learned.removeIf(name -> name.length() < 3 || GENERIC_NAMES.contains(name) || GENERIC_NAMES.contains(Candidate.normalize(name))
-                || modsById.containsKey(name) || name.startsWith("multiplayer_") || name.equals("null"));
+        learned.removeIf(name -> {
+            String lower = name.toLowerCase(Locale.ROOT);
+            return lower.length() < 3 || GENERIC_NAMES.contains(lower) || GENERIC_NAMES.contains(Candidate.normalize(lower))
+                    || modsById.containsKey(lower) || lower.startsWith("multiplayer_") || lower.equals("null");
+        });
         if (learned.isEmpty()) {
             return;
         }
         WorldNames more = worlds.with(learned);
         for (int i = 0; i < found.size(); i++) {
             Found f = found.get(i);
+            if (ConfigRules.isOwnFile(f.path())) {
+                continue;
+            }
+            String path = f.path().startsWith(ConfigRules.CONFIG_PREFIX) ? f.path().substring(ConfigRules.CONFIG_PREFIX.length()) : f.path();
             if (f.kind() == Kind.SETTINGS) {
-                String reason = more.perWorldReason(f.path().startsWith(ConfigRules.CONFIG_PREFIX) ? f.path().substring(ConfigRules.CONFIG_PREFIX.length()) : f.path());
+                String reason = more.perWorldReason(path);
                 if (reason != null) {
                     found.set(i, new Found(f.path(), f.size(), f.owners(), Kind.PER_WORLD, reason, f.byCode(), f.sure()));
+                }
+            } else if (f.kind() == Kind.PER_WORLD && worlds.knownWorld(path) == null) {
+                // Its world is known now: show it rather than the kind of name the file was recognised by ("dim%0").
+                String known = more.knownWorld(path);
+                if (known != null) {
+                    found.set(i, new Found(f.path(), f.size(), f.owners(), Kind.PER_WORLD, known, f.byCode(), f.sure()));
                 }
             }
         }
     }
 
     private static String stripOwnerPrefix(String name, List<String> owners) {
+        String lowerName = name.toLowerCase(Locale.ROOT);
         for (String owner : owners) {
             for (String variant : new String[]{owner, owner.replace('-', '_'), owner.replace('_', '-')}) {
                 String lower = variant.toLowerCase(Locale.ROOT);
-                if (name.startsWith(lower + "_") || name.startsWith(lower + "-")) {
+                if (lowerName.startsWith(lower + "_") || lowerName.startsWith(lower + "-")) {
                     return name.substring(lower.length() + 1);
                 }
             }
@@ -272,6 +297,44 @@ public final class ConfigScan {
         }
     }
 
+    // ------------------------------------------------------------------ add-ons
+
+    /**
+     * Add-ons whose settings another mod saves in its own files: the add-on depends on that mod and
+     * extends its module or HUD element classes (a Meteor add-on's modules are saved in Meteor's
+     * modules.nbt, a QoL Bundle add-on's module in qolbundle.json). Only mods that own files here.
+     */
+    private Map<String, List<String>> addOns() {
+        Set<String> owning = new HashSet<>();
+        found.stream().filter(f -> f.kind() != Kind.ORPHAN).forEach(f -> owning.addAll(f.owners()));
+        Map<String, List<String>> out = new HashMap<>();
+        for (ModInfo addOn : modsById.values()) {
+            if (!addOn.installed() || addOn.evidence().parents().isEmpty()) {
+                continue;
+            }
+            for (String hostId : addOn.depends()) {
+                ModInfo host = modsById.get(hostId);
+                if (host != null && host.installed() && !host.rootId().equals(addOn.rootId()) && owning.contains(host.id())
+                        && extendsClassesOf(addOn, host)) {
+                    out.computeIfAbsent(host.id(), k -> new ArrayList<>()).add(addOn.id());
+                }
+            }
+        }
+        out.replaceAll((host, list) -> list.stream().sorted().toList());
+        return Map.copyOf(out);
+    }
+
+    private static boolean extendsClassesOf(ModInfo addOn, ModInfo host) {
+        for (String parent : addOn.evidence().parents()) {
+            for (String pkg : host.packages()) {
+                if (parent.startsWith(pkg.replace('.', '/') + "/")) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     // ------------------------------------------------------------------ walking
 
     private void scanConfigFolder() {
@@ -279,8 +342,12 @@ public final class ConfigScan {
             String name = entry.getFileName().toString();
             String path = ConfigRules.CONFIG_PREFIX + name;
             boolean file = Files.isRegularFile(entry, LinkOption.NOFOLLOW_LINKS);
-            if (isOwnTopLevel(path)) {
+            if (ConfigRules.isOwnWorkingFile(path)) {
                 skipTree(entry, path, Reason.OWN_FILES, "", List.of(ownModId));
+                continue;
+            }
+            if (ConfigRules.isOwnFile(path)) {
+                scanOwnFolder(entry, path);
                 continue;
             }
             Attribution owner = attribute(name, file, Place.CONFIG_TOP);
@@ -292,10 +359,22 @@ public final class ConfigScan {
         }
     }
 
-    /** This mod's folder, and the folder of the KeyBindProfiles it was forked from (taken over on first start). */
-    private static boolean isOwnTopLevel(String path) {
-        String lower = path.toLowerCase(Locale.ROOT);
-        return ConfigRules.isOwnFile(path) || lower.equals("config/keybindprofiles") || lower.startsWith("config/keybindprofiles/");
+    /** This mod's folder: its profiles and settings are offered like any mod's, its working files never. */
+    private void scanOwnFolder(Path dir, String path) {
+        if (!Files.isDirectory(dir, LinkOption.NOFOLLOW_LINKS)) {
+            skipTree(dir, path, Reason.OWN_FILES, "", List.of(ownModId));
+            return;
+        }
+        ModInfo own = modsById.computeIfAbsent(ownModId, id -> new ModInfo(id, "KeyBind Profiles+", "", Set.of(), true, null, null));
+        Attribution owner = new Attribution(List.of(own), List.of(), 200, 100, SAME_NAME, false, null, true);
+        for (Path child : list(dir)) {
+            String childPath = path + "/" + child.getFileName();
+            if (ConfigRules.isOwnWorkingFile(childPath) || !Files.isRegularFile(child, LinkOption.NOFOLLOW_LINKS)) {
+                skipTree(child, childPath, Reason.OWN_FILES, "", List.of(ownModId));
+            } else {
+                classify(child, childPath, owner);
+            }
+        }
     }
 
     private void scanGameFolder() {
@@ -425,7 +504,9 @@ public final class ConfigScan {
         String name = file.getFileName().toString();
         long size = size(file);
         List<String> ids = owner.ids();
-        if (ConfigRules.isBackupOrTemp(name) || isBackupName(insidePart(path), owner)) {
+        // This mod knows its own files: a profile may be called anything ("2b2t", "Backup Binds", "Login").
+        boolean own = ConfigRules.isOwnFile(path);
+        if (ConfigRules.isBackupOrTemp(name) || (!own && isBackupName(insidePart(path), owner))) {
             skippedFiles.add(new Skipped(path, 1, size, Reason.BACKUP, "", ids));
             return;
         }
@@ -434,21 +515,21 @@ public final class ConfigScan {
             return;
         }
         String stem = ConfigRules.stem(name).toLowerCase(Locale.ROOT);
-        if (DOCUMENT.matcher(stem).matches()) {
+        if (!own && DOCUMENT.matcher(stem).matches()) {
             skippedFiles.add(new Skipped(path, 1, size, Reason.NOT_SETTINGS, "text", ids));
             return;
         }
-        String cache = cacheSegment(path, owner);
+        String cache = own ? null : cacheSegment(path, owner);
         if (cache != null) {
             skippedFiles.add(new Skipped(path, 1, size, Reason.CACHE, cache, ids));
             return;
         }
-        if (DATED.matcher(stem).find()) {
+        if (!own && DATED.matcher(stem).find()) {
             skippedFiles.add(new Skipped(path, 1, size, Reason.DATED, "", ids));
             return;
         }
         Matcher state = STATE.matcher(stem);
-        if (state.find()) {
+        if (!own && state.find()) {
             skippedFiles.add(new Skipped(path, 1, size, Reason.STATE, state.group().replaceAll("[^a-z]", ""), ids));
             return;
         }
@@ -456,7 +537,7 @@ public final class ConfigScan {
             skippedFiles.add(new Skipped(path, 1, size, Reason.TOO_LARGE, "", ids));
             return;
         }
-        String secretName = SecretDetector.secretName(path);
+        String secretName = own ? null : SecretDetector.secretName(path);
         if (secretName != null) {
             skippedFiles.add(new Skipped(path, 1, size, Reason.LOGIN_DATA, secretName, ids));
             return;
@@ -483,9 +564,13 @@ public final class ConfigScan {
             found.add(new Found(path, size, owner.disabled().stream().map(ModInfo::id).toList(), Kind.ORPHAN, hint, owner.byCode(), false));
             return;
         }
-        String world = worlds.perWorldReason(path.startsWith(ConfigRules.CONFIG_PREFIX) ? path.substring(ConfigRules.CONFIG_PREFIX.length()) : path);
+        String world = own ? null : worlds.perWorldReason(path.startsWith(ConfigRules.CONFIG_PREFIX) ? path.substring(ConfigRules.CONFIG_PREFIX.length()) : path);
         if (world == null && owner.capture() != null) {
             world = worlds.reasonFor(owner.capture());
+        }
+        if (world == null && !own) {
+            // One file with the data of every world ("server:play.example.org": [...], "save:New World": [...]).
+            world = worlds.perWorldByContent(name, data);
         }
         found.add(new Found(path, size, ids, world != null ? Kind.PER_WORLD : Kind.SETTINGS, world == null ? "" : world, owner.byCode(), owner.sure()));
     }

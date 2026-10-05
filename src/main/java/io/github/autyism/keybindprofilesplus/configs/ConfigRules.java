@@ -18,14 +18,18 @@ import java.util.Set;
 public final class ConfigRules {
     /** Bigger files are data (maps, caches, recordings), not settings. */
     public static final long MAX_FILE_BYTES = 1L << 20;
-    /** This mod's own folder: its profiles have their own sharing; it is never exported or overwritten. */
+    /** This mod's own folder: its profiles and settings are exported like any mod's settings, its working files never. */
     public static final String OWN_DIR = "config/keybindprofilesplus";
+    /** The folder of the KeyBindProfiles this mod was forked from; taken over on the first start, never touched. */
+    public static final String LEGACY_DIR = "config/keybindprofiles";
+    /** What the config scan remembers about each mod's code, in {@link #OWN_DIR}. */
+    public static final String SCAN_CACHE_FILE = "config-scan-cache.json";
     public static final String CONFIG_PREFIX = "config/";
 
     /** File types settings are stored in. Anything else (images, sounds, zips, region files, logs...) is data. */
     static final Set<String> CONFIG_EXTENSIONS = Set.of(
             "json", "json5", "jsonc", "hjson", "toml", "properties", "cfg", "conf", "config", "ini", "txt",
-            "yml", "yaml", "xml", "nbt", "snbt", "options", "settings", "prefs");
+            "yml", "yaml", "xml", "nbt", "snbt", "options", "settings", "prefs", "kbp");
 
     /** Top-level folders of the game that hold worlds, packs, downloads or the game itself - never touched. */
     static final Set<String> PROTECTED_TOP_LEVEL = Set.of(
@@ -142,12 +146,30 @@ public final class ConfigRules {
     }
 
     /**
+     * True for what only makes sense in this game: the import waiting for the next start, the result
+     * of the last one, the export files and backups, the scan cache, any folder inside this mod's
+     * folder, and the folder of the mod it was forked from. Profiles and settings are not.
+     */
+    public static boolean isOwnWorkingFile(String normalizedPath) {
+        String lower = normalizedPath.toLowerCase(Locale.ROOT);
+        if (lower.equals(LEGACY_DIR) || lower.startsWith(LEGACY_DIR + "/")) {
+            return true;
+        }
+        if (!lower.startsWith(OWN_DIR + "/")) {
+            return false;
+        }
+        String rest = lower.substring(OWN_DIR.length() + 1);
+        return rest.contains("/") || rest.equals(ConfigImportApplier.EXPORTS_DIR) || rest.equals(ConfigImportApplier.PENDING_FILE)
+                || rest.equals(ConfigImportApplier.RESULT_FILE) || rest.equals(SCAN_CACHE_FILE);
+    }
+
+    /**
      * Whether a file at this path may be written by an import (or deleted by undoing one). The path
      * must already be normalized. This is the last line of defence: the import screen applies the
      * stricter, mod-aware rules before anything gets this far.
      */
     public static boolean isWritableTarget(String normalizedPath) {
-        if (normalizedPath == null || isOwnFile(normalizedPath)) {
+        if (normalizedPath == null || isOwnWorkingFile(normalizedPath) || normalizedPath.equalsIgnoreCase(OWN_DIR)) {
             return false;
         }
         String[] parts = normalizedPath.split("/");

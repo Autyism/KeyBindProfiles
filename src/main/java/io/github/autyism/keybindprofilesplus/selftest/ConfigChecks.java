@@ -110,12 +110,34 @@ final class ConfigChecks {
         t.check("rules: Windows-reserved and odd names are refused", ConfigRules.normalize("config/con.json") == null
                 && ConfigRules.normalize("config/a?.json") == null && ConfigRules.normalize("config/x. ") == null);
         t.check("rules: backslashes are read as folders", "config/sub/x.json".equals(ConfigRules.normalize("config\\sub\\x.json")));
-        t.check("rules: only settings files outside worlds, mods and this mod may be written",
+        t.check("rules: only settings files outside worlds and mods may be written",
                 ConfigRules.isWritableTarget("config/x.json") && ConfigRules.isWritableTarget("meteor-client/modules.nbt")
                         && !ConfigRules.isWritableTarget("mods/x.json") && !ConfigRules.isWritableTarget("saves/w/level.json")
                         && !ConfigRules.isWritableTarget("config/x.jar") && !ConfigRules.isWritableTarget("options.txt")
-                        && !ConfigRules.isWritableTarget("config/keybindprofilesplus/settings.json")
                         && !ConfigRules.isWritableTarget("config/x.json.bak") && !ConfigRules.isWritableTarget("config/accounts.json"));
+        t.check("rules: this mod's profiles and settings may be written, its working files never",
+                ConfigRules.isWritableTarget("config/keybindprofilesplus/settings.json") && ConfigRules.isWritableTarget("config/keybindprofilesplus/Main.kbp")
+                        && !ConfigRules.isWritableTarget("config/keybindprofilesplus/" + ConfigImportApplier.RESULT_FILE)
+                        && !ConfigRules.isWritableTarget("config/keybindprofilesplus/" + ConfigRules.SCAN_CACHE_FILE)
+                        && !ConfigRules.isWritableTarget("config/keybindprofilesplus/" + ConfigImportApplier.EXPORTS_DIR + "/x.json")
+                        && !ConfigRules.isWritableTarget("config/keybindprofilesplus/sub/x.json")
+                        && !ConfigRules.isWritableTarget("config/keybindprofiles/x.json"));
+
+        WorldNames names = new WorldNames(Set.of("New World", "New World (1)", "\u65b0\u7684\u4e16\u754c"), Set.of("play.example.org:25570"));
+        t.check("worlds: a world's name made into a file name still names that world",
+                "New World (1)".equals(names.perWorldReason("qolbundle/worlds/local_New_World__1_.json"))
+                        && "New World".equals(names.perWorldReason("qolbundle/worlds/local_New_World.json"))
+                        && "\u65b0\u7684\u4e16\u754c".equals(names.perWorldReason("qolbundle/worlds/local_____.json"))
+                        && "play.example.org".equals(names.perWorldReason("qolbundle/worlds/server_play.example.org.json")));
+        t.check("worlds: one file with the data of every world is per-world data",
+                names.perWorldByContent("deaths.json", "{\"server:play.example.org\": [], \"save:New World\": [], \"unknown\": []}".getBytes(StandardCharsets.UTF_8)) != null
+                        && names.perWorldByContent("servers.json5", "{a.example.com: 1, // a comment\n b.example.net: 2}".getBytes(StandardCharsets.UTF_8)) != null);
+        t.check("worlds: settings that only mention worlds or servers stay settings",
+                names.perWorldByContent("x.json", "{\"enabled\": true, \"servers\": {\"play.example.org\": 1}}".getBytes(StandardCharsets.UTF_8)) == null
+                        && names.perWorldByContent("x.json", "{\"general.info\": 1}".getBytes(StandardCharsets.UTF_8)) == null
+                        && names.perWorldByContent("x.json", "{\"world_border\": true, \"server_port\": 25565}".getBytes(StandardCharsets.UTF_8)) == null
+                        && names.perWorldByContent("x.json", "[\"server:a\"]".getBytes(StandardCharsets.UTF_8)) == null
+                        && names.perWorldByContent("x.toml", "a = 1".getBytes(StandardCharsets.UTF_8)) == null);
 
         t.check("secrets: account files by name", SecretDetector.secretName("meteor-client/accounts.nbt") != null
                 && SecretDetector.secretName("config/viafabricplus/accounts.json") != null && SecretDetector.secretName("config/author.json") == null);
@@ -166,6 +188,22 @@ final class ConfigChecks {
         t.check("code: a file name in a text counts wherever it is", evidence.strong().contains("written-anywhere.toml"));
         t.check("code: files inside the jar (assets, mixin configs) do not count",
                 !evidence.strong().contains("en_us.json") && !evidence.strong().contains("generated.mixins.json"));
+
+        BytecodeEvidence addOn = new BytecodeEvidence();
+        addOn.addClass(emptyClass("kbp/selftest/XrayModule", "org/example/host/module/Module"));
+        addOn.addClass(emptyClass("kbp/selftest/BaseModule", "java/lang/Object"));
+        addOn.addClass(emptyClass("kbp/selftest/OwnModule", "kbp/selftest/BaseModule"));
+        addOn.addClass(emptyClass("kbp/selftest/SomeScreen", "org/example/host/gui/Screen"));
+        Set<String> parents = addOn.build().parents();
+        t.check("code: the module classes of other mods that a mod extends are noted (" + parents + ")",
+                parents.equals(Set.of("org/example/host/module/Module")));
+    }
+
+    private static byte[] emptyClass(String name, String superName) {
+        ClassWriter cw = new ClassWriter(0);
+        cw.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, name, null, superName, null);
+        cw.visitEnd();
+        return cw.toByteArray();
     }
 
     /** A class with one method for each way a mod may use a text. */
@@ -272,7 +310,8 @@ final class ConfigChecks {
     private static List<ModInfo> sandboxMods(boolean withBeta) {
         List<ModInfo> mods = new ArrayList<>();
         mods.add(new ModInfo("alpha", "Alpha", "1.0", Set.of(), true,
-                new BytecodeEvidence.Evidence(Set.of("alpha.json", "alpha", "alpha-data"), Set.of(), Set.of(), Set.of("alpha_\u0001.json")), null));
+                new BytecodeEvidence.Evidence(Set.of("alpha.json", "alpha", "alpha-data", "alpha-waypoints.json"), Set.of(), Set.of(),
+                        Set.of("alpha_\u0001.json")), null));
         if (withBeta) {
             mods.add(new ModInfo("beta", "Beta", "2.0", Set.of(), true, BytecodeEvidence.Evidence.EMPTY, null));
         }
@@ -284,6 +323,15 @@ final class ConfigChecks {
         for (String id : List.of("lib-one", "lib-two", "lib-three")) {
             mods.add(new ModInfo(id, id, "1.0", Set.of(), true, new BytecodeEvidence.Evidence(Set.of("common"), Set.of(), Set.of(), Set.of()), null));
         }
+        // A mod with modules, an add-on whose module extends one (its settings are saved by the mod), and two that only depend on it.
+        mods.add(new ModInfo("hostmod", "Host Mod", "1.0", Set.of(), true, new BytecodeEvidence.Evidence(Set.of("hostmod.json"), Set.of(), Set.of(), Set.of()),
+                null, Set.of(), Set.of("org.example.host")));
+        mods.add(new ModInfo("hostmod-xray", "Host Mod: X-ray", "1.0", Set.of(), true, new BytecodeEvidence.Evidence(Set.of(), Set.of(), Set.of(), Set.of(),
+                Set.of("org/example/host/module/Module")), null, Set.of("hostmod"), Set.of("org.example.host.xray")));
+        mods.add(new ModInfo("hostmod-compat", "Host Mod Compat", "1.0", Set.of(), true, BytecodeEvidence.Evidence.EMPTY, null, Set.of("hostmod"),
+                Set.of("org.example.compat")));
+        mods.add(new ModInfo("other-modules", "Other Modules", "1.0", Set.of(), true, new BytecodeEvidence.Evidence(Set.of(), Set.of(), Set.of(), Set.of(),
+                Set.of("org/other/lib/Module")), null, Set.of("hostmod"), Set.of("org.other.mod")));
         mods.add(new ModInfo("keybindprofilesplus", "KeyBind Profiles+", "0", Set.of(), true,
                 new BytecodeEvidence.Evidence(Set.of("alpha.json", "settings.json", "keybindprofilesplus"), Set.of(), Set.of(), Set.of()), null));
         return mods;
@@ -310,6 +358,14 @@ final class ConfigChecks {
         write(game, "config/big.json", HUGE);
         write(game, "config/binary.json", "\0\0\0");
         write(game, "config/keybindprofilesplus/x.json", "{}");
+        write(game, "config/keybindprofilesplus/play.example.org.kbp", "{\"name\": \"play.example.org\"}");
+        write(game, "config/keybindprofilesplus/2024-01-02 Backup.kbp", "{\"name\": \"2024-01-02 Backup\"}");
+        write(game, "config/keybindprofilesplus/" + ConfigRules.SCAN_CACHE_FILE, "{}");
+        write(game, "config/keybindprofilesplus/" + ConfigImportApplier.EXPORTS_DIR + "/configs-1.zip", "zip");
+        write(game, "config/keybindprofiles/Old.kbp", "{}");
+        write(game, "config/alpha-waypoints.json", "{\"server:play.example.org\": [], \"save:World One\": []}");
+        write(game, "alpha-data/server-list.json", "{\"enabled\": true, \"servers\": {\"play.example.org\": 1}}");
+        write(game, "config/hostmod.json", "{\"modules\": {\"xray\": {\"enabled\": false}}}");
         write(game, "config/readme.txt", "hello");
         write(game, "alpha-data/state.json", "{\"open\": true}");
         write(game, "alpha-data/zeta-config.nbt", nbt("mode", "fast"));
@@ -370,6 +426,15 @@ final class ConfigChecks {
         expect(found, "alpha-data/settings.json", ConfigScan.Kind.SETTINGS, "alpha", true);
         expect(found, "alpha-data/waypoints/play.example.org.nbt", ConfigScan.Kind.PER_WORLD, "alpha", true);
         expect(found, "epsilon/epsilon.json", ConfigScan.Kind.SETTINGS, "epsilon", true);
+        expect(found, "config/alpha-waypoints.json", ConfigScan.Kind.PER_WORLD, "alpha", true);
+        expect(found, "alpha-data/server-list.json", ConfigScan.Kind.SETTINGS, "alpha", true);
+        expect(found, "config/keybindprofilesplus/x.json", ConfigScan.Kind.SETTINGS, "keybindprofilesplus", true);
+        expect(found, "config/keybindprofilesplus/play.example.org.kbp", ConfigScan.Kind.SETTINGS, "keybindprofilesplus", true);
+        expect(found, "config/keybindprofilesplus/2024-01-02 Backup.kbp", ConfigScan.Kind.SETTINGS, "keybindprofilesplus", true);
+        ConfigScan.Found worldOne = found.get("config/alpha/alpha_World One.json");
+        t.check("sorting: per-world data shows the world's own name", worldOne != null && worldOne.detail().equals("World One"));
+        t.check("sorting: an add-on's settings saved by the mod it extends are named with that mod (" + result.addOns() + ")",
+                result.addOns().equals(Map.of("hostmod", List.of("hostmod-xray"))));
         ConfigScan.Found common = found.get("config/common.json");
         t.check("sorting: a name the code of many mods uses is nobody's in particular", common != null && common.kind() == ConfigScan.Kind.ORPHAN);
         ConfigScan.Found gamma = found.get("config/gamma.json");
@@ -382,13 +447,18 @@ final class ConfigChecks {
         expectSkipped(result, "config/cachething", ConfigScan.Reason.CACHE);
         expectSkipped(result, "config/big.json", ConfigScan.Reason.TOO_LARGE);
         expectSkipped(result, "config/binary.json", ConfigScan.Reason.BROKEN);
-        expectSkipped(result, "config/keybindprofilesplus", ConfigScan.Reason.OWN_FILES);
+        expectSkipped(result, "config/keybindprofilesplus/", ConfigScan.Reason.OWN_FILES);
+        expectSkipped(result, "config/keybindprofiles/", ConfigScan.Reason.OWN_FILES);
+        t.check("sorting: this mod's working files are never offered", result.files().stream()
+                .noneMatch(f -> f.path().contains(ConfigRules.SCAN_CACHE_FILE) || f.path().contains(ConfigImportApplier.EXPORTS_DIR)
+                        || f.path().startsWith("config/keybindprofiles/")));
         expectSkipped(result, "config/readme.txt", ConfigScan.Reason.NOT_SETTINGS);
         expectSkipped(result, "config/alpha", ConfigScan.Reason.BACKUP);
         expectSkipped(result, "config/alpha", ConfigScan.Reason.DATED);
         expectSkipped(result, "config/alpha", ConfigScan.Reason.STATE);
         expectSkipped(result, "launcher-stuff", ConfigScan.Reason.UNKNOWN);
-        t.check("sorting: this mod never owns other mods' files", result.files().stream().noneMatch(f -> f.owners().contains("keybindprofilesplus")));
+        t.check("sorting: this mod never owns other mods' files", result.files().stream()
+                .noneMatch(f -> f.owners().contains("keybindprofilesplus") && !f.path().startsWith("config/keybindprofilesplus/")));
         t.check("sorting: nothing secret is offered", result.files().stream().noneMatch(f -> f.path().contains("accounts") || f.path().contains("delta")));
     }
 
@@ -478,7 +548,49 @@ final class ConfigChecks {
                     && !Files.exists(target.resolve("config/alpha/sub.toml")));
         }
 
+        ownFiles(source, target, exports, result, targetScan, targetMods);
         hostileArchive(target, targetScan, targetMods);
+    }
+
+    /** This mod's own profiles and settings travel like any mod's settings (in an export of their own: the screens test uses the other). */
+    private void ownFiles(Path source, Path target, Path exports, ConfigScan.Result result, ConfigScan targetScan, Map<String, ModInfo> targetMods) {
+        String path = "config/keybindprofilesplus/x.json";
+        List<ConfigScan.Found> chosen = result.files().stream().filter(f -> f.path().equals(path)).toList();
+        Path archive;
+        try {
+            archive = ConfigArchive.export(exports, result, chosen, source, source.resolve("config"), "1.21.11", "test", LocalDateTime.now().plusMinutes(1));
+        } catch (IOException e) {
+            t.check("own files: export written (" + e + ")", false);
+            return;
+        }
+        ConfigArchive.Archive read = ConfigArchive.read(archive);
+        ConfigImport.Plan plan = ConfigImport.plan(read, target, target.resolve("config"), targetScan, targetMods, "1.21.11");
+        t.check("own files: this mod's settings are exported and can be imported (" + read.files().keySet() + ")",
+                chosen.size() == 1 && read.files().containsKey(path) && status(plan, path) == ConfigImport.Status.NEW && plan.item(path).suggested());
+        Path ownDir = ConfigImportApplier.ownDir(target, target.resolve("config"));
+        try {
+            ConfigImport.stage(plan, plan.items().stream().filter(ConfigImport.Item::suggested).toList(), ownDir);
+        } catch (IOException e) {
+            t.check("own files: staged (" + e + ")", false);
+            return;
+        }
+        ConfigImportApplier.Outcome outcome = ConfigImportApplier.applyPending(target, target.resolve("config"));
+        t.check("own files: written on the next start (" + outcome + ")", outcome != null && outcome.written() == 1 && read(target, path).equals("{}"));
+        Path backup = outcome == null || outcome.backup() == null ? null : ownDir.resolve(ConfigImportApplier.EXPORTS_DIR).resolve(outcome.backup());
+        if (backup == null) {
+            t.check("own files: a backup was made", false);
+            return;
+        }
+        ConfigImport.Plan undoPlan = ConfigImport.plan(ConfigArchive.read(backup), target, target.resolve("config"), targetScan, targetMods, "1.21.11");
+        try {
+            ConfigImport.stage(undoPlan, undoPlan.items().stream().filter(ConfigImport.Item::suggested).toList(), ownDir);
+        } catch (IOException e) {
+            t.check("own files: undo staged (" + e + ")", false);
+            return;
+        }
+        ConfigImportApplier.applyPending(target, target.resolve("config"));
+        t.check("own files: undoing the import removes the file again", status(undoPlan, path) == ConfigImport.Status.DELETE
+                && !Files.exists(target.resolve(path)));
     }
 
     /** An archive made to do harm: every entry must be refused. */
@@ -486,7 +598,7 @@ final class ConfigChecks {
         Path file = sandbox.resolve("exports/hostile.zip");
         try (ZipOutputStream zip = new ZipOutputStream(Files.newOutputStream(file))) {
             for (String[] entry : new String[][]{{"files/../escape.json", "{}"}, {"files/config/../../escape2.json", "{}"}, {"files/mods/evil.json", "{}"},
-                    {"files/config/keybindprofilesplus/settings.json", "{}"}, {"files/config/accounts.json", "{}"}, {"files/config/zeros.json", "\0\0"},
+                    {"files/config/keybindprofilesplus/config-import-result.json", "{}"}, {"files/config/accounts.json", "{}"}, {"files/config/zeros.json", "\0\0"},
                     {"files/options.txt", "x"}, {"files/config/evil.jar", "x"}}) {
                 zip.putNextEntry(new ZipEntry(entry[0]));
                 zip.write(entry[1].getBytes(StandardCharsets.UTF_8));
@@ -560,9 +672,10 @@ final class ConfigChecks {
             t.check("real scan: Meteor's accounts are never exported", result.skipped().stream()
                     .anyMatch(s -> s.reason() == ConfigScan.Reason.LOGIN_DATA && s.path().startsWith("meteor-client")));
         }
-        t.check("real scan: nothing of this mod's own folder is offered", result.files().stream()
-                .noneMatch(f -> f.path().startsWith("config/keybindprofilesplus/") || f.path().startsWith("config/keybindprofiles/")));
-        t.check("real scan: this mod owns no other files", result.files().stream().noneMatch(f -> f.owners().contains("keybindprofilesplus")));
+        t.check("real scan: none of this mod's working files is offered", result.files().stream()
+                .noneMatch(f -> ConfigRules.isOwnWorkingFile(f.path())));
+        t.check("real scan: this mod owns no other files", result.files().stream()
+                .noneMatch(f -> f.owners().contains("keybindprofilesplus") && !ConfigRules.isOwnFile(f.path())));
     }
 
     // ------------------------------------------------------------------ screens

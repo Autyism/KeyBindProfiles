@@ -87,7 +87,7 @@ public final class ModJars {
         String name = metadata.has("name") ? metadata.get("name").getAsString() : id;
         String version = metadata.has("version") ? metadata.get("version").getAsString() : "";
         BytecodeEvidence.Evidence evidence = cache.get(id + "@" + version + "|" + key, () -> evidenceOf(jarBytes));
-        ModInfo mod = new ModInfo(id, name, version, aliases, installed, evidence, parentId);
+        ModInfo mod = new ModInfo(id, name, version, aliases, installed, evidence, parentId, dependencies(metadata), entrypointPackages(metadata));
         ModInfo existing = byId.get(id);
         if (existing == null || (!existing.installed() && installed)) {
             byId.put(id, mod);
@@ -126,6 +126,49 @@ public final class ModJars {
         } catch (RuntimeException e) {
             return null;
         }
+    }
+
+    /** The mod ids in "depends" of a fabric.mod.json. */
+    static Set<String> dependencies(JsonObject metadata) {
+        Set<String> out = new LinkedHashSet<>();
+        if (metadata != null && metadata.has("depends") && metadata.get("depends").isJsonObject()) {
+            metadata.getAsJsonObject("depends").keySet().forEach(id -> out.add(id.toLowerCase(Locale.ROOT)));
+        }
+        return out;
+    }
+
+    /**
+     * The Java packages of the classes a fabric.mod.json names as entry points ("a.b.c.Main" and
+     * "a.b.c.Main::init" -> "a.b.c"). Packages of one part only say too little and are left out.
+     */
+    static Set<String> entrypointPackages(JsonObject metadata) {
+        Set<String> out = new LinkedHashSet<>();
+        if (metadata == null || !metadata.has("entrypoints") || !metadata.get("entrypoints").isJsonObject()) {
+            return out;
+        }
+        for (Map.Entry<String, JsonElement> entrypoint : metadata.getAsJsonObject("entrypoints").entrySet()) {
+            if (!entrypoint.getValue().isJsonArray()) {
+                continue;
+            }
+            for (JsonElement element : entrypoint.getValue().getAsJsonArray()) {
+                String value = null;
+                if (element.isJsonPrimitive()) {
+                    value = element.getAsString();
+                } else if (element.isJsonObject() && element.getAsJsonObject().has("value")) {
+                    value = element.getAsJsonObject().get("value").getAsString();
+                }
+                if (value == null) {
+                    continue;
+                }
+                int method = value.indexOf("::");
+                String type = method >= 0 ? value.substring(0, method) : value;
+                int dot = type.lastIndexOf('.');
+                if (dot > 0 && type.substring(0, dot).contains(".")) {
+                    out.add(type.substring(0, dot));
+                }
+            }
+        }
+        return out;
     }
 
     /** Reads every class below the given roots (folders or the root of an opened jar). */
