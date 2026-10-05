@@ -6,11 +6,12 @@ import java.util.Set;
 
 /**
  * A mod as far as config files are concerned: its id, name and version, the other ids it provides,
- * whether it is installed (or only lying in the mods folder switched off), and what its code says
- * about file names.
+ * whether it is installed (or only lying in the mods folder switched off), what its code says about
+ * file names, the mods it depends on and the Java packages of its entry points (to recognise an
+ * add-on whose settings the mod it plugs into saves).
  */
 public record ModInfo(String id, String name, String version, Set<String> aliases, boolean installed, BytecodeEvidence.Evidence evidence,
-                      String parentId) {
+                      String parentId, Set<String> depends, Set<String> packages) {
     public ModInfo {
         Set<String> all = new LinkedHashSet<>();
         all.add(id.toLowerCase(Locale.ROOT));
@@ -19,6 +20,13 @@ public record ModInfo(String id, String name, String version, Set<String> aliase
         evidence = evidence == null ? BytecodeEvidence.Evidence.EMPTY : evidence;
         name = name == null || name.isBlank() ? id : name;
         version = version == null ? "" : version;
+        depends = depends == null ? Set.of() : Set.copyOf(depends);
+        packages = packages == null ? Set.of() : Set.copyOf(packages);
+    }
+
+    public ModInfo(String id, String name, String version, Set<String> aliases, boolean installed, BytecodeEvidence.Evidence evidence,
+                   String parentId) {
+        this(id, name, version, aliases, installed, evidence, parentId, Set.of(), Set.of());
     }
 
     /** The mod this one is packed inside (a library or module shipped in another mod's jar), or its own id. */

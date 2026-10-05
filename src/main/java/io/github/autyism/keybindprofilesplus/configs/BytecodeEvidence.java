@@ -37,6 +37,9 @@ import java.util.regex.Pattern;
  * wherever they appear. Names built at run time ({@code "litematica_" + world + ".json"}) are kept as
  * patterns, which also tells which files are kept per world or per server. Constants read from fields
  * are followed through the whole mod.</p>
+ *
+ * <p>It also notes the module and HUD element classes of other mods that this mod's classes extend:
+ * an add-on whose modules extend Meteor's {@code Module} has its settings saved by Meteor.</p>
  */
 public final class BytecodeEvidence {
     /** How many instructions a text may travel before it reaches a file call. */
@@ -57,9 +60,19 @@ public final class BytecodeEvidence {
             "com/google/gson/", "com/google/common/", "com/mojang/", "net/minecraft/", "it/unimi/", "org/objectweb/",
             "org/spongepowered/", "com/llamalad7/", "net/fabricmc/", "org/lwjgl/", "io/netty/", "org/joml/", "com/electronwill/");
 
-    /** Everything one mod's code says about file names. */
-    public record Evidence(Set<String> strong, Set<String> medium, Set<String> weak, Set<String> patterns) {
+    /** Simple names of classes whose subclasses another mod saves the settings of (Meteor's and QoL Bundle's modules). */
+    private static final Pattern HOSTED_PARENT = Pattern.compile("(Module|HudElement)$");
+
+    /**
+     * Everything one mod's code says about file names; {@code parents}: module and HUD element classes
+     * of other mods that its classes extend (internal names, "a/b/Module").
+     */
+    public record Evidence(Set<String> strong, Set<String> medium, Set<String> weak, Set<String> patterns, Set<String> parents) {
         public static final Evidence EMPTY = new Evidence(Set.of(), Set.of(), Set.of(), Set.of());
+
+        public Evidence(Set<String> strong, Set<String> medium, Set<String> weak, Set<String> patterns) {
+            this(strong, medium, weak, patterns, Set.of());
+        }
 
         public boolean isEmpty() {
             return strong.isEmpty() && medium.isEmpty() && weak.isEmpty() && patterns.isEmpty();
@@ -76,6 +89,8 @@ public final class BytecodeEvidence {
     private final Map<String, String> fieldTexts = new HashMap<>();
     /** Fields read right before a file call, and how strong that call was. */
     private final Map<String, Strength> fieldUses = new HashMap<>();
+    private final Set<String> definedClasses = new HashSet<>();
+    private final Set<String> superClasses = new HashSet<>();
     private int classes;
 
     /** Reads one class file. Broken or unusual class files are skipped. */
@@ -103,7 +118,9 @@ public final class BytecodeEvidence {
         weak.removeAll(medium);
         weak.removeAll(strong);
         medium.removeAll(strong);
-        return new Evidence(Set.copyOf(strong), Set.copyOf(medium), Set.copyOf(weak), Set.copyOf(patterns));
+        Set<String> parents = new HashSet<>(superClasses);
+        parents.removeAll(definedClasses);
+        return new Evidence(Set.copyOf(strong), Set.copyOf(medium), Set.copyOf(weak), Set.copyOf(patterns), Set.copyOf(parents));
     }
 
     // ------------------------------------------------------------------ recording
@@ -150,6 +167,10 @@ public final class BytecodeEvidence {
         @Override
         public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
             className = name;
+            definedClasses.add(name);
+            if (superName != null && HOSTED_PARENT.matcher(superName.substring(Math.max(superName.lastIndexOf('/'), superName.lastIndexOf('$')) + 1)).find()) {
+                superClasses.add(superName);
+            }
         }
 
         @Override

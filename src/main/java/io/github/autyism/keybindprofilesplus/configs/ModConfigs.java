@@ -3,6 +3,7 @@ package io.github.autyism.keybindprofilesplus.configs;
 import io.github.autyism.keybindprofilesplus.KeyBindProfilesPlus;
 import net.fabricmc.loader.api.FabricLoader;
 import net.fabricmc.loader.api.ModContainer;
+import net.fabricmc.loader.api.metadata.ModDependency;
 import net.fabricmc.loader.api.metadata.ModOrigin;
 
 import java.io.IOException;
@@ -16,6 +17,7 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
@@ -78,7 +80,7 @@ public final class ModConfigs {
 
     private static Context scanNow() {
         long start = System.currentTimeMillis();
-        EvidenceCache cache = new EvidenceCache(ownDir().resolve("config-scan-cache.json"));
+        EvidenceCache cache = new EvidenceCache(ownDir().resolve(ConfigRules.SCAN_CACHE_FILE));
         List<ModInfo> mods = new ArrayList<>(loadedMods(cache));
         // Mods lying in the mods folder switched off: to say whose leftovers a file is.
         for (ModInfo off : ModJars.read(gameDir().resolve("mods"), cache, false)) {
@@ -114,9 +116,21 @@ public final class ModConfigs {
             String version = metadata.getVersion().getFriendlyString();
             BytecodeEvidence.Evidence evidence = cache.get(id + "@" + version + "|" + originKey(container),
                     () -> ModJars.evidenceOfRoots(container.getRootPaths()));
-            mods.add(new ModInfo(id, metadata.getName(), version, metadata.getProvides().stream().collect(Collectors.toSet()), true, evidence, parent));
+            Set<String> depends = metadata.getDependencies().stream().filter(dependency -> dependency.getKind() == ModDependency.Kind.DEPENDS)
+                    .map(ModDependency::getModId).collect(Collectors.toSet());
+            Set<String> packages = container.findPath("fabric.mod.json").map(ModConfigs::entrypointPackages).orElse(Set.of());
+            mods.add(new ModInfo(id, metadata.getName(), version, metadata.getProvides().stream().collect(Collectors.toSet()), true, evidence, parent,
+                    depends, packages));
         }
         return mods;
+    }
+
+    private static Set<String> entrypointPackages(Path modJson) {
+        try {
+            return ModJars.entrypointPackages(ModJars.parse(Files.readAllBytes(modJson)));
+        } catch (IOException | RuntimeException e) {
+            return Set.of();
+        }
     }
 
     /** Where a mod comes from, precise enough to notice an updated jar. */

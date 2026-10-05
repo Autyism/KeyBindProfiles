@@ -52,6 +52,10 @@ public final class ConfigScanTool {
             for (Map.Entry<String, List<ConfigScan.Found>> group : byOwner.entrySet()) {
                 out.println();
                 out.println("== " + group.getKey());
+                String host = group.getKey().split(" ")[0];
+                if (result.addOns().containsKey(host)) {
+                    out.println("   + saves the settings of " + result.addOns().get(host));
+                }
                 for (ConfigScan.Found f : group.getValue()) {
                     out.printf("   %-9s %s %s %s%s%n", f.kind(), f.byCode() ? "code" : "name", f.sure() ? "sure " : "MAYBE", f.path(), f.detail().isEmpty() ? "" : "   [" + f.detail() + "]");
                 }

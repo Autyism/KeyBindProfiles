@@ -26,7 +26,7 @@ import java.util.function.Supplier;
  */
 public final class EvidenceCache {
     /** Bumped whenever {@link BytecodeEvidence} learns something new, so old results are not reused. */
-    private static final int VERSION = 4;
+    private static final int VERSION = 5;
     private static final Gson GSON = new GsonBuilder().disableHtmlEscaping().create();
 
     private final Path file;
@@ -66,6 +66,7 @@ public final class EvidenceCache {
             entry.add("medium", array(evidence.medium()));
             entry.add("weak", array(evidence.weak()));
             entry.add("patterns", array(evidence.patterns()));
+            entry.add("parents", array(evidence.parents()));
             mods.add(key, entry);
         });
         root.add("mods", mods);
@@ -93,7 +94,7 @@ public final class EvidenceCache {
             for (Map.Entry<String, JsonElement> entry : root.getAsJsonObject("mods").entrySet()) {
                 JsonObject value = entry.getValue().getAsJsonObject();
                 entries.put(entry.getKey(), new BytecodeEvidence.Evidence(set(value, "strong"), set(value, "medium"), set(value, "weak"),
-                        set(value, "patterns")));
+                        set(value, "patterns"), set(value, "parents")));
             }
         } catch (IOException | RuntimeException e) {
             entries.clear();

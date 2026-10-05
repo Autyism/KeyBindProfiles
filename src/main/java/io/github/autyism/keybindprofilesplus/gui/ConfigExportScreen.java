@@ -28,7 +28,8 @@ import java.util.concurrent.CompletableFuture;
  * "Which mod configs go into the export?" - a tick tree like the one for profile contents: one
  * group per mod with its settings files (ticked when the owner is certain) and, in a group of their
  * own, the files it keeps per world or server (not ticked); then the files of mods that are not
- * installed (not ticked), and the files that are never exported, with the reason, greyed out.
+ * installed (not ticked), and the files that are never exported, with the reason, greyed out. A mod
+ * that saves the settings of add-ons (Meteor Client) names them in its group's title.
  */
 public class ConfigExportScreen extends ResizingScreen {
     private static final int HEADER_HEIGHT = 58;
@@ -234,7 +235,7 @@ public class ConfigExportScreen extends ResizingScreen {
         List<String> mods = new ArrayList<>(byMod.keySet());
         mods.sort(Comparator.comparing(id -> modName(id).toLowerCase(Locale.ROOT)));
         for (String mod : mods) {
-            ConfigTree.Group group = tree.group(tree.root, modId(mod), Text.literal(modName(mod)));
+            ConfigTree.Group group = tree.group(tree.root, modId(mod), groupTitle(mod, result));
             ConfigTree.Group perWorld = null;
             for (ConfigScan.Found found : byMod.get(mod)) {
                 if (found.kind() == ConfigScan.Kind.PER_WORLD) {
@@ -269,6 +270,14 @@ public class ConfigExportScreen extends ResizingScreen {
                 tree.leaf(group, "never:" + skipped.path(), Text.literal(skipped.path()), right, GuiUtil.DARK_GRAY, false, false, skipped);
             }
         }
+    }
+
+    /** The mod's name, and the add-ons whose settings it saves ("Meteor Client (incl. Some Addon)"). */
+    private Text groupTitle(String rootModId, ConfigScan.Result result) {
+        List<String> addOns = result.addOns().entrySet().stream().filter(entry -> rootOf(entry.getKey()).equals(rootModId))
+                .flatMap(entry -> entry.getValue().stream()).map(this::modName).distinct().sorted(String.CASE_INSENSITIVE_ORDER).toList();
+        return addOns.isEmpty() ? Text.literal(modName(rootModId))
+                : Text.translatable("keybindprofilesplus.configs.group.with", modName(rootModId), String.join(", ", addOns));
     }
 
     private String rootOf(String modId) {

@@ -63,8 +63,8 @@ KeyBind Profiles+ is a fork of [KeyBindProfiles](https://github.com/imsawiq/KeyB
 
 ### Mod configs
 
-- **Export the settings of all your mods.** Separate from profiles and share codes: one file with the settings files of every mod, for a second computer, a new instance or a friend. A tick tree like the one for profile contents lets you choose, mod by mod and file by file.
-- **Knows which file belongs to which mod.** It reads the code of every installed mod to see which file and folder names it really uses (also mods that keep their settings outside `config/`, like Meteor Client), and recognises the files of mods that are switched off or removed.
+- **Export the settings of all your mods.** One file with the settings files of every mod, this mod's own profiles included, for a second computer, a new instance or a friend; share codes stay as they are. A tick tree like the one for profile contents lets you choose, mod by mod and file by file.
+- **Knows which file belongs to which mod.** It reads the code of every installed mod to see which file and folder names it really uses (also mods that keep their settings outside `config/`, like Meteor Client), names add-ons whose settings another mod saves together with that mod (Meteor add-ons), and recognises the files of mods that are switched off or removed.
 - **Never exports what is not settings.** Login data (accounts, tokens, passwords), maps, caches, logs, backups, dated records and machine state stay out; files a mod keeps per world or per server (waypoints, schematic placements...) are offered but not ticked.
 - **Safe import.** A preview shows what each file would do (new, replaces, already the same, mod not installed here). The chosen files are written the next time the game starts, before any mod reads its settings, and the files they replace are backed up first - importing that backup undoes it.
 
@@ -348,8 +348,8 @@ KeyBind Profiles+ 是 sawiq_ 的 [KeyBindProfiles](https://github.com/imsawiq/Ke
 
 ### 模组配置
 
-- **导出所有模组的设置。** 和档案、分享码互不影响：把每个模组的设置文件放进一个文件，用在另一台电脑、新实例上，或者发给朋友。和档案内容一样有一棵勾选树，可以按模组、按文件选择。
-- **知道哪个文件属于哪个模组。** 它会读取每个已安装模组的代码，看它真正使用哪些文件和文件夹名（包括 Meteor Client 这种把设置放在 `config/` 以外的模组），也认得已停用或已删除的模组留下的文件。
+- **导出所有模组的设置。** 把每个模组的设置文件（包括本模组自己的档案）放进一个文件，用在另一台电脑、新实例上，或者发给朋友；分享码不受影响。和档案内容一样有一棵勾选树，可以按模组、按文件选择。
+- **知道哪个文件属于哪个模组。** 它会读取每个已安装模组的代码，看它真正使用哪些文件和文件夹名（包括 Meteor Client 这种把设置放在 `config/` 以外的模组）；设置由另一个模组保存的附属模组（比如 Meteor 插件）会和那个模组写在一起；也认得已停用或已删除的模组留下的文件。
 - **不是设置的绝不导出。** 登录信息（账号、令牌、密码）、地图、缓存、日志、备份、带日期的记录和本机状态都不会导出；模组按世界或服务器保存的数据（路径点、投影放置等）会列出来，但默认不勾选。
 - **安全导入。** 导入前预览每个文件会怎样（新增、替换、已经一样、这里没装这个模组）。勾选的文件在下次启动游戏、任何模组读取设置之前写入，被替换的文件会先备份——导入这个备份就能撤销。
 
