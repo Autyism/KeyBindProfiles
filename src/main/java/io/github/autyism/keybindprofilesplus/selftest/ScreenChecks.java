@@ -54,6 +54,12 @@ final class ScreenChecks {
     private String shareCode;
     private int ruleBaseline;
 
+    private ConfigChecks configChecks;
+
+    void setConfigChecks(ConfigChecks checks) {
+        this.configChecks = checks;
+    }
+
     ScreenChecks(SelfTestRunner runner, LogicChecks logic, ProfileService service) {
         this.t = runner;
         this.logic = logic;
@@ -565,6 +571,9 @@ final class ScreenChecks {
         t.shot(tag + "_settings");
         if (english) {
             settingsFlow();
+        }
+        if (configChecks != null) {
+            configChecks.screens(english, tag);
         }
         t.step("settings: done", SCREEN_SETTLE_TICKS, () -> t.click(translated("gui.done")));
         t.step("main: rules", SCREEN_SETTLE_TICKS, () -> {

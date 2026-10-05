@@ -61,6 +61,13 @@ KeyBind Profiles+ is a fork of [KeyBindProfiles](https://github.com/imsawiq/KeyB
 - **All rules on one screen.** The Rules screen lists the rules of all profiles and lets you add or remove them. While you are in a world, it also shows which profile the rules pick there.
 - **Back to a default profile.** Optionally return to a default profile whenever you leave a world or server.
 
+### Mod configs
+
+- **Export the settings of all your mods.** Separate from profiles and share codes: one file with the settings files of every mod, for a second computer, a new instance or a friend. A tick tree like the one for profile contents lets you choose, mod by mod and file by file.
+- **Knows which file belongs to which mod.** It reads the code of every installed mod to see which file and folder names it really uses (also mods that keep their settings outside `config/`, like Meteor Client), and recognises the files of mods that are switched off or removed.
+- **Never exports what is not settings.** Login data (accounts, tokens, passwords), maps, caches, logs, backups, dated records and machine state stay out; files a mod keeps per world or per server (waypoints, schematic placements...) are offered but not ticked.
+- **Safe import.** A preview shows what each file would do (new, replaces, already the same, mod not installed here). The chosen files are written the next time the game starts, before any mod reads its settings, and the files they replace are backed up first - importing that backup undoes it.
+
 ### More
 
 - **Mod Menu button.** With Mod Menu installed, KeyBind Profiles+ gets a configure button in the mod list. It opens the settings, with shortcuts to the profiles and the Key Binds screen; Mod Menu is not required.
@@ -157,6 +164,13 @@ Select a profile and click **Compare** to compare it with your current settings.
 
 Select a profile and click **Copy Code**: the code is now in your clipboard, ready to paste into a chat or a file. To use a code, click **Import** → **Paste**, check the preview and the suggested name, and click **Import**.
 
+### Moving your mod configs
+
+1. Settings → **Export / Import Mod Configs...** → **Choose and Export...**
+2. Open the mods you are interested in and tick what you want; the files that are certainly settings are ticked already. Click **Export**: the file appears in the exports folder (`config/keybindprofilesplus/config-exports/`, **Open Exports Folder**).
+3. To import, put such a file into the exports folder of the other game, open the same screen and click the file. Check the preview, click **Import on Next Start** and restart the game.
+4. To undo an import, click the file "Backup from before the import of ..." in the same list and import it.
+
 ### Auto-switching on servers
 
 1. Select a profile → **Edit** → **Applied automatically in**.
@@ -181,6 +195,7 @@ Open them with "Settings" in the profile manager or with the configure button in
 | Auto-switch when joining | ON | Applies the profile whose rule matches the world or server you join. |
 | Default profile | None | The profile to go back to when you leave a world or server. |
 | Back to default when leaving | OFF | Applies the default profile again whenever you leave a world or server. |
+| Export / Import Mod Configs... | (button) | Exports the settings files of your mods into one file, or imports such a file (see "Moving your mod configs"). |
 | Open Profiles Folder | (button) | Opens `config/keybindprofilesplus/` in your file manager. |
 
 Each profile has its own options under **Edit**:
@@ -331,6 +346,13 @@ KeyBind Profiles+ 是 sawiq_ 的 [KeyBindProfiles](https://github.com/imsawiq/Ke
 - **所有规则一个界面。** “服务器规则”界面列出所有档案的全部规则，可以添加、移除。在世界里打开时，还会显示这里按规则会用哪个档案。
 - **切回默认档案。** 可以设置在离开世界或服务器时切回默认档案。
 
+### 模组配置
+
+- **导出所有模组的设置。** 和档案、分享码互不影响：把每个模组的设置文件放进一个文件，用在另一台电脑、新实例上，或者发给朋友。和档案内容一样有一棵勾选树，可以按模组、按文件选择。
+- **知道哪个文件属于哪个模组。** 它会读取每个已安装模组的代码，看它真正使用哪些文件和文件夹名（包括 Meteor Client 这种把设置放在 `config/` 以外的模组），也认得已停用或已删除的模组留下的文件。
+- **不是设置的绝不导出。** 登录信息（账号、令牌、密码）、地图、缓存、日志、备份、带日期的记录和本机状态都不会导出；模组按世界或服务器保存的数据（路径点、投影放置等）会列出来，但默认不勾选。
+- **安全导入。** 导入前预览每个文件会怎样（新增、替换、已经一样、这里没装这个模组）。勾选的文件在下次启动游戏、任何模组读取设置之前写入，被替换的文件会先备份——导入这个备份就能撤销。
+
 ### 其他
 
 - **Mod Menu 配置按钮。** 装了 Mod Menu 的话，模组列表里 KeyBind Profiles+ 会有配置按钮，点开是设置界面，最上面还有进入档案管理和按键绑定界面的按钮。Mod Menu 不是必需的。
@@ -427,6 +449,13 @@ KeyBind Profiles+ 是 sawiq_ 的 [KeyBindProfiles](https://github.com/imsawiq/Ke
 
 选中档案点 **复制分享码**，分享码就进了剪贴板，可以贴到聊天或文件里。使用分享码：点 **导入** → **粘贴**，看一下预览和自动填好的名称，点 **导入**。
 
+### 搬运模组配置
+
+1. 设置 → **导出 / 导入模组配置…** → **选择并导出…**
+2. 展开你关心的模组，勾选要导出的内容；确定是设置的文件已经默认勾上了。点 **导出**，文件会出现在导出文件夹里（`config/keybindprofilesplus/config-exports/`，可以点 **打开导出文件夹**）。
+3. 导入时，把这样的文件放进另一个游戏的导出文件夹，打开同一个界面，点这个文件。看一下预览，点 **下次启动时导入**，然后重启游戏。
+4. 要撤销导入，在同一个列表里点“……导入前的备份（用来撤销）”这个文件，把它导入即可。
+
 ### 进服务器自动切换
 
 1. 选中档案 → **编辑** → **在这些地方自动应用**。
@@ -451,6 +480,7 @@ KeyBind Profiles+ 是 sawiq_ 的 [KeyBindProfiles](https://github.com/imsawiq/Ke
 | 进入时自动切换 | 开 | 进入世界或服务器时，应用规则匹配的档案。 |
 | 默认档案 | 无 | 离开世界或服务器时要切回的档案。 |
 | 退出时切回默认档案 | 关 | 每次离开世界或服务器时重新应用默认档案。 |
+| 导出 / 导入模组配置… | （按钮） | 把所有模组的设置文件导出成一个文件，或导入这样的文件（见“搬运模组配置”）。 |
 | 打开档案文件夹 | （按钮） | 在文件管理器里打开 `config/keybindprofilesplus/`。 |
 
 每个档案在 **编辑** 里还有自己的选项：

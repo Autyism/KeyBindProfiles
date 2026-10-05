@@ -64,6 +64,7 @@ public final class SelfTest extends SelfTestRunner {
 
     private final LogicChecks logic;
     private final ScreenChecks screens;
+    private final ConfigChecks configs;
     private final LiveExternalChecks live;
     private final Map<String, String> savedBindings = new LinkedHashMap<>();
 
@@ -86,6 +87,8 @@ public final class SelfTest extends SelfTestRunner {
         super(service);
         this.logic = new LogicChecks(this, service);
         this.screens = new ScreenChecks(this, logic, service);
+        this.configs = new ConfigChecks(this);
+        this.screens.setConfigChecks(configs);
         this.live = new LiveExternalChecks(this, logic, service);
     }
 
@@ -158,6 +161,8 @@ public final class SelfTest extends SelfTestRunner {
     private void buildSteps(MinecraftClient client) {
         step("environment", () -> logEnvironment(client));
         step("snapshot current settings", () -> snapshot(client));
+        // Staged by the harness before this start, written before any mod read its settings.
+        step("configs: import staged before this start", configs::earlyImport);
 
         // Rules and calculations, no screens involved.
         step("identity", logic::identity);
@@ -181,6 +186,14 @@ public final class SelfTest extends SelfTestRunner {
         step("contents: game options and partial profiles", logic::profileContents);
         step("compare: model", logic::comparison);
         step("leave: back to the default profile", logic::leaveDefault);
+        step("configs: rules and login data", configs::rules);
+        step("configs: reading mod code", configs::bytecode);
+        step("configs: sorting a made-up game folder", configs::classification);
+        step("configs: export, import and undo", configs::roundTrip);
+        step("configs: scan this game folder", configs::startRealScan);
+        stepUntil("configs: scan finished", () -> {
+        }, configs::realScanDone, 20 * 180);
+        step("configs: scan results", configs::realScan);
 
         // Screens.
         screens.rebindOnKeyBindsScreen();
@@ -285,6 +298,7 @@ public final class SelfTest extends SelfTestRunner {
             KeyBindProfilesPlus.settings().setReplaceKeyBinds(true);
         });
         shot("small_vanilla_keybinds");
+        configs.smallScreens();
         step("small: back to the normal interface scale", SCREEN_SETTLE_TICKS, () -> {
             restoreScale(client);
             client.setScreen(homeScreen);
@@ -445,6 +459,7 @@ public final class SelfTest extends SelfTestRunner {
         restoreScale(client);
         deleteTestProfiles();
         logic.removeFixtures();
+        configs.cleanup();
         ExternalKeys.refresh();
         KeyCombos.setHeldModifiersForTesting(null);
 

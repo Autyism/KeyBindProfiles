@@ -114,6 +114,11 @@ public class SettingsScreen extends ResizingScreen {
                 .tooltip(value -> Tooltip.of(Text.translatable("keybindprofilesplus.settings.return_to_default.tooltip")))
                 .build(0, 0, 100, 20, Text.translatable("keybindprofilesplus.settings.return_to_default"), (button, value) -> settings.setReturnToDefault(value)));
 
+        rows.addHeading(Text.translatable("keybindprofilesplus.configs.section"));
+        rows.addWidgets(ButtonWidget.builder(Text.translatable("keybindprofilesplus.configs.open"), button -> client.setScreen(new ModConfigsScreen(this)))
+                .tooltip(Tooltip.of(Text.translatable("keybindprofilesplus.configs.open.tooltip")))
+                .build());
+
         rows.addHeading(Text.translatable("keybindprofilesplus.settings.section.files"));
         rows.addWidgets(ButtonWidget.builder(Text.translatable("keybindprofilesplus.open_folder"), button ->
                 statusMessage.show(service.openProfilesFolder() ? "keybindprofilesplus.status.folder_opened" : "keybindprofilesplus.status.folder_open_failed")).build());

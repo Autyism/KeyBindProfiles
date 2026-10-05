@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.2.0 — 2026-10-05
+
+- New: **Export / Import Mod Configs** (Settings). Saves the settings files of all mods into one file and imports such files; profiles and share codes are unchanged.
+- Finds the files of every installed mod by reading which file and folder names its code really uses, including mods with their own folder outside `config/`; recognises the leftovers of switched-off and removed mods.
+- Never exports login data, maps, caches, logs, backups, dated records or machine state; per-world and per-server data is offered but not ticked.
+- Choose what to export in a tick tree, by mod and by file, with search.
+- Import preview per file (new, replaces, already the same, mod not installed here); the files are written on the next start before any mod reads its settings, with a backup that undoes the import.
+
+### 中文
+
+- 新功能：**导出 / 导入模组配置**（在设置里）。把所有模组的设置文件存成一个文件，或导入这样的文件；档案和分享码不受影响。
+- 通过读取每个已安装模组的代码、看它真正使用的文件和文件夹名，找出它的配置，包括在 `config/` 以外自建文件夹的模组；也认得已停用、已删除的模组留下的文件。
+- 登录信息、地图、缓存、日志、备份、带日期的记录和本机状态永远不会导出；按世界或服务器保存的数据会列出，但默认不勾选。
+- 用勾选树按模组、按文件选择要导出的内容，可以搜索。
+- 导入前逐个文件预览（新增、替换、已经一样、这里没装这个模组）；文件在下次启动、任何模组读取设置之前写入，并留有可撤销的备份。
+
 ## 0.1.0 — 2026-10-04
 
 First public release.
