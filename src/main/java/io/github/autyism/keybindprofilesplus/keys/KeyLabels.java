@@ -44,6 +44,7 @@ public final class KeyLabels {
         return Component.literal(readable.isEmpty() ? bindingId : readable);
     }
 
+    //? if >=1.21.9 {
     public static Component category(KeyMapping.Category category) {
         Identifier id = category.id();
         if (Language.getInstance().has(id.toLanguageKey("key.category"))) {
@@ -52,6 +53,32 @@ public final class KeyLabels {
         String readable = humanize("minecraft".equals(id.getNamespace()) ? id.getPath() : id.getNamespace() + " " + id.getPath());
         return readable.isEmpty() ? category.label() : Component.literal(readable);
     }
+    //?} else {
+    /*// Before 1.21.9 a category was just its translation key, mods' ones often without a translation.
+    private static final Set<String> GAME_CATEGORIES = Set.of(KeyMapping.CATEGORY_MOVEMENT, KeyMapping.CATEGORY_MISC,
+            KeyMapping.CATEGORY_MULTIPLAYER, KeyMapping.CATEGORY_GAMEPLAY, KeyMapping.CATEGORY_INVENTORY,
+            KeyMapping.CATEGORY_INTERFACE, KeyMapping.CATEGORY_CREATIVE);
+
+    public static Component category(String category) {
+        if (Language.getInstance().has(category)) {
+            return Component.translatable(category);
+        }
+        String readable = humanize(withoutCategoryPrefix(category));
+        return Component.literal(readable.isEmpty() ? category : readable);
+    }
+
+    /^* The mod a category belongs to as far as its name tells ("key.categories.mymod" -> "mymod"); "minecraft" for the game's own. ^/
+    public static String categoryNamespace(String category) {
+        if (GAME_CATEGORIES.contains(category)) {
+            return "minecraft";
+        }
+        return withoutCategoryPrefix(category).split("[.:/]")[0];
+    }
+
+    private static String withoutCategoryPrefix(String category) {
+        return category.replaceFirst("^(key\\.categories\\.|key\\.category\\.|category\\.|key\\.)", "");
+    }
+    *///?}
 
     /** "toggle_freeCam-mode" becomes "Toggle Free Cam Mode". */
     public static String humanize(String raw) {

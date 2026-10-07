@@ -236,8 +236,11 @@ public final class ProfileFileStore {
                 //? if >=26.3 {
                 /*// the original mod saved GLFW key codes, which are not the game's numbers since 26.3
                 hotkeys.add(io.github.autyism.keybindprofilesplus.input.SdlKeys.nameOfGlfwCode(code.intValue()));
-                *///?} else
+                *///?} else if >=1.21.9 {
                 hotkeys.add(InputConstants.getKey(new KeyEvent(code.intValue(), -1, 0)).getName());
+                //?} else {
+                /*hotkeys.add(InputConstants.getKey(code.intValue(), -1).getName());
+                *///?}
             }
         }
         return hotkeys;

@@ -317,7 +317,10 @@ public class ProfileContentsScreen extends ResizingScreen {
         Arrays.sort(bindings);
         Map<String, String> unknownKeys = new LinkedHashMap<>(savedKeys);
         for (KeyMapping binding : bindings) {
+            //? if >=1.21.9 {
             String categoryId = "keys/" + binding.getCategory().id();
+            //?} else
+            /*String categoryId = "keys/" + binding.getCategory();*/
             Group category = nodesById.get(categoryId) instanceof Group existing ? existing : addGroup(keys, categoryId, KeyLabels.category(binding.getCategory()));
             addItem(category, "key:" + binding.getName(), KeyLabels.name(binding), true, binding.getName(),
                     savedKeys.get(binding.getName()), KeyCombos.valueOf(binding), ProfileContentsScreen::describeKey);

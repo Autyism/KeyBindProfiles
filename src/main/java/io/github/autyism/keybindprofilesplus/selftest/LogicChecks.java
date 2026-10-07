@@ -323,7 +323,10 @@ final class LogicChecks {
             t.bind("key.sprint", "key.keyboard.left.control");
 
             t.bind("key.spectatorOutlines", "key.mouse.middle");
+            //? if >=1.21.9 {
             conflict("two Spectator-only keys clash, pick block (never in Spectator) does not", "key.spectatorOutlines", KeyConflicts.Level.HARD, 1, "spectator_both");
+            //?} else
+            /*conflict("a Spectator-only key and pick block (never in Spectator) do not clash (the spectator hotbar key came in 1.21.9)", "key.spectatorOutlines", KeyConflicts.Level.NONE, 0, null);*/
             t.bind("key.spectatorOutlines", "key.keyboard.space");
             conflict("a Spectator-only key and jump is a possible conflict", "key.spectatorOutlines", KeyConflicts.Level.SOFT, 1, "spectator");
             t.bind("key.spectatorOutlines", "key.keyboard.unknown");
@@ -442,13 +445,23 @@ final class LogicChecks {
             KeyMapping.set(f15, false);
             t.check("combos: releasing the key releases every binding on it", !combo.isDown() && !plain.isDown());
 
-            t.check("combos: screen key checks respect modifiers",
-                    //? if >=26.3 {
-                    /*combo.matches(new KeyEvent(InputConstants.KEY_F15, 0, io.github.autyism.keybindprofilesplus.input.SdlKeys.toSdlModifiers(KeyCombo.CTRL)))
+            //? if >=26.3 {
+            /*t.check("combos: screen key checks respect modifiers",
+                    combo.matches(new KeyEvent(InputConstants.KEY_F15, 0, io.github.autyism.keybindprofilesplus.input.SdlKeys.toSdlModifiers(KeyCombo.CTRL)))
                             && !plain.matches(new KeyEvent(InputConstants.KEY_F15, 0, io.github.autyism.keybindprofilesplus.input.SdlKeys.toSdlModifiers(KeyCombo.CTRL)))
-                    *///?} else
+                            && plain.matches(new KeyEvent(InputConstants.KEY_F15, 0, 0)) && !combo.matches(new KeyEvent(InputConstants.KEY_F15, 0, 0)));
+            *///?} else if >=1.21.9 {
+            t.check("combos: screen key checks respect modifiers",
                     combo.matches(new KeyEvent(InputConstants.KEY_F15, 0, KeyCombo.CTRL)) && !plain.matches(new KeyEvent(InputConstants.KEY_F15, 0, KeyCombo.CTRL))
                             && plain.matches(new KeyEvent(InputConstants.KEY_F15, 0, 0)) && !combo.matches(new KeyEvent(InputConstants.KEY_F15, 0, 0)));
+            //?} else {
+            /*// Before 1.21.9 a screen's key check got no modifier keys: the held ones count
+            held[0] = KeyCombo.CTRL;
+            boolean withCtrl = combo.matches(InputConstants.KEY_F15, 0) && !plain.matches(InputConstants.KEY_F15, 0);
+            held[0] = 0;
+            t.check("combos: screen key checks respect modifiers",
+                    withCtrl && plain.matches(InputConstants.KEY_F15, 0) && !combo.matches(InputConstants.KEY_F15, 0));
+            *///?}
 
             // A key without any combination on it keeps the vanilla behaviour whatever is held.
             KeyMapping jump = SelfTestRunner.binding(TEST_BINDING_ID);

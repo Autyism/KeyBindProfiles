@@ -89,7 +89,10 @@ public abstract class KeyBindingEntryMixin {
     }
 
     /** The little bar left of the key button: vanilla always paints it yellow. */
+    //? if >=1.21.9 {
     @ModifyArg(method = "renderContent", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/GuiGraphics;fill(IIIII)V"), index = 4)
+    //?} else
+    /*@ModifyArg(method = "render", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/GuiGraphics;fill(IIIII)V"), index = 4)*/
     private int keybindprofilesplus$markerColor(int color) {
         return keybindprofilesplus$markerColor;
     }

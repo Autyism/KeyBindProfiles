@@ -173,7 +173,10 @@ public final class KeyConflicts {
         if (source.modId() != null && SCREEN_ONLY_MODS.contains(source.modId().toLowerCase(Locale.ROOT))) {
             return Scope.SCREEN_ONLY;
         }
+        //? if >=1.21.9 {
         String text = (binding.getName() + " " + binding.getCategory().id().getPath()).toLowerCase(Locale.ROOT);
+        //?} else
+        /*String text = (binding.getName() + " " + binding.getCategory()).toLowerCase(Locale.ROOT);*/
         for (String word : SCREEN_WORDS) {
             if (text.contains(word)) {
                 return Scope.SCREEN_ONLY;
