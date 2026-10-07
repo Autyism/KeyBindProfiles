@@ -447,8 +447,13 @@ public final class SelfTest extends SelfTestRunner {
             fail("could not remove the old " + WORLD_NAME + " folder: " + e);
         }
 
+        //? if >=26.1 {
+        /*LevelSettings levelInfo = new LevelSettings(WORLD_NAME, GameType.CREATIVE, new LevelSettings.DifficultySettings(Difficulty.PEACEFUL, false, false), true,
+                WorldDataConfiguration.DEFAULT);
+        *///?} else {
         LevelSettings levelInfo = new LevelSettings(WORLD_NAME, GameType.CREATIVE, false, Difficulty.PEACEFUL, true,
                 new GameRules(FeatureFlags.DEFAULT_FLAGS), WorldDataConfiguration.DEFAULT);
+        //?}
         client.createWorldOpenFlows().createFreshLevel(WORLD_NAME, levelInfo, WorldOptions.testWorldWithRandomSeed(),
                 WorldPresets::createFlatWorldDimensions, homeScreen);
     }

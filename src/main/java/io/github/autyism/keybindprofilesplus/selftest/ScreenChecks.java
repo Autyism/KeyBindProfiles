@@ -110,6 +110,9 @@ final class ScreenChecks {
             t.sendKey(InputConstants.KEY_F15, false, KeyCombo.CTRL);
             t.sendKey(InputConstants.KEY_LCONTROL, false, 0);
             t.check("keys: releasing the keys afterwards changes nothing", KeyCombos.valueOf(binding).equals("ctrl+key.keyboard.f15"));
+            //? if >=26.1 {
+            /*keys.charTyped(new net.minecraft.client.input.CharacterEvent('x'));
+            *///?} else
             keys.charTyped(new net.minecraft.client.input.CharacterEvent('x', 0));
             t.check("keys: the character of the key just bound does not land in the search box", keys.visibleBindingCount() == 1);
         });
