@@ -358,7 +358,10 @@ abstract class SelfTestRunner {
         int downscale = framebuffer.width >= 3000 && framebuffer.width % 2 == 0 && framebuffer.height % 2 == 0 ? 2 : 1;
         String screenName = client.screen == null ? "none" : client.screen.getClass().getSimpleName();
         pendingScreenshots.incrementAndGet();
+        //? if >=1.21.6 {
         Screenshot.grab(client.gameDirectory, fileName, framebuffer, downscale, message -> {
+        //?} else
+        /*Screenshot.grab(client.gameDirectory, fileName, framebuffer, message -> {*/
             pendingScreenshots.decrementAndGet();
             log("SCREENSHOT " + fileName + " screen=" + screenName);
         });

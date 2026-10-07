@@ -259,7 +259,10 @@ public final class SelfTest extends SelfTestRunner {
         open("key binds screen before the interface shrinks", () -> new KeyOverviewScreen(homeScreen));
         step("small: largest interface scale", SCREEN_SETTLE_TICKS, () -> {
             var window = client.getWindow();
+            //? if >=1.21.6 {
             savedScaleFactor = window.getGuiScale();
+            //?} else
+            /*savedScaleFactor = (int) window.getGuiScale();*/
             window.setGuiScale(window.calculateScale(0, client.isEnforceUnicode()));
             //? if >=1.21.11 {
             client.screen.resize(window.getGuiScaledWidth(), window.getGuiScaledHeight());
@@ -410,7 +413,10 @@ public final class SelfTest extends SelfTestRunner {
 
     private void logEnvironment(Minecraft client) {
         var window = client.getWindow();
+        //? if >=1.21.6 {
         log("ENV minecraft=" + SharedConstants.getCurrentVersion().name()
+        //?} else
+        /*log("ENV minecraft=" + SharedConstants.getCurrentVersion().getName()*/
                 + " mod=" + FabricLoader.getInstance().getModContainer(KeyBindProfilesPlus.MOD_ID)
                 .map(mod -> mod.getMetadata().getVersion().getFriendlyString()).orElse("?")
                 + " framebuffer=" + window.getWidth() + "x" + window.getHeight()

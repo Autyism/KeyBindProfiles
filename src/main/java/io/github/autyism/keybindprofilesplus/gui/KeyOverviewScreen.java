@@ -252,7 +252,10 @@ public class KeyOverviewScreen extends ResizingScreen {
             // Over the key: only what matters while rebinding (conflicts). Over the name: everything about the binding.
             List<Component> lines = hoveredOverKey ? hoveredRow.keyTooltip() : hoveredRow.tooltip();
             if (!lines.isEmpty()) {
+                //? if >=1.21.6 {
                 context.setComponentTooltipForNextFrame(font, lines, mouseX, mouseY);
+                //?} else
+                /*setTooltipForNextRenderPass(lines.stream().map(Component::getVisualOrderText).toList());*/
             }
         }
     }
