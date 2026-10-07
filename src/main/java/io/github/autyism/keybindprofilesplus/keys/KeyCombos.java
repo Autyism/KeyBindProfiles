@@ -16,6 +16,8 @@ import java.io.Writer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.ArrayList;
+//? if <1.21.9
+/*import java.util.Collection;*/
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -169,7 +171,10 @@ public final class KeyCombos {
 
     /** Whether this binding is among the ones that react to its key with the given modifiers held. */
     public static boolean reactsWith(KeyMapping keyBinding, int held) {
+        //? if >=1.21.9 {
         List<KeyMapping> onSameKey = KeyMapping.MAP.get(keyBinding.key);
+        //?} else
+        /*List<KeyMapping> onSameKey = bindingsOn(keyBinding.key);*/
         if (!anyCombination(onSameKey)) {
             return true;
         }
@@ -268,7 +273,7 @@ public final class KeyCombos {
             held |= KeyCombo.ALT;
         }
         return held;
-        *///?} else {
+        *///?} else if >=1.21.9 {
         Minecraft client = Minecraft.getInstance();
         if (client == null || client.getWindow() == null) {
             return 0;
@@ -285,8 +290,58 @@ public final class KeyCombos {
             held |= KeyCombo.ALT;
         }
         return held;
-        //?}
+        //?} else {
+        /*// Before 1.21.9 the keyboard state was asked by the window's handle
+        Minecraft client = Minecraft.getInstance();
+        if (client == null || client.getWindow() == null) {
+            return 0;
+        }
+        long window = client.getWindow().getWindow();
+        int held = 0;
+        if (InputConstants.isKeyDown(window, InputConstants.KEY_LCONTROL) || InputConstants.isKeyDown(window, InputConstants.KEY_RCONTROL)) {
+            held |= KeyCombo.CTRL;
+        }
+        if (InputConstants.isKeyDown(window, InputConstants.KEY_LSHIFT) || InputConstants.isKeyDown(window, InputConstants.KEY_RSHIFT)) {
+            held |= KeyCombo.SHIFT;
+        }
+        if (InputConstants.isKeyDown(window, InputConstants.KEY_LALT) || InputConstants.isKeyDown(window, InputConstants.KEY_RALT)) {
+            held |= KeyCombo.ALT;
+        }
+        return held;
+        *///?}
     }
+
+    //? if <1.21.9 {
+    /*// Before 1.21.9 the game kept one binding per key and passed a key press to that one only. A key
+    // with combinations on it has several bindings that must react, so they are looked up here.
+
+    /^* The bindings on one key, or null when there are none. ^/
+    public static List<KeyMapping> bindingsOn(InputConstants.Key key) {
+        Minecraft client = Minecraft.getInstance();
+        if (client == null || client.options == null) {
+            return null;
+        }
+        List<KeyMapping> onKey = new ArrayList<>();
+        for (KeyMapping binding : client.options.keyMappings) {
+            if (binding.key.equals(key)) {
+                onKey.add(binding);
+            }
+        }
+        return onKey.isEmpty() ? null : onKey;
+    }
+
+    /^* All bindings, grouped by their key. ^/
+    public static Collection<List<KeyMapping>> bindingsByKey() {
+        Map<InputConstants.Key, List<KeyMapping>> byKey = new HashMap<>();
+        Minecraft client = Minecraft.getInstance();
+        if (client != null && client.options != null) {
+            for (KeyMapping binding : client.options.keyMappings) {
+                byKey.computeIfAbsent(binding.key, key -> new ArrayList<>()).add(binding);
+            }
+        }
+        return byKey.values();
+    }
+    *///?}
 
     /** For the self-test only: pretend these modifiers are held (null restores the real keyboard). */
     public static void setHeldModifiersForTesting(IntSupplier supplier) {

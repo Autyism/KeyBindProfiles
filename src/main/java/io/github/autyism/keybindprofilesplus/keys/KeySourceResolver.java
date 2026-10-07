@@ -59,7 +59,10 @@ public final class KeySourceResolver {
         }
 
         // Fallbacks for bindings whose creator could not be traced: go by how they are named.
+        //? if >=1.21.9 {
         String namespace = binding.getCategory().id().getNamespace();
+        //?} else
+        /*String namespace = KeyLabels.categoryNamespace(binding.getCategory());*/
         ModContainer byNamespace = modsByNormalizedId.get(normalize(namespace));
         if (byNamespace != null) {
             return toSource(byNamespace);

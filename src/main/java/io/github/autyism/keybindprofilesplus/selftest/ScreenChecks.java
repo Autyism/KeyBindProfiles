@@ -112,8 +112,11 @@ final class ScreenChecks {
             t.check("keys: releasing the keys afterwards changes nothing", KeyCombos.valueOf(binding).equals("ctrl+key.keyboard.f15"));
             //? if >=26.1 {
             /*keys.charTyped(new net.minecraft.client.input.CharacterEvent('x'));
-            *///?} else
+            *///?} else if >=1.21.9 {
             keys.charTyped(new net.minecraft.client.input.CharacterEvent('x', 0));
+            //?} else {
+            /*keys.charTyped('x', 0);
+            *///?}
             t.check("keys: the character of the key just bound does not land in the search box", keys.visibleBindingCount() == 1);
         });
         t.step("keys: a modifier pressed and released alone is bound as a plain key", 2, () -> {
@@ -1059,7 +1062,13 @@ final class ScreenChecks {
             logic.makeGameDifferFromProfileA();
             KeyBindProfileScreen main = t.screen(KeyBindProfileScreen.class);
             int[] point = main.hitPoint(PROFILE_A);
+            //? if >=1.21.9 {
             client().screen.mouseClicked(new net.minecraft.client.input.MouseButtonEvent(point[0], point[1], new net.minecraft.client.input.MouseButtonInfo(com.mojang.blaze3d.platform.InputConstants.MOUSE_BUTTON_LEFT, 0)), true);
+            //?} else {
+            /*// Before 1.21.9 a double click is two clicks in quick succession
+            client().screen.mouseClicked(point[0], point[1], com.mojang.blaze3d.platform.InputConstants.MOUSE_BUTTON_LEFT);
+            client().screen.mouseClicked(point[0], point[1], com.mojang.blaze3d.platform.InputConstants.MOUSE_BUTTON_LEFT);
+            *///?}
             t.check("apply: double click asks like the button does", t.isScreen(ApplyConfirmScreen.class));
         });
         t.step("apply: with do-not-ask-again", SCREEN_SETTLE_TICKS, () -> {

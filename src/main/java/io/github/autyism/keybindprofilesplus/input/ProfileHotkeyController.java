@@ -94,13 +94,20 @@ public final class ProfileHotkeyController {
             return SdlKeys.isMouseButtonDown(key.getValue());
         }
         return InputConstants.isKeyDown(key.getValue());
-        *///?} else {
+        *///?} else if >=1.21.9 {
         Minecraft client = Minecraft.getInstance();
         if (key.getType() == InputConstants.Type.MOUSE) {
             return GLFW.glfwGetMouseButton(client.getWindow().handle(), key.getValue()) == GLFW.GLFW_PRESS;
         }
         return InputConstants.isKeyDown(client.getWindow(), key.getValue());
-        //?}
+        //?} else {
+        /*// Before 1.21.9 the window was asked by its handle
+        Minecraft client = Minecraft.getInstance();
+        if (key.getType() == InputConstants.Type.MOUSE) {
+            return GLFW.glfwGetMouseButton(client.getWindow().getWindow(), key.getValue()) == GLFW.GLFW_PRESS;
+        }
+        return InputConstants.isKeyDown(client.getWindow().getWindow(), key.getValue());
+        *///?}
     }
 
     private InputConstants.Key parseInputKey(String translationKey) {

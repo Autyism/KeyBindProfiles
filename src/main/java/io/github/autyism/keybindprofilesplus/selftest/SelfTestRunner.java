@@ -228,7 +228,10 @@ abstract class SelfTestRunner {
             fail("button '" + label + "' on " + where + " is disabled");
             return false;
         }
+        //? if >=1.21.9 {
         pressable.onPress(new KeyEvent(InputConstants.KEY_RETURN, 0, 0));
+        //?} else
+        /*pressable.onPress();*/
         pass("clicked '" + label + "'");
         return true;
     }
@@ -278,8 +281,17 @@ abstract class SelfTestRunner {
         //? if >=26.3 {
         /*client().screen.mouseClicked(new MouseButtonEvent(point[0], point[1],
                 new MouseButtonInfo(InputConstants.MOUSE_BUTTON_LEFT, io.github.autyism.keybindprofilesplus.input.SdlKeys.toSdlModifiers(modifiers))), false);
-        *///?} else
+        *///?} else if >=1.21.9 {
         client().screen.mouseClicked(new MouseButtonEvent(point[0], point[1], new MouseButtonInfo(0, modifiers)), false);
+        //?} else {
+        /*// Before 1.21.9 a click carried no modifier keys and the mod reads the held ones: pretend these are held
+        KeyCombos.setHeldModifiersForTesting(() -> modifiers);
+        try {
+            client().screen.mouseClicked(point[0], point[1], InputConstants.MOUSE_BUTTON_LEFT);
+        } finally {
+            KeyCombos.setHeldModifiersForTesting(null);
+        }
+        *///?}
     }
 
     /** Feeds one key event into the game exactly where GLFW would. */
@@ -287,8 +299,11 @@ abstract class SelfTestRunner {
         //? if >=26.3 {
         /*client().keyboardHandler.keyPress(client().getWindow().handle(), press ? 1 : 0,
                 new KeyEvent(keyCode, io.github.autyism.keybindprofilesplus.input.SdlKeys.sdlKeyCode(keyCode), io.github.autyism.keybindprofilesplus.input.SdlKeys.toSdlModifiers(modifiers)));
-        *///?} else
+        *///?} else if >=1.21.9 {
         client().keyboardHandler.keyPress(client().getWindow().handle(), press ? 1 : 0, new KeyEvent(keyCode, 0, modifiers));
+        //?} else {
+        /*client().keyboardHandler.keyPress(client().getWindow().getWindow(), keyCode, 0, press ? 1 : 0, modifiers);
+        *///?}
     }
 
     /** Binds a key or a combination given in text form ("ctrl+key.keyboard.x"). */

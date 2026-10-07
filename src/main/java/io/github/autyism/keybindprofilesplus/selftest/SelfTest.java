@@ -116,7 +116,10 @@ public final class SelfTest extends SelfTestRunner {
                 new KeyMapping(DEMO_MOD_BINDING, InputConstants.Type.KEYSYM, InputConstants.KEY_NUMPAD5, KeyMapping.Category.MISC),
                 new KeyMapping(DEMO_SCREEN_BINDING, InputConstants.Type.KEYSYM, InputConstants.UNKNOWN.getValue(), KeyMapping.Category.MISC),
                 new KeyMapping(DEMO_UNKNOWN_BINDING, InputConstants.Type.KEYSYM, InputConstants.UNKNOWN.getValue(),
+                        //? if >=1.21.9 {
                         KeyMapping.Category.register(Identifier.fromNamespaceAndPath("selftestmod", "demo")))
+                        //?} else
+                        /*"key.categories.selftestmod.demo")*/
                 // Before 1.21.11 the debug keys were no key bindings, so there is no Debug category to put one into
                 //? if >=1.21.11 {
                 , new KeyMapping(DEMO_DEBUG_BINDING, InputConstants.Type.KEYSYM, InputConstants.KEY_J, KeyMapping.Category.DEBUG)

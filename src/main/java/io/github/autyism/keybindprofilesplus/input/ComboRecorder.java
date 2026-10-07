@@ -26,9 +26,17 @@ public final class ComboRecorder {
     }
 
     public static void install(KeyBindsScreen screen) {
+        //? if >=1.21.9 {
         ScreenKeyboardEvents.allowKeyPress(screen).register((current, input) -> onKeyPress(screen, input));
         ScreenKeyboardEvents.allowKeyRelease(screen).register((current, input) -> onKeyRelease(screen, input));
         ScreenMouseEvents.allowMouseClick(screen).register((current, click) -> onMouseClick(screen, click));
+        //?} else {
+        /*// Before 1.21.9 the events came as plain numbers, clicks without modifier keys (the ones held right now)
+        ScreenKeyboardEvents.allowKeyPress(screen).register((current, key, scancode, modifiers) -> onKeyPress(screen, new KeyEvent(key, scancode, modifiers)));
+        ScreenKeyboardEvents.allowKeyRelease(screen).register((current, key, scancode, modifiers) -> onKeyRelease(screen, new KeyEvent(key, scancode, modifiers)));
+        ScreenMouseEvents.allowMouseClick(screen).register((current, mouseX, mouseY, button) -> onMouseClick(screen,
+                new MouseButtonEvent(mouseX, mouseY, new io.github.autyism.keybindprofilesplus.legacy.MouseButtonInfo(button, KeyCombos.heldModifiers()))));
+        *///?}
     }
 
     /** The modifiers held back for the binding that is waiting for its key; 0 when there are none. */
