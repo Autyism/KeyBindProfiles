@@ -1,5 +1,47 @@
 # Changelog
 
+## 0.2.0+1.21.10 — 2026-10-07
+
+KeyBind Profiles+ for Minecraft 1.21.9–1.21.10, with the same features as 0.2.0 for 1.21.11.
+
+- Needs Java 21 and Fabric Loader 0.17.3 or newer.
+- Other Minecraft versions have their own jar; see the table in the README.
+
+### 中文
+
+适用于 Minecraft 1.21.9–1.21.10 的 KeyBind Profiles+，功能与 1.21.11 的 0.2.0 相同。
+
+- 需要 Java 21 和 Fabric Loader 0.17.3 或更高。
+- 其他 Minecraft 版本有各自的 jar，见说明里的表格。
+
+## 0.2.0+1.21.8 — 2026-10-07
+
+KeyBind Profiles+ for Minecraft 1.21.6–1.21.8, with the same features as 0.2.0 for 1.21.11.
+
+- Needs Java 21 and Fabric Loader 0.17.3 or newer.
+- Other Minecraft versions have their own jar; see the table in the README.
+
+### 中文
+
+适用于 Minecraft 1.21.6–1.21.8 的 KeyBind Profiles+，功能与 1.21.11 的 0.2.0 相同。
+
+- 需要 Java 21 和 Fabric Loader 0.17.3 或更高。
+- 其他 Minecraft 版本有各自的 jar，见说明里的表格。
+
+## 0.2.0+1.21.5 — 2026-10-07
+
+KeyBind Profiles+ for Minecraft 1.21.5, with the same features as 0.2.0 for 1.21.11.
+
+- Needs Java 21 and Fabric Loader 0.17.3 or newer.
+- Other Minecraft versions have their own jar; see the table in the README.
+
+### 中文
+
+适用于 Minecraft 1.21.5 的 KeyBind Profiles+，功能与 1.21.11 的 0.2.0 相同。
+
+- 需要 Java 21 和 Fabric Loader 0.17.3 或更高。
+- 其他 Minecraft 版本有各自的 jar，见说明里的表格。
+
 ## 0.2.0+26.3 — 2026-10-07
 
 KeyBind Profiles+ for Minecraft 26.3, with the same features as 0.2.0 for 1.21.11.
