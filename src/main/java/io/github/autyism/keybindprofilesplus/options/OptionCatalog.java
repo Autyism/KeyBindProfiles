@@ -38,6 +38,10 @@ public final class OptionCatalog {
                 "showAutosaveIndicator", "hideLightningFlashes");
         //? if >=26.1
         /*assign(Category.VIDEO, "exclusiveFullscreen");*/
+        //? if >=26.3 {
+        /*assign(Category.VIDEO, "macFullscreenMenuVisibility", "debugGuiScale");
+        assign(Category.CONTROLS, "quitShortcuts", "ctrlClickEmulatesRightClick");
+        *///?}
         assign(Category.SOUND, "showSubtitles", "directionalAudio", "musicToast", "musicFrequency");
         assign(Category.CHAT, "chatVisibility", "chatColors", "chatLinks", "chatLinksPrompt", "chatOpacity",
                 "chatLineSpacing", "textBackgroundOpacity", "backgroundForChatOnly", "chatHeightFocused",

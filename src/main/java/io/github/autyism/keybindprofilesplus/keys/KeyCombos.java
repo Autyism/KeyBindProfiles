@@ -60,6 +60,9 @@ public final class KeyCombos {
 
     /** The binding's trigger in text form: "ctrl+key.keyboard.x", or just the key when it has no modifiers. */
     public static String valueOf(KeyMapping keyBinding) {
+        //? if >=26.3 {
+        /*return KeyCombo.encode(modifiersOf(keyBinding), io.github.autyism.keybindprofilesplus.input.SdlKeys.toStoredName(keyBinding.saveString()));
+        *///?} else
         return KeyCombo.encode(modifiersOf(keyBinding), keyBinding.saveString());
     }
 
@@ -200,6 +203,9 @@ public final class KeyCombos {
             return;
         }
         KeyCombo combo = KeyCombo.parse(value.getAsString());
+        //? if >=26.3 {
+        /*if (combo.modifiers() != 0 && combo.key().equals(io.github.autyism.keybindprofilesplus.input.SdlKeys.toStoredName(keyBinding.saveString()))) {
+        *///?} else
         if (combo.modifiers() != 0 && combo.key().equals(keyBinding.saveString())) {
             MODIFIERS.put(bindingId, combo.modifiers());
         }
@@ -222,6 +228,9 @@ public final class KeyCombos {
         for (Map.Entry<String, Integer> entry : MODIFIERS.entrySet()) {
             KeyMapping keyBinding = KeyMapping.get(entry.getKey());
             if (keyBinding != null) {
+                //? if >=26.3 {
+                /*entries.put(entry.getKey(), KeyCombo.encode(entry.getValue(), io.github.autyism.keybindprofilesplus.input.SdlKeys.toStoredName(keyBinding.saveString())));
+                *///?} else
                 entries.put(entry.getKey(), KeyCombo.encode(entry.getValue(), keyBinding.saveString()));
             }
         }
@@ -242,6 +251,24 @@ public final class KeyCombos {
     // ------------------------------------------------------------------ modifier state
 
     private static int readHeldModifiers() {
+        //? if >=26.3 {
+        /*// SDL keeps the keyboard state itself; there is no window to ask
+        Minecraft client = Minecraft.getInstance();
+        if (client == null || client.getWindow() == null) {
+            return 0;
+        }
+        int held = 0;
+        if (InputConstants.isKeyDown(InputConstants.KEY_LCONTROL) || InputConstants.isKeyDown(InputConstants.KEY_RCONTROL)) {
+            held |= KeyCombo.CTRL;
+        }
+        if (InputConstants.isKeyDown(InputConstants.KEY_LSHIFT) || InputConstants.isKeyDown(InputConstants.KEY_RSHIFT)) {
+            held |= KeyCombo.SHIFT;
+        }
+        if (InputConstants.isKeyDown(InputConstants.KEY_LALT) || InputConstants.isKeyDown(InputConstants.KEY_RALT)) {
+            held |= KeyCombo.ALT;
+        }
+        return held;
+        *///?} else {
         Minecraft client = Minecraft.getInstance();
         if (client == null || client.getWindow() == null) {
             return 0;
@@ -258,6 +285,7 @@ public final class KeyCombos {
             held |= KeyCombo.ALT;
         }
         return held;
+        //?}
     }
 
     /** For the self-test only: pretend these modifiers are held (null restores the real keyboard). */

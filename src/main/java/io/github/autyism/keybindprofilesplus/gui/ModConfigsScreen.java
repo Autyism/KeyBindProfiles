@@ -182,6 +182,9 @@ public class ModConfigsScreen extends ResizingScreen {
     private void openFolder() {
         try {
             Files.createDirectories(ModConfigs.exportsDir());
+            //? if >=26.3 {
+            /*com.mojang.blaze3d.Blaze3D.openPath(ModConfigs.exportsDir());
+            *///?} else
             Util.getPlatform().openFile(ModConfigs.exportsDir().toFile());
             statusMessage.show("keybindprofilesplus.configs.status.folder_opened");
         } catch (IOException | RuntimeException e) {

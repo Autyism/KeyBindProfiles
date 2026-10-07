@@ -404,12 +404,12 @@ public class KeyBindProfileScreen extends ResizingScreen {
 
             @Override
             public boolean mouseClicked(MouseButtonEvent click, boolean doubled) {
-                boolean secondary = click.button() == 1 || (click.button() == 0 && (click.modifiers() & (KeyCombo.CTRL | KeyCombo.SHIFT)) != 0);
+                boolean secondary = click.button() == com.mojang.blaze3d.platform.InputConstants.MOUSE_BUTTON_RIGHT || (click.button() == com.mojang.blaze3d.platform.InputConstants.MOUSE_BUTTON_LEFT && (click.modifiers() & (KeyCombo.CTRL | KeyCombo.SHIFT)) != 0);
                 if (secondary) {
                     toggleCompareMark(name);
                     return true;
                 }
-                if (click.button() != 0) {
+                if (click.button() != com.mojang.blaze3d.platform.InputConstants.MOUSE_BUTTON_LEFT) {
                     return false;
                 }
                 boolean wasSelected = name.equals(selected);

@@ -150,6 +150,11 @@ final class MeteorKeys {
             int bits = isKey ? keybind.getIntOr("modifiers", 0) : 0;
             modifiers = bits & KeyCombo.ALL;
             needsSuper = (bits & GLFW_MOD_SUPER) != 0;
+            //? if >=26.3 {
+            /*// This format was written before 26.3: GLFW key codes and mouse buttons
+            key = isKey ? io.github.autyism.keybindprofilesplus.input.SdlKeys.keyOfGlfwCode(value)
+                    : InputConstants.Type.MOUSE.getOrCreate(io.github.autyism.keybindprofilesplus.input.SdlKeys.mouseButtonOfGlfw(value));
+            *///?} else
             key = (isKey ? InputConstants.Type.KEYSYM : InputConstants.Type.MOUSE).getOrCreate(value);
         }
         if (key.equals(InputConstants.UNKNOWN)) {

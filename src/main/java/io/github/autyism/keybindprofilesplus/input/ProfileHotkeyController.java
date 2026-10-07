@@ -1,5 +1,6 @@
 package io.github.autyism.keybindprofilesplus.input;
 
+//? if <26.3
 import org.lwjgl.glfw.GLFW;
 import com.mojang.blaze3d.platform.InputConstants;
 import io.github.autyism.keybindprofilesplus.notification.ProfileNotification;
@@ -88,15 +89,24 @@ public final class ProfileHotkeyController {
     }
 
     private static boolean isPhysicallyDown(InputConstants.Key key) {
+        //? if >=26.3 {
+        /*if (key.getType() == InputConstants.Type.MOUSE) {
+            return SdlKeys.isMouseButtonDown(key.getValue());
+        }
+        return InputConstants.isKeyDown(key.getValue());
+        *///?} else {
         Minecraft client = Minecraft.getInstance();
         if (key.getType() == InputConstants.Type.MOUSE) {
             return GLFW.glfwGetMouseButton(client.getWindow().handle(), key.getValue()) == GLFW.GLFW_PRESS;
         }
         return InputConstants.isKeyDown(client.getWindow(), key.getValue());
+        //?}
     }
 
     private InputConstants.Key parseInputKey(String translationKey) {
         try {
+            //? if >=26.3
+            /*translationKey = SdlKeys.toGameName(translationKey);*/
             return InputConstants.getKey(translationKey);
         } catch (IllegalArgumentException e) {
             return null;

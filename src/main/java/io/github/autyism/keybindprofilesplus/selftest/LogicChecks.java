@@ -52,6 +52,10 @@ import java.util.Random;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.stream.Stream;
+//? if >=26.3 {
+/*import io.github.autyism.keybindprofilesplus.input.SdlKeys;
+import org.lwjgl.sdl.SDLScancode;
+*///?}
 
 /**
  * The part of the self-test that needs no screen: every rule and calculation of the mod is fed
@@ -433,6 +437,10 @@ final class LogicChecks {
             t.check("combos: releasing the key releases every binding on it", !combo.isDown() && !plain.isDown());
 
             t.check("combos: screen key checks respect modifiers",
+                    //? if >=26.3 {
+                    /*combo.matches(new KeyEvent(InputConstants.KEY_F15, 0, io.github.autyism.keybindprofilesplus.input.SdlKeys.toSdlModifiers(KeyCombo.CTRL)))
+                            && !plain.matches(new KeyEvent(InputConstants.KEY_F15, 0, io.github.autyism.keybindprofilesplus.input.SdlKeys.toSdlModifiers(KeyCombo.CTRL)))
+                    *///?} else
                     combo.matches(new KeyEvent(InputConstants.KEY_F15, 0, KeyCombo.CTRL)) && !plain.matches(new KeyEvent(InputConstants.KEY_F15, 0, KeyCombo.CTRL))
                             && plain.matches(new KeyEvent(InputConstants.KEY_F15, 0, 0)) && !combo.matches(new KeyEvent(InputConstants.KEY_F15, 0, 0)));
 
@@ -483,6 +491,76 @@ final class LogicChecks {
         }
         t.check("combos: test bindings were put back", SelfTestRunner.currentKeyValues().equals(before));
     }
+
+    //? if >=26.3 {
+    /*// 26.3 reads keys through SDL. Saved key names keep the meaning they had before (GLFW), so profiles,
+    // share codes and combos.json from another version bind the same physical keys here, and the reverse.
+    void crossVersionKeys() {
+        Map<String, String> before = SelfTestRunner.currentKeyValues();
+        KeyMapping binding = SelfTestRunner.binding("key.advancements");
+        try {
+            t.bind("key.advancements", "key.keyboard.keypad.decimal");
+            t.check("sdl keys: a saved numpad dot binds the numpad dot (" + binding.key.getName() + ")",
+                    binding.key.getType() == InputConstants.Type.KEYSYM && binding.key.getValue() == SDLScancode.SDL_SCANCODE_KP_PERIOD);
+            t.check("sdl keys: ... and is saved under the name the other versions use (" + KeyCombos.valueOf(binding) + ")",
+                    KeyCombos.valueOf(binding).equals("key.keyboard.keypad.decimal"));
+            t.bind("key.advancements", "ctrl+key.keyboard.menu");
+            t.check("sdl keys: Ctrl + the saved menu key binds Ctrl + the context menu key (" + KeyCombos.valueOf(binding) + ")",
+                    binding.key.getValue() == SDLScancode.SDL_SCANCODE_APPLICATION && KeyCombos.valueOf(binding).equals("ctrl+key.keyboard.menu"));
+            binding.setKey(InputConstants.Type.KEYSYM.getOrCreate(SDLScancode.SDL_SCANCODE_KP_DECIMAL));
+            KeyMapping.resetMapping();
+            t.check("sdl keys: SDL's own keypad decimal key, unknown to the other versions, is saved by its number (" + KeyCombos.valueOf(binding) + ")",
+                    KeyCombos.valueOf(binding).equals("key.keyboard.220"));
+            t.bind("key.advancements", "key.keyboard.220");
+            t.check("sdl keys: ... and read back as that key", binding.key.getValue() == SDLScancode.SDL_SCANCODE_KP_DECIMAL);
+            t.bind("key.advancements", "key.keyboard.a");
+            t.check("sdl keys: ordinary keys keep their names",
+                    binding.key.getValue() == SDLScancode.SDL_SCANCODE_A && KeyCombos.valueOf(binding).equals("key.keyboard.a"));
+
+            String profile = PROFILE_PREFIX + "sdl";
+            service.saveProfile(profile, client().options.keyMappings);
+            service.setProfileContents(profile, Map.of("key.advancements", "alt+key.keyboard.keypad.decimal", "key.socialInteractions", "key.mouse.4"), Map.of());
+            service.applyProfile(profile);
+            KeyMapping social = SelfTestRunner.binding("key.socialInteractions");
+            t.check("sdl keys: a profile from another version applies to the same keys and buttons",
+                    binding.key.getValue() == SDLScancode.SDL_SCANCODE_KP_PERIOD && KeyCombos.modifiersOf(binding) == KeyCombo.ALT
+                            && social.key.getType() == InputConstants.Type.MOUSE && social.key.getValue() == InputConstants.MOUSE_BUTTON_4);
+            service.saveProfile(profile, client().options.keyMappings);
+            t.check("sdl keys: saving it again writes the same names",
+                    "alt+key.keyboard.keypad.decimal".equals(service.profiles().get(profile).get("key.advancements"))
+                            && "key.mouse.4".equals(service.profiles().get(profile).get("key.socialInteractions")));
+            service.deleteProfile(profile);
+        } finally {
+            before.forEach(t::bind);
+        }
+        t.check("sdl keys: test bindings were put back", SelfTestRunner.currentKeyValues().equals(before));
+
+        // Numbers below are GLFW's: what files written before 26.3 hold.
+        t.check("sdl keys: GLFW key codes from old files become the same keys",
+                SdlKeys.keyOfGlfwCode(65).getValue() == SDLScancode.SDL_SCANCODE_A
+                        && SdlKeys.keyOfGlfwCode(330).getValue() == SDLScancode.SDL_SCANCODE_KP_PERIOD
+                        && SdlKeys.keyOfGlfwCode(341).getValue() == SDLScancode.SDL_SCANCODE_LCTRL
+                        && SdlKeys.keyOfGlfwCode(348).getValue() == SDLScancode.SDL_SCANCODE_APPLICATION
+                        && SdlKeys.keyOfGlfwCode(290).getValue() == SDLScancode.SDL_SCANCODE_F1);
+        t.check("sdl keys: GLFW mouse buttons from old files become the same buttons",
+                SdlKeys.mouseButtonOfGlfw(0) == InputConstants.MOUSE_BUTTON_LEFT && SdlKeys.mouseButtonOfGlfw(1) == InputConstants.MOUSE_BUTTON_RIGHT
+                        && SdlKeys.mouseButtonOfGlfw(2) == InputConstants.MOUSE_BUTTON_MIDDLE && SdlKeys.mouseButtonOfGlfw(3) == InputConstants.MOUSE_BUTTON_4
+                        && SdlKeys.mouseButtonOfGlfw(4) == InputConstants.MOUSE_BUTTON_5);
+        t.check("sdl keys: malilib's 26.3 key names are saved as the names it wrote before, and back",
+                SdlKeys.malilibToStored("LEFT_CONTROL,KP_PERIOD").equals("LEFT_CONTROL,KP_DECIMAL")
+                        && SdlKeys.storedToMalilib("LEFT_CONTROL,KP_DECIMAL").equals("LEFT_CONTROL,KP_PERIOD")
+                        && SdlKeys.malilibToStored("RETURN,LEFT_GUI").equals("ENTER,LEFT_SUPER"));
+        t.check("sdl keys: GLFW key names (malilib, libIPN) are the same keys",
+                SdlKeys.keyOfGlfwName("KP_DECIMAL").getValue() == SDLScancode.SDL_SCANCODE_KP_PERIOD
+                        && SdlKeys.keyOfGlfwName("KP_PERIOD").getValue() == SDLScancode.SDL_SCANCODE_KP_PERIOD
+                        && SdlKeys.keyOfGlfwName("LEFT_CONTROL").getValue() == SDLScancode.SDL_SCANCODE_LCTRL
+                        && SdlKeys.keyOfGlfwName("GRAVE_ACCENT").getValue() == SDLScancode.SDL_SCANCODE_GRAVE);
+        t.check("sdl keys: Ctrl / Shift / Alt of SDL events become this mod's bits and back",
+                SdlKeys.toKbpModifiers(SdlKeys.toSdlModifiers(KeyCombo.ALL)) == KeyCombo.ALL
+                        && SdlKeys.toKbpModifiers(InputConstants.MOD_CONTROL) == KeyCombo.CTRL
+                        && SdlKeys.toKbpModifiers(InputConstants.MOD_SHIFT | InputConstants.MOD_ALT) == (KeyCombo.SHIFT | KeyCombo.ALT));
+    }
+    *///?}
 
     // ------------------------------------------------------------------ share codes and names
 
