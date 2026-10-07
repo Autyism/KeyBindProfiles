@@ -3,6 +3,7 @@ package io.github.autyism.keybindprofilesplus.selftest;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.mojang.blaze3d.platform.InputConstants;
 import io.github.autyism.keybindprofilesplus.KeyBindProfilesPlus;
 import io.github.autyism.keybindprofilesplus.external.ExternalBinding;
 import io.github.autyism.keybindprofilesplus.external.ExternalKeys;
@@ -17,10 +18,9 @@ import io.github.autyism.keybindprofilesplus.profile.ProfileComparison;
 import io.github.autyism.keybindprofilesplus.profile.ProfileService;
 import io.github.autyism.keybindprofilesplus.profile.ShareCode;
 import net.fabricmc.loader.api.FabricLoader;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.option.KeyBinding;
-import net.minecraft.client.util.InputUtil;
-import net.minecraft.nbt.NbtCompound;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtIo;
 
 import java.io.IOException;
@@ -65,8 +65,8 @@ final class LiveExternalChecks {
         this.service = service;
     }
 
-    private static MinecraftClient client() {
-        return MinecraftClient.getInstance();
+    private static Minecraft client() {
+        return Minecraft.getInstance();
     }
 
     void register() {
@@ -135,7 +135,7 @@ final class LiveExternalChecks {
             return;
         }
         String before = sort.value();
-        t.check("live external: IPN takes Ctrl + F23", ExternalKeys.bind(sort, InputUtil.Type.KEYSYM.createFromCode(InputUtil.GLFW_KEY_F23), KeyCombo.CTRL)
+        t.check("live external: IPN takes Ctrl + F23", ExternalKeys.bind(sort, InputConstants.Type.KEYSYM.getOrCreate(InputConstants.KEY_F23), KeyCombo.CTRL)
                 && "LEFT_CONTROL,F23".equals(ExternalKeys.find(IPN_ID).value()));
         t.check("live external: ... and IPN saved it to its own config file", fileContains(
                 FabricLoader.getInstance().getConfigDir().resolve("inventoryprofilesnext").resolve("inventoryprofiles.json"), "LEFT_CONTROL,F23"));
@@ -174,10 +174,10 @@ final class LiveExternalChecks {
             if (!litematica) {
                 return;
             }
-            t.sendKey(InputUtil.GLFW_KEY_LEFT_CONTROL, true, KeyCombo.CTRL);
-            t.sendKey(InputUtil.GLFW_KEY_F19, true, KeyCombo.CTRL);
-            t.sendKey(InputUtil.GLFW_KEY_F19, false, KeyCombo.CTRL);
-            t.sendKey(InputUtil.GLFW_KEY_LEFT_CONTROL, false, 0);
+            t.sendKey(InputConstants.KEY_LCONTROL, true, KeyCombo.CTRL);
+            t.sendKey(InputConstants.KEY_F19, true, KeyCombo.CTRL);
+            t.sendKey(InputConstants.KEY_F19, false, KeyCombo.CTRL);
+            t.sendKey(InputConstants.KEY_LCONTROL, false, 0);
             KeyOverviewScreen keys = t.screen(KeyOverviewScreen.class);
             ExternalBinding open = ExternalKeys.find(LITEMATICA_ID);
             t.check("live external: Litematica's own hotkey object now has LEFT_CONTROL,F19 (" + (open == null ? "?" : open.value()) + ")",
@@ -200,8 +200,8 @@ final class LiveExternalChecks {
             }
             KeyOverviewScreen keys = t.screen(KeyOverviewScreen.class);
             t.mouseClick(keys.keyButtonPoint(LITEMATICA_ID), 0);
-            t.sendKey(InputUtil.GLFW_KEY_ESCAPE, true, 0);
-            t.sendKey(InputUtil.GLFW_KEY_ESCAPE, false, 0);
+            t.sendKey(InputConstants.KEY_ESCAPE, true, 0);
+            t.sendKey(InputConstants.KEY_ESCAPE, false, 0);
             ExternalBinding open = ExternalKeys.find(LITEMATICA_ID);
             t.check("live external: Escape leaves the Litematica hotkey without a key, saved as such, screen still open",
                     open != null && open.unbound() && "".equals(malilibFileValue(LITEMATICA_HOTKEY)) && t.isScreen(KeyOverviewScreen.class));
@@ -228,12 +228,12 @@ final class LiveExternalChecks {
             if (!meteor) {
                 return;
             }
-            t.sendKey(InputUtil.GLFW_KEY_F20, true, 0);
-            t.sendKey(InputUtil.GLFW_KEY_F20, false, 0);
+            t.sendKey(InputConstants.KEY_F20, true, 0);
+            t.sendKey(InputConstants.KEY_F20, false, 0);
             ExternalBinding totem = ExternalKeys.find(METEOR_ID);
             t.check("live external: Meteor's own key bind object now has F20 (" + (totem == null ? "?" : totem.value()) + ")",
                     totem != null && "key.keyboard.f20".equals(totem.value()));
-            t.check("live external: Meteor saved it to modules.nbt", meteorFileValue(METEOR_MODULE) == InputUtil.GLFW_KEY_F20);
+            t.check("live external: Meteor saved it to modules.nbt", meteorFileValue(METEOR_MODULE) == InputConstants.KEY_F20);
         });
         t.shot("en_keybinds_meteor_rebound");
         t.step("live external: Meteor refuses the left mouse button", 2, () -> {
@@ -259,8 +259,8 @@ final class LiveExternalChecks {
         if (!meteor) {
             return;
         }
-        KeyBinding jump = SelfTestRunner.binding("key.jump");
-        String jumpBefore = jump.getBoundKeyTranslationKey();
+        KeyMapping jump = SelfTestRunner.binding("key.jump");
+        String jumpBefore = jump.saveString();
         try {
             t.bind("key.jump", "key.keyboard.f20");
             ExternalKeys.refresh();
@@ -290,7 +290,7 @@ final class LiveExternalChecks {
             }
             set(LITEMATICA_ID, "F21", litematica);
             set(METEOR_ID, "key.keyboard.f22", meteor);
-            service.saveProfile(PROFILE_LIVE, client().options.allKeys);
+            service.saveProfile(PROFILE_LIVE, client().options.keyMappings);
             Map<String, String> saved = service.profiles().get(PROFILE_LIVE);
             t.check("live external: the profile holds the other mods' hotkeys next to the game's key bindings",
                     (!litematica || "F21".equals(saved.get(LITEMATICA_ID))) && (!meteor || "key.keyboard.f22".equals(saved.get(METEOR_ID))));
@@ -331,7 +331,7 @@ final class LiveExternalChecks {
             }
             if (meteor) {
                 t.check("live external: Meteor's Auto Totem is F22 again, in Meteor and in modules.nbt",
-                        "key.keyboard.f22".equals(ExternalKeys.find(METEOR_ID).value()) && meteorFileValue(METEOR_MODULE) == InputUtil.GLFW_KEY_F22);
+                        "key.keyboard.f22".equals(ExternalKeys.find(METEOR_ID).value()) && meteorFileValue(METEOR_MODULE) == InputConstants.KEY_F22);
             }
             List<String> left = service.previewApply(PROFILE_LIVE).stream().filter(change -> change.kind() == ProfileChange.Kind.EXTERNAL)
                     .map(change -> change.id() + " " + change.from().getString() + " -> " + change.to().getString()).toList();
@@ -411,13 +411,13 @@ final class LiveExternalChecks {
     private static int meteorFileValue(String module) {
         Path file = FabricLoader.getInstance().getGameDir().resolve("meteor-client").resolve("modules.nbt");
         try {
-            NbtCompound root = NbtIo.read(file);
+            CompoundTag root = NbtIo.read(file);
             if (root == null) {
                 return -2;
             }
-            for (NbtCompound tag : root.getListOrEmpty("modules").streamCompounds().toList()) {
-                if (module.equals(tag.getString("name", ""))) {
-                    return tag.getCompound("keybind").map(keybind -> keybind.getInt("value", -2)).orElse(-2);
+            for (CompoundTag tag : root.getListOrEmpty("modules").compoundStream().toList()) {
+                if (module.equals(tag.getStringOr("name", ""))) {
+                    return tag.getCompound("keybind").map(keybind -> keybind.getIntOr("value", -2)).orElse(-2);
                 }
             }
         } catch (IOException | RuntimeException e) {

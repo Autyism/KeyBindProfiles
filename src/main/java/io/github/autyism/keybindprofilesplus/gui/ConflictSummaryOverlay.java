@@ -1,12 +1,12 @@
 package io.github.autyism.keybindprofilesplus.gui;
 
 import io.github.autyism.keybindprofilesplus.keys.KeyConflicts;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.option.KeyBinding;
-import net.minecraft.text.Text;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.Component;
 
 /**
  * A one-line running total ("2 conflicts, 1 possible") in the top-right corner of the vanilla
@@ -17,10 +17,10 @@ public final class ConflictSummaryOverlay {
     private boolean computed;
     private KeyConflicts.Summary summary = new KeyConflicts.Summary(0, 0);
 
-    public KeyConflicts.Summary current(MinecraftClient client) {
+    public KeyConflicts.Summary current(Minecraft client) {
         int hash = 1;
-        for (KeyBinding binding : client.options.allKeys) {
-            hash = 31 * hash + binding.getBoundKeyTranslationKey().hashCode();
+        for (KeyMapping binding : client.options.keyMappings) {
+            hash = 31 * hash + binding.saveString().hashCode();
         }
         if (!computed || hash != lastKeyHash) {
             computed = true;
@@ -30,20 +30,20 @@ public final class ConflictSummaryOverlay {
         return summary;
     }
 
-    public void render(Screen screen, DrawContext context) {
-        MinecraftClient client = MinecraftClient.getInstance();
+    public void render(Screen screen, GuiGraphics context) {
+        Minecraft client = Minecraft.getInstance();
         KeyConflicts.Summary now = current(client);
         if (now.isEmpty()) {
             return;
         }
 
-        TextRenderer font = client.textRenderer;
-        Text text = text(now);
-        int x = screen.width - 8 - font.getWidth(text);
-        context.drawTextWithShadow(font, text, Math.max(4, x), 6, (now.hard() > 0 ? KeyConflicts.Level.HARD : KeyConflicts.Level.SOFT).color());
+        Font font = client.font;
+        Component text = text(now);
+        int x = screen.width - 8 - font.width(text);
+        context.drawString(font, text, Math.max(4, x), 6, (now.hard() > 0 ? KeyConflicts.Level.HARD : KeyConflicts.Level.SOFT).color());
     }
 
-    public static Text text(KeyConflicts.Summary summary) {
-        return Text.translatable("keybindprofilesplus.conflict.summary", summary.hard(), summary.soft());
+    public static Component text(KeyConflicts.Summary summary) {
+        return Component.translatable("keybindprofilesplus.conflict.summary", summary.hard(), summary.soft());
     }
 }

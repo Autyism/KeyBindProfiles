@@ -3,8 +3,7 @@ package io.github.autyism.keybindprofilesplus.keys;
 import net.fabricmc.loader.api.FabricLoader;
 import net.fabricmc.loader.api.ModContainer;
 import net.fabricmc.loader.api.entrypoint.EntrypointContainer;
-import net.minecraft.client.option.KeyBinding;
-
+import net.minecraft.client.KeyMapping;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -27,14 +26,14 @@ public final class KeyOrigins {
     };
     private static final StackWalker WALKER = StackWalker.getInstance();
 
-    private static final Map<KeyBinding, String> CREATOR_CLASS = new WeakHashMap<>();
+    private static final Map<KeyMapping, String> CREATOR_CLASS = new WeakHashMap<>();
     private static final Map<String, Optional<ModContainer>> MOD_BY_CLASS = new HashMap<>();
 
     private KeyOrigins() {
     }
 
-    /** Called from the KeyBinding constructor. */
-    public static void record(KeyBinding binding) {
+    /** Called from the KeyMapping constructor. */
+    public static void record(KeyMapping binding) {
         try {
             String creator = WALKER.walk(frames -> frames
                     .map(StackWalker.StackFrame::getClassName)
@@ -52,7 +51,7 @@ public final class KeyOrigins {
     }
 
     /** The mod whose code created the binding, if that could be worked out. */
-    public static Optional<ModContainer> modOf(KeyBinding binding) {
+    public static Optional<ModContainer> modOf(KeyMapping binding) {
         String creator;
         synchronized (CREATOR_CLASS) {
             creator = CREATOR_CLASS.get(binding);
@@ -66,14 +65,14 @@ public final class KeyOrigins {
     }
 
     /** The class that created the binding, as noted when it was constructed; null if unknown. */
-    public static String creatorClassOf(KeyBinding binding) {
+    public static String creatorClassOf(KeyMapping binding) {
         synchronized (CREATOR_CLASS) {
             return CREATOR_CLASS.get(binding);
         }
     }
 
     /** For the self-test: makes a binding look as if nobody knows who created it. */
-    public static void forget(KeyBinding binding) {
+    public static void forget(KeyMapping binding) {
         synchronized (CREATOR_CLASS) {
             CREATOR_CLASS.remove(binding);
         }

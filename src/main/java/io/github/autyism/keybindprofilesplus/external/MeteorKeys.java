@@ -1,14 +1,13 @@
 package io.github.autyism.keybindprofilesplus.external;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import io.github.autyism.keybindprofilesplus.KeyBindProfilesPlus;
 import io.github.autyism.keybindprofilesplus.keys.KeyCombo;
-import net.minecraft.client.util.InputUtil;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtElement;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.NbtIo;
-import net.minecraft.nbt.NbtList;
-import net.minecraft.text.Text;
-
+import net.minecraft.nbt.Tag;
+import net.minecraft.network.chat.Component;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -52,7 +51,7 @@ final class MeteorKeys {
         Path root = gameDirectory.resolve(DIRECTORY);
         if (includeMain) {
             readFile(root.resolve(MODULES_FILE), DIRECTORY + "/" + MODULES_FILE,
-                    Text.translatable("keybindprofilesplus.external.meteor"), true, bindings);
+                    Component.translatable("keybindprofilesplus.external.meteor"), true, bindings);
         }
 
         Path profiles = root.resolve("profiles");
@@ -61,7 +60,7 @@ final class MeteorKeys {
                 for (Path profile : entries.filter(Files::isDirectory).sorted().toList()) {
                     String name = profile.getFileName().toString();
                     readFile(profile.resolve(MODULES_FILE), DIRECTORY + "/profiles/" + name + "/" + MODULES_FILE,
-                            Text.translatable("keybindprofilesplus.external.meteor_profile", name), false, bindings);
+                            Component.translatable("keybindprofilesplus.external.meteor_profile", name), false, bindings);
                 }
             } catch (IOException e) {
                 KeyBindProfilesPlus.LOGGER.warn("Could not list Meteor profiles in '{}'", profiles, e);
@@ -70,12 +69,12 @@ final class MeteorKeys {
         return bindings;
     }
 
-    private static void readFile(Path file, String relativePath, Text group, boolean active, List<ExternalBinding> out) {
+    private static void readFile(Path file, String relativePath, Component group, boolean active, List<ExternalBinding> out) {
         if (!Files.isRegularFile(file)) {
             return;
         }
 
-        NbtCompound root;
+        CompoundTag root;
         try {
             root = NbtIo.read(file);
         } catch (IOException | RuntimeException e) {
@@ -86,8 +85,8 @@ final class MeteorKeys {
             return;
         }
 
-        for (NbtCompound module : root.getListOrEmpty("modules").streamCompounds().toList()) {
-            String moduleName = title(module.getString("name", ""));
+        for (CompoundTag module : root.getListOrEmpty("modules").compoundStream().toList()) {
+            String moduleName = title(module.getStringOr("name", ""));
             if (moduleName.isEmpty()) {
                 continue;
             }
@@ -97,41 +96,41 @@ final class MeteorKeys {
     }
 
     /** Key bind settings inside a module ("value" holding the same {isKey, value, modifiers} shape). */
-    private static void scanSettings(NbtElement element, String moduleName, Text group, boolean active, String file, List<ExternalBinding> out) {
-        if (element instanceof NbtCompound compound) {
-            if (compound.get("value") instanceof NbtCompound value && isKeybind(value)) {
-                String settingName = title(compound.getString("name", ""));
+    private static void scanSettings(Tag element, String moduleName, Component group, boolean active, String file, List<ExternalBinding> out) {
+        if (element instanceof CompoundTag compound) {
+            if (compound.get("value") instanceof CompoundTag value && isKeybind(value)) {
+                String settingName = title(compound.getStringOr("name", ""));
                 // A key inside a module's settings only does something within that module's own feature.
                 add(settingName.isEmpty() ? moduleName : moduleName + " / " + settingName, value, ExternalBinding.When.SITUATIONAL, group, active, file, out);
                 return;
             }
-            for (String key : compound.getKeys()) {
+            for (String key : compound.keySet()) {
                 scanSettings(compound.get(key), moduleName, group, active, file, out);
             }
-        } else if (element instanceof NbtList list) {
-            for (NbtElement child : list) {
+        } else if (element instanceof ListTag list) {
+            for (Tag child : list) {
                 scanSettings(child, moduleName, group, active, file, out);
             }
         }
     }
 
-    private static boolean isKeybind(NbtCompound tag) {
+    private static boolean isKeybind(CompoundTag tag) {
         return (tag.contains("isKey") && tag.contains("value")) || (tag.contains("key") && tag.contains("modifiers"));
     }
 
-    private static void add(String name, NbtCompound keybind, ExternalBinding.When when, Text group, boolean active, String file, List<ExternalBinding> out) {
-        InputUtil.Key key;
+    private static void add(String name, CompoundTag keybind, ExternalBinding.When when, Component group, boolean active, String file, List<ExternalBinding> out) {
+        InputConstants.Key key;
         int modifiers = 0;
         boolean needsSuper = false;
         if (keybind.contains("key")) {
             try {
-                key = InputUtil.fromTranslationKey(keybind.getString("key", ""));
+                key = InputConstants.getKey(keybind.getStringOr("key", ""));
             } catch (IllegalArgumentException e) {
                 return;
             }
-            NbtList names = keybind.getListOrEmpty("modifiers");
+            ListTag names = keybind.getListOrEmpty("modifiers");
             for (int i = 0; i < names.size(); i++) {
-                switch (names.getString(i, "")) {
+                switch (names.getStringOr(i, "")) {
                     case "SHIFT" -> modifiers |= KeyCombo.SHIFT;
                     case "CONTROL" -> modifiers |= KeyCombo.CTRL;
                     case "ALT" -> modifiers |= KeyCombo.ALT;
@@ -142,29 +141,29 @@ final class MeteorKeys {
                 }
             }
         } else {
-            boolean isKey = keybind.getBoolean("isKey", true);
-            int value = keybind.getInt("value", -1);
+            boolean isKey = keybind.getBooleanOr("isKey", true);
+            int value = keybind.getIntOr("value", -1);
             // -1 is "not bound"; key code 0 does not exist either.
             if (value < 0 || (isKey && value == 0)) {
                 return;
             }
-            int bits = isKey ? keybind.getInt("modifiers", 0) : 0;
+            int bits = isKey ? keybind.getIntOr("modifiers", 0) : 0;
             modifiers = bits & KeyCombo.ALL;
             needsSuper = (bits & GLFW_MOD_SUPER) != 0;
-            key = (isKey ? InputUtil.Type.KEYSYM : InputUtil.Type.MOUSE).createFromCode(value);
+            key = (isKey ? InputConstants.Type.KEYSYM : InputConstants.Type.MOUSE).getOrCreate(value);
         }
-        if (key.equals(InputUtil.UNKNOWN_KEY)) {
+        if (key.equals(InputConstants.UNKNOWN)) {
             return;
         }
-        if (key.getCategory() == InputUtil.Type.KEYSYM) {
+        if (key.getType() == InputConstants.Type.KEYSYM) {
             // A modifier key as the key itself reports its own bit.
-            modifiers &= ~KeyCombo.modifierOfKeyCode(key.getCode());
+            modifiers &= ~KeyCombo.modifierOfKeyCode(key.getValue());
         }
 
-        Text keyText = KeyCombo.withModifiers(modifiers, key.getLocalizedText());
+        Component keyText = KeyCombo.withModifiers(modifiers, key.getDisplayName());
         if (needsSuper) {
             // The Windows / Command key is not something a game key binding can ask for: shown, but not compared.
-            out.add(ExternalBinding.readOnly("meteor", group, name, 0, null, Text.literal("Super + ").append(keyText), when, active, file));
+            out.add(ExternalBinding.readOnly("meteor", group, name, 0, null, Component.literal("Super + ").append(keyText), when, active, file));
             return;
         }
         out.add(ExternalBinding.readOnly("meteor", group, name, modifiers, key, keyText, when, active, file));

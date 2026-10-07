@@ -3,15 +3,6 @@ package io.github.autyism.keybindprofilesplus.mixin;
 import io.github.autyism.keybindprofilesplus.input.ComboRecorder;
 import io.github.autyism.keybindprofilesplus.keys.KeyCombo;
 import io.github.autyism.keybindprofilesplus.keys.KeyConflicts;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.screen.option.ControlsListWidget;
-import net.minecraft.client.gui.screen.option.KeybindsScreen;
-import net.minecraft.client.gui.tooltip.Tooltip;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.client.option.KeyBinding;
-import net.minecraft.text.MutableText;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -22,6 +13,15 @@ import org.spongepowered.asm.mixin.injection.ModifyArg;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.util.List;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.Tooltip;
+import net.minecraft.client.gui.screens.options.controls.KeyBindsList;
+import net.minecraft.client.gui.screens.options.controls.KeyBindsScreen;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 
 /**
  * Replaces the vanilla "this key is also used for..." marker in the Key Binds list with the
@@ -30,55 +30,55 @@ import java.util.List;
  * marker after every key change, so the result updates the moment a key is rebound. There is no
  * Fabric event for this list, hence the mixin; it only changes what is displayed.
  */
-@Mixin(ControlsListWidget.KeyBindingEntry.class)
+@Mixin(KeyBindsList.KeyEntry.class)
 public abstract class KeyBindingEntryMixin {
     @Shadow
     @Final
-    private KeyBinding binding;
+    private KeyMapping key;
 
     @Shadow
     @Final
-    private ButtonWidget editButton;
+    private Button changeButton;
 
     @Shadow
-    private boolean duplicate;
+    private boolean hasCollision;
 
     @Unique
     private int keybindprofilesplus$markerColor = KeyConflicts.Level.SOFT.color();
 
-    @Inject(method = "update", at = @At("TAIL"))
+    @Inject(method = "refreshEntry", at = @At("TAIL"))
     private void keybindprofilesplus$smartConflicts(CallbackInfo ci) {
-        MinecraftClient client = MinecraftClient.getInstance();
-        List<KeyConflicts.Conflict> conflicts = KeyConflicts.conflictsOf(binding, client.options);
+        Minecraft client = Minecraft.getInstance();
+        List<KeyConflicts.Conflict> conflicts = KeyConflicts.conflictsOf(key, client.options);
         KeyConflicts.Level level = KeyConflicts.worst(conflicts);
 
-        Text key = binding.getBoundKeyLocalizedText();
-        duplicate = level != KeyConflicts.Level.NONE;
-        if (duplicate) {
+        Component keyName = key.getTranslatedKeyMessage();
+        hasCollision = level != KeyConflicts.Level.NONE;
+        if (hasCollision) {
             keybindprofilesplus$markerColor = level.color();
-            editButton.setMessage(Text.literal("[ ").append(key.copy().formatted(Formatting.WHITE)).append(" ]").formatted(level.formatting()));
-            editButton.setTooltip(Tooltip.of(lines(KeyConflicts.describe(conflicts))));
+            changeButton.setMessage(Component.literal("[ ").append(keyName.copy().withStyle(ChatFormatting.WHITE)).append(" ]").withStyle(level.formatting()));
+            changeButton.setTooltip(Tooltip.create(lines(KeyConflicts.describe(conflicts))));
         } else {
-            editButton.setMessage(key);
+            changeButton.setMessage(keyName);
             // Not marked, but worth a word: something of another mod is on this key on purpose.
-            List<Text> shared = KeyConflicts.describeShared(KeyConflicts.sharedWithoutConflict(binding, client.options));
-            editButton.setTooltip(shared.isEmpty() ? null : Tooltip.of(lines(shared)));
+            List<Component> shared = KeyConflicts.describeShared(KeyConflicts.sharedWithoutConflict(key, client.options));
+            changeButton.setTooltip(shared.isEmpty() ? null : Tooltip.create(lines(shared)));
         }
 
         // Same "waiting for a key" decoration as vanilla, which the lines above just overwrote.
-        if (client.currentScreen instanceof KeybindsScreen screen && screen.selectedKeyBinding == binding) {
-            int pending = ComboRecorder.pendingModifiers(binding);
-            Text waiting = pending == 0 ? editButton.getMessage() : KeyCombo.withModifiers(pending, Text.literal("..."));
-            editButton.setMessage(Text.literal("> ")
-                    .append(waiting.copy().formatted(Formatting.WHITE, Formatting.UNDERLINE))
+        if (client.screen instanceof KeyBindsScreen screen && screen.selectedKey == key) {
+            int pending = ComboRecorder.pendingModifiers(key);
+            Component waiting = pending == 0 ? changeButton.getMessage() : KeyCombo.withModifiers(pending, Component.literal("..."));
+            changeButton.setMessage(Component.literal("> ")
+                    .append(waiting.copy().withStyle(ChatFormatting.WHITE, ChatFormatting.UNDERLINE))
                     .append(" <")
-                    .formatted(Formatting.YELLOW));
+                    .withStyle(ChatFormatting.YELLOW));
         }
     }
 
     @Unique
-    private static Text lines(List<Text> lines) {
-        MutableText text = Text.empty();
+    private static Component lines(List<Component> lines) {
+        MutableComponent text = Component.empty();
         for (int i = 0; i < lines.size(); i++) {
             if (i > 0) {
                 text.append("\n");
@@ -89,7 +89,7 @@ public abstract class KeyBindingEntryMixin {
     }
 
     /** The little bar left of the key button: vanilla always paints it yellow. */
-    @ModifyArg(method = "render", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/DrawContext;fill(IIIII)V"), index = 4)
+    @ModifyArg(method = "renderContent", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/GuiGraphics;fill(IIIII)V"), index = 4)
     private int keybindprofilesplus$markerColor(int color) {
         return keybindprofilesplus$markerColor;
     }

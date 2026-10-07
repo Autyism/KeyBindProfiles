@@ -1,6 +1,6 @@
 package io.github.autyism.keybindprofilesplus.keys;
 
-import net.minecraft.text.Text;
+import net.minecraft.network.chat.Component;
 
 /**
  * Where a key binding comes from: the vanilla game, a known mod, or a mod we could not identify.
@@ -37,19 +37,19 @@ public record KeySource(Kind kind, String modId, String name) {
     }
 
     /** Short label for list rows. */
-    public Text label() {
+    public Component label() {
         return switch (kind) {
-            case VANILLA -> Text.translatable("keybindprofilesplus.source.vanilla");
-            case MOD, EXTERNAL -> Text.literal(name);
+            case VANILLA -> Component.translatable("keybindprofilesplus.source.vanilla");
+            case MOD, EXTERNAL -> Component.literal(name);
             case UNKNOWN -> modId == null
-                    ? Text.translatable("keybindprofilesplus.source.unknown")
-                    : Text.translatable("keybindprofilesplus.source.unknown_hint", modId);
+                    ? Component.translatable("keybindprofilesplus.source.unknown")
+                    : Component.translatable("keybindprofilesplus.source.unknown_hint", modId);
         };
     }
 
     /** Longer description for tooltips, e.g. "Fabric API (fabric-api)". */
-    public Text description() {
-        return kind == Kind.MOD ? Text.literal(name + " (" + modId + ")") : label();
+    public Component description() {
+        return kind == Kind.MOD ? Component.literal(name + " (" + modId + ")") : label();
     }
 
     public int color() {

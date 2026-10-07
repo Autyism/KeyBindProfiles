@@ -1,8 +1,5 @@
 package io.github.autyism.keybindprofilesplus.profile;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.option.KeyBinding;
-import net.minecraft.client.util.InputUtil;
 import io.github.autyism.keybindprofilesplus.KeyBindProfilesPlus;
 import io.github.autyism.keybindprofilesplus.external.ExternalBinding;
 import io.github.autyism.keybindprofilesplus.external.ExternalKeys;
@@ -12,8 +9,6 @@ import io.github.autyism.keybindprofilesplus.keys.KeyLabels;
 import io.github.autyism.keybindprofilesplus.options.GameOptionsBridge;
 import io.github.autyism.keybindprofilesplus.options.OptionCatalog;
 import io.github.autyism.keybindprofilesplus.storage.ProfileFileStore;
-import net.minecraft.text.Text;
-
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -23,6 +18,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
 
 /**
  * The profiles and what applying one does. A profile's "keybindings" map holds the game's key
@@ -82,7 +79,7 @@ public final class ProfileService {
     }
 
     /** Saves every key binding as it is now, and the hotkeys of other mods that can be changed from here. */
-    public void saveProfile(String name, KeyBinding[] bindings) {
+    public void saveProfile(String name, KeyMapping[] bindings) {
         fileStore.saveProfile(name, bindings, profiles);
         profiles.get(name).putAll(ExternalKeys.currentValues());
         exportProfile(name);
@@ -90,14 +87,14 @@ public final class ProfileService {
 
     public void applyProfile(String name) {
         Map<String, String> keyMap = profiles.get(name);
-        MinecraftClient client = MinecraftClient.getInstance();
+        Minecraft client = Minecraft.getInstance();
         if (keyMap == null || client == null || client.options == null) {
             return;
         }
 
-        KeyCombos.batch(() -> applyKeyBindings(client.options.allKeys, keyMap));
-        KeyBinding.updateKeysByCode();
-        releaseAllKeys(client.options.allKeys);
+        KeyCombos.batch(() -> applyKeyBindings(client.options.keyMappings, keyMap));
+        KeyMapping.resetMapping();
+        releaseAllKeys(client.options.keyMappings);
         applyExternalHotkeys(keyMap);
         applyGameOptions(client, profileOptions.get(name));
         writeOptions(client);
@@ -197,21 +194,21 @@ public final class ProfileService {
     public List<ProfileChange> previewApply(String name) {
         List<ProfileChange> changes = new ArrayList<>();
         Map<String, String> keyMap = profiles.get(name);
-        MinecraftClient client = MinecraftClient.getInstance();
+        Minecraft client = Minecraft.getInstance();
         if (keyMap == null || client == null || client.options == null) {
             return changes;
         }
 
-        KeyBinding[] bindings = client.options.allKeys.clone();
+        KeyMapping[] bindings = client.options.keyMappings.clone();
         Arrays.sort(bindings);
-        for (KeyBinding binding : bindings) {
-            String savedKey = keyMap.get(binding.getId());
+        for (KeyMapping binding : bindings) {
+            String savedKey = keyMap.get(binding.getName());
             // An unreadable key in the file is skipped when applying, so it is no change either.
             if (savedKey == null || savedKey.equals(KeyCombos.valueOf(binding)) || KeyCombo.parse(savedKey).inputKey() == null) {
                 continue;
             }
-            changes.add(new ProfileChange(ProfileChange.Kind.KEY_BINDING, binding.getId(), KeyLabels.name(binding),
-                    binding.getBoundKeyLocalizedText(), KeyCombo.describe(savedKey)));
+            changes.add(new ProfileChange(ProfileChange.Kind.KEY_BINDING, binding.getName(), KeyLabels.name(binding),
+                    binding.getTranslatedKeyMessage(), KeyCombo.describe(savedKey)));
         }
 
         for (Map.Entry<String, String> saved : keyMap.entrySet()) {
@@ -286,18 +283,18 @@ public final class ProfileService {
         return fileStore.openProfilesFolder();
     }
 
-    private void applyKeyBindings(KeyBinding[] bindings, Map<String, String> keyMap) {
-        for (KeyBinding binding : bindings) {
+    private void applyKeyBindings(KeyMapping[] bindings, Map<String, String> keyMap) {
+        for (KeyMapping binding : bindings) {
             applyKeyBinding(binding, keyMap);
         }
     }
 
-    private void applyKeyBinding(KeyBinding binding, Map<String, String> keyMap) {
+    private void applyKeyBinding(KeyMapping binding, Map<String, String> keyMap) {
         if (binding == null) {
             return;
         }
 
-        String savedKey = keyMap.get(binding.getId());
+        String savedKey = keyMap.get(binding.getName());
         if (savedKey == null) {
             return;
         }
@@ -333,7 +330,7 @@ public final class ProfileService {
         return Objects.equals(current, saved) || (ExternalKeys.isUnboundValue(current) && ExternalKeys.isUnboundValue(saved));
     }
 
-    private void applyGameOptions(MinecraftClient client, Map<String, String> options) {
+    private void applyGameOptions(Minecraft client, Map<String, String> options) {
         if (options == null || options.isEmpty()) {
             return;
         }
@@ -351,17 +348,17 @@ public final class ProfileService {
         }
     }
 
-    private void releaseAllKeys(KeyBinding[] bindings) {
-        for (KeyBinding binding : bindings) {
+    private void releaseAllKeys(KeyMapping[] bindings) {
+        for (KeyMapping binding : bindings) {
             if (binding != null) {
-                binding.setPressed(false);
+                binding.setDown(false);
             }
         }
     }
 
-    private void writeOptions(MinecraftClient client) {
+    private void writeOptions(Minecraft client) {
         try {
-            client.options.write();
+            client.options.save();
         } catch (RuntimeException e) {
             KeyBindProfilesPlus.LOGGER.error("Failed to write Minecraft options after applying keybind profile", e);
         }

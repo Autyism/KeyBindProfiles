@@ -1,8 +1,8 @@
 package io.github.autyism.keybindprofilesplus.mixin;
 
 import io.github.autyism.keybindprofilesplus.gui.KeyOverviewScreen;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.Screen;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
@@ -14,7 +14,7 @@ import org.spongepowered.asm.mixin.injection.ModifyVariable;
  * replaced, so a different key screen supplied by another mod is left alone, and the setting
  * "Replace the vanilla Key Binds screen" switches this off.
  */
-@Mixin(MinecraftClient.class)
+@Mixin(Minecraft.class)
 public abstract class KeyBindsScreenReplaceMixin {
     @ModifyVariable(method = "setScreen", at = @At("HEAD"), argsOnly = true)
     private Screen keybindprofilesplus$replaceKeyBindsScreen(Screen screen) {

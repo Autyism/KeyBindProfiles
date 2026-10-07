@@ -1,8 +1,8 @@
 package io.github.autyism.keybindprofilesplus.gui;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.screen.option.KeybindsScreen;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.options.controls.KeyBindsScreen;
 
 /**
  * Going back and forth between the vanilla Key Binds screen and the mod's screens. The two
@@ -13,18 +13,18 @@ final class KeybindsScreenNavigation {
     }
 
     /** Makes the vanilla list show the keys as they are now (after a profile was applied). */
-    static void refreshControlsList(KeybindsScreen keybindsScreen) {
-        if (keybindsScreen.controlsList != null) {
-            keybindsScreen.controlsList.update();
+    static void refreshControlsList(KeyBindsScreen keybindsScreen) {
+        if (keybindsScreen.keyBindsList != null) {
+            keybindsScreen.keyBindsList.resetMappingAndUpdateButtons();
         }
     }
 
     /** A new Key Binds screen that leads back to wherever the original one came from. */
-    static Screen createFreshKeybindsScreen(KeybindsScreen originalKeybindsScreen) {
-        MinecraftClient client = MinecraftClient.getInstance();
+    static Screen createFreshKeybindsScreen(KeyBindsScreen originalKeybindsScreen) {
+        Minecraft client = Minecraft.getInstance();
         if (client == null || client.options == null) {
             return null;
         }
-        return new KeybindsScreen(originalKeybindsScreen.parent, client.options);
+        return new KeyBindsScreen(originalKeybindsScreen.lastScreen, client.options);
     }
 }

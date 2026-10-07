@@ -1,12 +1,11 @@
 package io.github.autyism.keybindprofilesplus.external;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import io.github.autyism.keybindprofilesplus.KeyBindProfilesPlus;
 import io.github.autyism.keybindprofilesplus.keys.KeyCombo;
 import net.fabricmc.loader.api.FabricLoader;
 import net.fabricmc.loader.api.ModContainer;
-import net.minecraft.client.util.InputUtil;
-import net.minecraft.text.Text;
-
+import net.minecraft.network.chat.Component;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
@@ -92,7 +91,7 @@ final class MalilibLive implements LiveSource {
             for (Object category : (Collection<?>) getKeybindCategories.invoke(manager)) {
                 String modName = String.valueOf(categoryModName.invoke(category));
                 String modId = modIds.getOrDefault(normalize(modName), normalize(modName));
-                Text group = Text.literal(modName);
+                Component group = Component.literal(modName);
                 for (Object hotkey : (Collection<?>) categoryHotkeys.invoke(category)) {
                     add(hotkey, modId, registered.contains(modId), group, out);
                 }
@@ -106,7 +105,7 @@ final class MalilibLive implements LiveSource {
     /**
      * @param knownMod whether the mod registered its config under this id, so that exactly its config can be saved
      */
-    private void add(Object hotkey, String modId, boolean knownMod, Text group, List<ExternalBinding> out)
+    private void add(Object hotkey, String modId, boolean knownMod, Component group, List<ExternalBinding> out)
             throws ReflectiveOperationException {
         String rawName = String.valueOf(hotkeyName.invoke(hotkey));
         Object keybind = hotkeyKeybind.invoke(hotkey);
@@ -134,8 +133,8 @@ final class MalilibLive implements LiveSource {
         boolean bareMouseClick = trigger != null && trigger.bareMouseClick();
         ExternalBinding.When when = MalilibKeys.when(modId, rawName, context, bareModifier, bareMouseClick);
         String name = MalilibKeys.readableName(rawName);
-        Text title = Text.literal(prettyName(hotkey, name));
-        Text keyText = trigger == null ? Text.translatable("key.keyboard.unknown") : trigger.text();
+        Component title = Component.literal(prettyName(hotkey, name));
+        Component keyText = trigger == null ? Component.translatable("key.keyboard.unknown") : trigger.text();
         out.add(new ExternalBinding(modId, group, name, title, trigger == null ? 0 : trigger.modifiers(), trigger == null ? null : trigger.key(),
                 keyText, when, true, "config/" + modId + ".json", id, value, defaultValue));
     }
@@ -153,28 +152,28 @@ final class MalilibLive implements LiveSource {
     }
 
     @Override
-    public boolean bind(String hotkeyId, InputUtil.Key key, int modifiers) {
+    public boolean bind(String hotkeyId, InputConstants.Key key, int modifiers) {
         Object keybind = keybinds.get(hotkeyId);
         if (keybind == null || !available()) {
             return false;
         }
         try {
             keybindClear.invoke(keybind);
-            if (key != null && !key.equals(InputUtil.UNKNOWN_KEY)) {
-                boolean isModifierKey = key.getCategory() == InputUtil.Type.KEYSYM && KeyCombo.modifierOfKeyCode(key.getCode()) != 0;
+            if (key != null && !key.equals(InputConstants.UNKNOWN)) {
+                boolean isModifierKey = key.getType() == InputConstants.Type.KEYSYM && KeyCombo.modifierOfKeyCode(key.getValue()) != 0;
                 if (!isModifierKey) {
                     // Written the way malilib's own key recorder writes a combination: modifiers first.
                     if ((modifiers & KeyCombo.CTRL) != 0) {
-                        keybindAdd.invoke(keybind, InputUtil.GLFW_KEY_LEFT_CONTROL);
+                        keybindAdd.invoke(keybind, InputConstants.KEY_LCONTROL);
                     }
                     if ((modifiers & KeyCombo.SHIFT) != 0) {
-                        keybindAdd.invoke(keybind, InputUtil.GLFW_KEY_LEFT_SHIFT);
+                        keybindAdd.invoke(keybind, InputConstants.KEY_LSHIFT);
                     }
                     if ((modifiers & KeyCombo.ALT) != 0) {
-                        keybindAdd.invoke(keybind, InputUtil.GLFW_KEY_LEFT_ALT);
+                        keybindAdd.invoke(keybind, InputConstants.KEY_LALT);
                     }
                 }
-                int code = key.getCategory() == InputUtil.Type.MOUSE ? key.getCode() + MALILIB_MOUSE_OFFSET : key.getCode();
+                int code = key.getType() == InputConstants.Type.MOUSE ? key.getValue() + MALILIB_MOUSE_OFFSET : key.getValue();
                 keybindAdd.invoke(keybind, code);
             }
             changed(hotkeyId);

@@ -4,25 +4,24 @@ import io.github.autyism.keybindprofilesplus.KeyBindProfilesPlus;
 import io.github.autyism.keybindprofilesplus.profile.ProfileNames;
 import io.github.autyism.keybindprofilesplus.profile.ProfileService;
 import io.github.autyism.keybindprofilesplus.server.ServerProfileMatcher;
-import net.minecraft.client.gui.Click;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.ConfirmScreen;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.tooltip.Tooltip;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.client.gui.widget.CyclingButtonWidget;
-import net.minecraft.client.gui.widget.TextFieldWidget;
-import net.minecraft.client.gui.widget.ThreePartsLayoutWidget;
-import net.minecraft.client.input.KeyInput;
-import net.minecraft.screen.ScreenTexts;
-import net.minecraft.text.MutableText;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.CycleButton;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.components.Tooltip;
+import net.minecraft.client.gui.layouts.HeaderAndFooterLayout;
+import net.minecraft.client.gui.screens.ConfirmScreen;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.network.chat.CommonComponents;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 
 /**
  * Everything about one profile: its name, the hotkey that switches to it, what it saves, the
@@ -32,15 +31,15 @@ public class ProfileEditScreen extends ResizingScreen {
     private final Screen parent;
     private final ProfileService service;
     private final Consumer<String> onRenamed;
-    private ThreePartsLayoutWidget layout;
+    private HeaderAndFooterLayout layout;
     private final ScreenStatusMessage statusMessage = new ScreenStatusMessage();
     private final ProfileHotkeyCapture hotkeyCapture;
 
     private String profileName;
     private WidgetRowList rows;
-    private TextFieldWidget nameField;
-    private TextFieldWidget ruleField;
-    private ButtonWidget hotkeyButton;
+    private EditBox nameField;
+    private EditBox ruleField;
+    private Button hotkeyButton;
     private String nameText;
     private String ruleText = "";
 
@@ -48,7 +47,7 @@ public class ProfileEditScreen extends ResizingScreen {
      * @param onRenamed told the new name whenever the profile is renamed
      */
     public ProfileEditScreen(Screen parent, ProfileService service, String profileName, Consumer<String> onRenamed) {
-        super(Text.translatable("keybindprofilesplus.edit.title"));
+        super(Component.translatable("keybindprofilesplus.edit.title"));
         this.parent = parent;
         this.service = service;
         this.profileName = profileName;
@@ -60,50 +59,50 @@ public class ProfileEditScreen extends ResizingScreen {
     @Override
     protected void init() {
         layout = startLayout(33, 33);
-        layout.addHeader(title, textRenderer);
-        rows = layout.addBody(new WidgetRowList(client, width, layout));
-        layout.addFooter(ButtonWidget.builder(ScreenTexts.DONE, button -> close()).width(200).build());
-        layout.forEachChild(this::addDrawableChild);
-        refreshWidgetPositions();
+        layout.addTitleHeader(title, font);
+        rows = layout.addToContents(new WidgetRowList(minecraft, width, layout));
+        layout.addToFooter(Button.builder(CommonComponents.GUI_DONE, button -> onClose()).width(200).build());
+        layout.visitWidgets(this::addRenderableWidget);
+        repositionElements();
     }
 
     @Override
-    protected void refreshWidgetPositions() {
+    protected void repositionElements() {
         if (rebuiltAfterResize()) {
             return;
         }
-        layout.refreshPositions();
+        layout.arrangeElements();
         if (rows != null) {
-            rows.position(width, layout);
+            rows.updateSize(width, layout);
             rebuild();
         }
     }
 
     @Override
-    public void close() {
-        client.setScreen(parent);
+    public void onClose() {
+        minecraft.setScreen(parent);
     }
 
     @Override
-    public void render(DrawContext context, int mouseX, int mouseY, float deltaTicks) {
+    public void render(GuiGraphics context, int mouseX, int mouseY, float deltaTicks) {
         super.render(context, mouseX, mouseY, deltaTicks);
-        Text status = statusMessage.getVisibleText();
+        Component status = statusMessage.getVisibleText();
         if (status != null) {
-            context.drawCenteredTextWithShadow(textRenderer, status, width / 2, layout.getHeaderHeight() - 11, GuiUtil.YELLOW);
+            context.drawCenteredString(font, status, width / 2, layout.getHeaderHeight() - 11, GuiUtil.YELLOW);
         }
     }
 
     @Override
-    public boolean keyPressed(KeyInput input) {
+    public boolean keyPressed(KeyEvent input) {
         if (hotkeyCapture.handleKeyPressed(input)) {
             refreshHotkeyButton();
             return true;
         }
-        if (input.isEnter() && ruleField != null && ruleField.isFocused()) {
-            addRule(ruleField.getText());
+        if (input.isConfirmation() && ruleField != null && ruleField.isFocused()) {
+            addRule(ruleField.getValue());
             return true;
         }
-        if (input.isEnter() && nameField != null && nameField.isFocused()) {
+        if (input.isConfirmation() && nameField != null && nameField.isFocused()) {
             rename();
             return true;
         }
@@ -111,7 +110,7 @@ public class ProfileEditScreen extends ResizingScreen {
     }
 
     @Override
-    public boolean mouseClicked(Click click, boolean doubled) {
+    public boolean mouseClicked(MouseButtonEvent click, boolean doubled) {
         if (hotkeyCapture.handleMouseClicked(click.button())) {
             refreshHotkeyButton();
             return true;
@@ -127,92 +126,92 @@ public class ProfileEditScreen extends ResizingScreen {
     // ------------------------------------------------------------------ rows
 
     private void rebuild() {
-        double scroll = rows.getScrollY();
+        double scroll = rows.scrollAmount();
         rows.clear();
         if (!service.profiles().containsKey(profileName)) {
-            rows.setScrollY(0);
+            rows.setScrollAmount(0);
             return;
         }
 
-        rows.addHeading(Text.translatable("keybindprofilesplus.edit.section.name"));
-        nameField = new TextFieldWidget(textRenderer, 100, 20, Text.translatable("keybindprofilesplus.profile_name"));
+        rows.addHeading(Component.translatable("keybindprofilesplus.edit.section.name"));
+        nameField = new EditBox(font, 100, 20, Component.translatable("keybindprofilesplus.profile_name"));
         nameField.setMaxLength(ProfileNames.MAX_LENGTH);
-        nameField.setText(nameText);
-        nameField.setChangedListener(value -> nameText = value);
-        rows.addWidgets(new int[]{3, 1}, nameField, ButtonWidget.builder(Text.translatable("keybindprofilesplus.rename"), button -> rename()).build());
+        nameField.setValue(nameText);
+        nameField.setResponder(value -> nameText = value);
+        rows.addWidgets(new int[]{3, 1}, nameField, Button.builder(Component.translatable("keybindprofilesplus.rename"), button -> rename()).build());
 
-        rows.addHeading(Text.translatable("keybindprofilesplus.edit.section.hotkey"));
-        hotkeyButton = ButtonWidget.builder(hotkeyCapture.getButtonText(profileName), button -> {
+        rows.addHeading(Component.translatable("keybindprofilesplus.edit.section.hotkey"));
+        hotkeyButton = Button.builder(hotkeyCapture.getButtonText(profileName), button -> {
             hotkeyCapture.toggle(profileName);
             refreshHotkeyButton();
-        }).tooltip(Tooltip.of(Text.translatable("keybindprofilesplus.hotkey_hint"))).build();
-        rows.addWidgets(new int[]{3, 1}, hotkeyButton, ButtonWidget.builder(Text.translatable("keybindprofilesplus.hotkey.clear"), button -> {
+        }).tooltip(Tooltip.create(Component.translatable("keybindprofilesplus.hotkey_hint"))).build();
+        rows.addWidgets(new int[]{3, 1}, hotkeyButton, Button.builder(Component.translatable("keybindprofilesplus.hotkey.clear"), button -> {
             hotkeyCapture.cancel();
             service.setProfileHotkey(profileName, null);
             refreshHotkeyButton();
         }).build());
-        rows.addText(() -> hotkeyCapture.isCapturing() ? Text.translatable("keybindprofilesplus.hotkey_hint") : Text.translatable("keybindprofilesplus.hotkey.explain"),
+        rows.addText(() -> hotkeyCapture.isCapturing() ? Component.translatable("keybindprofilesplus.hotkey_hint") : Component.translatable("keybindprofilesplus.hotkey.explain"),
                 GuiUtil.GRAY);
 
-        rows.addHeading(Text.translatable("keybindprofilesplus.edit.section.contents"));
-        rows.addText(() -> Text.translatable("keybindprofilesplus.contents.summary",
+        rows.addHeading(Component.translatable("keybindprofilesplus.edit.section.contents"));
+        rows.addText(() -> Component.translatable("keybindprofilesplus.contents.summary",
                 service.profiles().getOrDefault(profileName, Map.of()).size(), service.getProfileOptions(profileName).size()), GuiUtil.GRAY);
-        rows.addWidgets(ButtonWidget.builder(Text.translatable("keybindprofilesplus.contents.open"), button -> client.setScreen(
+        rows.addWidgets(Button.builder(Component.translatable("keybindprofilesplus.contents.open"), button -> minecraft.setScreen(
                 new ProfileContentsScreen(this, service, profileName, name -> showStatus("keybindprofilesplus.status.contents_saved", name)))).build());
 
-        rows.addHeading(Text.translatable("keybindprofilesplus.auto_switch_servers"));
-        ruleField = new TextFieldWidget(textRenderer, 100, 20, Text.translatable("keybindprofilesplus.server_address"));
+        rows.addHeading(Component.translatable("keybindprofilesplus.auto_switch_servers"));
+        ruleField = new EditBox(font, 100, 20, Component.translatable("keybindprofilesplus.server_address"));
         ruleField.setMaxLength(128);
-        ruleField.setText(ruleText);
-        ruleField.setPlaceholder(Text.translatable("keybindprofilesplus.server_address").setStyle(TextFieldWidget.SEARCH_STYLE));
-        ruleField.setChangedListener(value -> ruleText = value);
-        ruleField.setTooltip(Tooltip.of(Text.translatable("keybindprofilesplus.server.help")));
+        ruleField.setValue(ruleText);
+        ruleField.setHint(Component.translatable("keybindprofilesplus.server_address").setStyle(EditBox.SEARCH_HINT_STYLE));
+        ruleField.setResponder(value -> ruleText = value);
+        ruleField.setTooltip(Tooltip.create(Component.translatable("keybindprofilesplus.server.help")));
         rows.addWidgets(new int[]{3, 1}, ruleField,
-                ButtonWidget.builder(Text.translatable("keybindprofilesplus.add_server"), button -> addRule(ruleField.getText())).build());
+                Button.builder(Component.translatable("keybindprofilesplus.add_server"), button -> addRule(ruleField.getValue())).build());
 
         String suggested = suggestedServerAddress();
-        ButtonWidget addCurrent = ButtonWidget.builder(suggested == null
-                        ? Text.translatable("keybindprofilesplus.server.add_current_none")
-                        : Text.translatable("keybindprofilesplus.server.add_current", suggested), button -> addRule(suggested))
-                .tooltip(Tooltip.of(Text.translatable("keybindprofilesplus.server.help"))).build();
+        Button addCurrent = Button.builder(suggested == null
+                        ? Component.translatable("keybindprofilesplus.server.add_current_none")
+                        : Component.translatable("keybindprofilesplus.server.add_current", suggested), button -> addRule(suggested))
+                .tooltip(Tooltip.create(Component.translatable("keybindprofilesplus.server.help"))).build();
         addCurrent.active = suggested != null;
         rows.addWidgets(
-                ButtonWidget.builder(Text.translatable("keybindprofilesplus.server.add_singleplayer"), button -> addRule(ServerProfileMatcher.SINGLEPLAYER))
-                        .tooltip(Tooltip.of(Text.translatable("keybindprofilesplus.server.help"))).build(),
+                Button.builder(Component.translatable("keybindprofilesplus.server.add_singleplayer"), button -> addRule(ServerProfileMatcher.SINGLEPLAYER))
+                        .tooltip(Tooltip.create(Component.translatable("keybindprofilesplus.server.help"))).build(),
                 addCurrent);
 
         List<String> rules = service.getProfileAutoSwitchServers(profileName);
         if (rules == null || rules.isEmpty()) {
-            rows.addText(() -> Text.translatable("keybindprofilesplus.no_servers"), GuiUtil.DARK_GRAY);
+            rows.addText(() -> Component.translatable("keybindprofilesplus.no_servers"), GuiUtil.DARK_GRAY);
         } else {
             for (String rule : rules) {
                 rows.addWidgets(new int[]{3, 1}, ruleButton(rule),
-                        ButtonWidget.builder(Text.translatable("keybindprofilesplus.remove_server"), button -> removeRule(rule)).build());
+                        Button.builder(Component.translatable("keybindprofilesplus.remove_server"), button -> removeRule(rule)).build());
             }
         }
         rows.addText(this::whereAmIText, 0xFF7FD4FF);
 
-        rows.addHeading(Text.translatable("keybindprofilesplus.edit.section.default"));
-        rows.addWidgets(CyclingButtonWidget.onOffBuilder(profileName.equals(KeyBindProfilesPlus.settings().defaultProfile()))
-                .tooltip(value -> Tooltip.of(Text.translatable("keybindprofilesplus.settings.default_profile.tooltip")))
-                .build(0, 0, 100, 20, Text.translatable("keybindprofilesplus.edit.is_default"),
+        rows.addHeading(Component.translatable("keybindprofilesplus.edit.section.default"));
+        rows.addWidgets(CycleButton.onOffBuilder(profileName.equals(KeyBindProfilesPlus.settings().defaultProfile()))
+                .withTooltip(value -> Tooltip.create(Component.translatable("keybindprofilesplus.settings.default_profile.tooltip")))
+                .create(0, 0, 100, 20, Component.translatable("keybindprofilesplus.edit.is_default"),
                         (button, value) -> KeyBindProfilesPlus.settings().setDefaultProfile(value ? profileName : null)));
 
-        rows.addHeading(Text.translatable("keybindprofilesplus.edit.section.delete"));
-        rows.addWidgets(ButtonWidget.builder(Text.translatable("keybindprofilesplus.delete").formatted(Formatting.RED), button -> delete()).build());
+        rows.addHeading(Component.translatable("keybindprofilesplus.edit.section.delete"));
+        rows.addWidgets(Button.builder(Component.translatable("keybindprofilesplus.delete").withStyle(ChatFormatting.RED), button -> delete()).build());
 
-        rows.setScrollY(scroll);
+        rows.setScrollAmount(scroll);
     }
 
-    private ButtonWidget ruleButton(String rule) {
-        MutableText explanation = Text.translatable("keybindprofilesplus.server.rule." + ServerProfileMatcher.ruleKind(rule));
+    private Button ruleButton(String rule) {
+        MutableComponent explanation = Component.translatable("keybindprofilesplus.server.rule." + ServerProfileMatcher.ruleKind(rule));
         List<String> alsoUsedBy = ServerProfileMatcher.profilesUsingRule(rule, service.profileAutoSwitchServers(), profileName);
-        MutableText label = Text.literal(rule);
+        MutableComponent label = Component.literal(rule);
         if (!alsoUsedBy.isEmpty()) {
-            label.formatted(Formatting.YELLOW);
-            explanation.append("\n").append(Text.translatable("keybindprofilesplus.server.rule.shared", String.join(", ", alsoUsedBy)).formatted(Formatting.YELLOW));
+            label.withStyle(ChatFormatting.YELLOW);
+            explanation.append("\n").append(Component.translatable("keybindprofilesplus.server.rule.shared", String.join(", ", alsoUsedBy)).withStyle(ChatFormatting.YELLOW));
         }
-        return ButtonWidget.builder(label, button -> ruleField.setText(rule)).tooltip(Tooltip.of(explanation)).build();
+        return Button.builder(label, button -> ruleField.setValue(rule)).tooltip(Tooltip.create(explanation)).build();
     }
 
     private void refreshHotkeyButton() {
@@ -305,19 +304,19 @@ public class ProfileEditScreen extends ResizingScreen {
     }
 
     public void setNameText(String text) {
-        nameField.setText(text);
+        nameField.setValue(text);
     }
 
     private void delete() {
         String name = profileName;
-        client.setScreen(new ConfirmScreen(confirmed -> {
+        minecraft.setScreen(new ConfirmScreen(confirmed -> {
             if (confirmed) {
                 KeyBindProfilesPlus.deleteProfile(name);
-                client.setScreen(parent);
+                minecraft.setScreen(parent);
             } else {
-                client.setScreen(this);
+                minecraft.setScreen(this);
             }
-        }, Text.translatable("keybindprofilesplus.delete.confirm.title", name), Text.translatable("keybindprofilesplus.delete.confirm.message")));
+        }, Component.translatable("keybindprofilesplus.delete.confirm.title", name), Component.translatable("keybindprofilesplus.delete.confirm.message")));
     }
 
     private void showStatus(String translationKey, Object... args) {
@@ -325,35 +324,35 @@ public class ProfileEditScreen extends ResizingScreen {
     }
 
     /** While in a world: which profile the auto-switch rules pick for this place. Null on the main menu. */
-    private Text whereAmIText() {
-        return whereAmIText(client);
+    private Component whereAmIText() {
+        return whereAmIText(minecraft);
     }
 
-    static Text whereAmIText(net.minecraft.client.MinecraftClient client) {
+    static Component whereAmIText(net.minecraft.client.Minecraft client) {
         ServerProfileMatcher.Location location = ServerProfileMatcher.currentLocation(client);
         if (location == null) {
             return null;
         }
         if (!KeyBindProfilesPlus.settings().autoSwitch()) {
-            return Text.translatable("keybindprofilesplus.server.here_off");
+            return Component.translatable("keybindprofilesplus.server.here_off");
         }
         ServerProfileMatcher.Match match = KeyBindProfilesPlus.autoSwitchController().match(location);
         return match == null
-                ? Text.translatable("keybindprofilesplus.server.here_none", location.describe())
-                : Text.translatable("keybindprofilesplus.server.here_match", location.describe(), match.profile());
+                ? Component.translatable("keybindprofilesplus.server.here_none", location.describe())
+                : Component.translatable("keybindprofilesplus.server.here_match", location.describe(), match.profile());
     }
 
     /** The server the player is on, or failing that the last one joined; null when there is none. */
-    static String suggestedServerAddress(net.minecraft.client.MinecraftClient client) {
+    static String suggestedServerAddress(net.minecraft.client.Minecraft client) {
         ServerProfileMatcher.Location location = ServerProfileMatcher.currentLocation(client);
         if (location != null && location.address() != null) {
             return location.address();
         }
-        String last = client.options.lastServer;
+        String last = client.options.lastMpIp;
         return last == null || last.isBlank() ? null : last;
     }
 
     private String suggestedServerAddress() {
-        return suggestedServerAddress(client);
+        return suggestedServerAddress(minecraft);
     }
 }

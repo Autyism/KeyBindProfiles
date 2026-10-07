@@ -1,11 +1,10 @@
 package io.github.autyism.keybindprofilesplus.external;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import io.github.autyism.keybindprofilesplus.KeyBindProfilesPlus;
 import io.github.autyism.keybindprofilesplus.keys.KeyCombo;
 import net.fabricmc.loader.api.FabricLoader;
-import net.minecraft.client.util.InputUtil;
-import net.minecraft.text.Text;
-
+import net.minecraft.network.chat.Component;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -129,14 +128,14 @@ final class MeteorLive implements LiveSource {
     private void addModule(Object module, List<ExternalBinding> out) throws ReflectiveOperationException {
         String rawName = String.valueOf(get(moduleName, module));
         String title = String.valueOf(get(moduleTitle, module));
-        Text group = groupOf(module);
+        Component group = groupOf(module);
         String readable = MeteorKeys.title(rawName);
 
         Object keybind = get(moduleKeybind, module);
         if (keybind != null) {
             String id = unique(PREFIX + rawName);
             targets.put(id, new Target(keybind, null, false, true));
-            out.add(binding(id, readable, Text.literal(title), group, keybind, KeyCombo.encode(0, InputUtil.UNKNOWN_KEY.getTranslationKey()),
+            out.add(binding(id, readable, Component.literal(title), group, keybind, KeyCombo.encode(0, InputConstants.UNKNOWN.getName()),
                     ExternalBinding.When.IN_GAME, MODULES_FILE));
         }
 
@@ -161,7 +160,7 @@ final class MeteorLive implements LiveSource {
                 String id = unique(PREFIX + rawName + "/" + settingRaw);
                 targets.put(id, new Target(value, setting, false, false));
                 Object defaultValue = settingDefault.invoke(setting);
-                Text settingTitleText = Text.literal(title + " / " + get(settingTitle, setting));
+                Component settingTitleText = Component.literal(title + " / " + get(settingTitle, setting));
                 // A key inside a module's settings only does something within that module's own feature.
                 out.add(binding(id, readable + " / " + MeteorKeys.title(settingRaw), settingTitleText, group, value,
                         defaultValue == null ? null : encode(defaultValue), ExternalBinding.When.SITUATIONAL, MODULES_FILE));
@@ -182,8 +181,8 @@ final class MeteorLive implements LiveSource {
         }
         String id = unique(MACRO_PREFIX + name);
         targets.put(id, new Target(keybind, keybindSetting, true, false));
-        out.add(binding(id, name, Text.literal(name), Text.translatable("keybindprofilesplus.external.meteor_macros"), keybind,
-                KeyCombo.encode(0, InputUtil.UNKNOWN_KEY.getTranslationKey()), ExternalBinding.When.IN_GAME, MACROS_FILE));
+        out.add(binding(id, name, Component.literal(name), Component.translatable("keybindprofilesplus.external.meteor_macros"), keybind,
+                KeyCombo.encode(0, InputConstants.UNKNOWN.getName()), ExternalBinding.When.IN_GAME, MACROS_FILE));
     }
 
     /** The id itself, or with "#2", "#3"... when it is taken already in this listing. */
@@ -195,29 +194,29 @@ final class MeteorLive implements LiveSource {
         return unique;
     }
 
-    private ExternalBinding binding(String id, String name, Text title, Text group, Object keybind, String defaultValue,
+    private ExternalBinding binding(String id, String name, Component title, Component group, Object keybind, String defaultValue,
                                     ExternalBinding.When when, String file) throws ReflectiveOperationException {
         String value = encode(keybind);
         KeyCombo combo = KeyCombo.parse(value);
-        InputUtil.Key key = ExternalKeys.isUnboundValue(value) ? null : combo.inputKey();
-        Text keyText = key == null ? Text.translatable("key.keyboard.unknown") : combo.displayText();
+        InputConstants.Key key = ExternalKeys.isUnboundValue(value) ? null : combo.inputKey();
+        Component keyText = key == null ? Component.translatable("key.keyboard.unknown") : combo.displayText();
         int modifiers = key == null ? 0 : combo.modifiers();
         if (key != null && (modifiersOf(keybind) & GLFW_MOD_SUPER) != 0) {
             // The Windows / Command key is not something a game key binding can ask for: shown, but not compared.
-            keyText = Text.literal("Super + ").append(keyText);
+            keyText = Component.literal("Super + ").append(keyText);
             key = null;
             modifiers = 0;
         }
         return new ExternalBinding("meteor", group, name, title, modifiers, key, keyText, when, true, file, id, value, defaultValue);
     }
 
-    private Text groupOf(Object module) {
+    private Component groupOf(Object module) {
         Object addon = get(moduleAddon, module);
         if (addon == null || addon == coreAddon || addonName == null) {
-            return Text.translatable("keybindprofilesplus.external.meteor");
+            return Component.translatable("keybindprofilesplus.external.meteor");
         }
         Object name = get(addonName, addon);
-        return name == null ? Text.translatable("keybindprofilesplus.external.meteor") : Text.translatable("keybindprofilesplus.external.meteor_addon", String.valueOf(name));
+        return name == null ? Component.translatable("keybindprofilesplus.external.meteor") : Component.translatable("keybindprofilesplus.external.meteor_addon", String.valueOf(name));
     }
 
     /** Meteor's key bind object -> the value form ("ctrl+key.keyboard.x"). */
@@ -225,15 +224,15 @@ final class MeteorLive implements LiveSource {
         boolean isKey = (Boolean) keybindIsKey.invoke(keybind);
         int value = (Integer) keybindValue.invoke(keybind);
         if (value == UNBOUND || (isKey && value == 0)) {
-            return InputUtil.UNKNOWN_KEY.getTranslationKey();
+            return InputConstants.UNKNOWN.getName();
         }
-        InputUtil.Key key = (isKey ? InputUtil.Type.KEYSYM : InputUtil.Type.MOUSE).createFromCode(value);
+        InputConstants.Key key = (isKey ? InputConstants.Type.KEYSYM : InputConstants.Type.MOUSE).getOrCreate(value);
         int modifiers = isKey ? modifiersOf(keybind) & KeyCombo.ALL : 0;
-        if (key.getCategory() == InputUtil.Type.KEYSYM) {
+        if (key.getType() == InputConstants.Type.KEYSYM) {
             // A modifier key as the key itself reports its own bit.
-            modifiers &= ~KeyCombo.modifierOfKeyCode(key.getCode());
+            modifiers &= ~KeyCombo.modifierOfKeyCode(key.getValue());
         }
-        return KeyCombo.encode(modifiers, key.getTranslationKey());
+        return KeyCombo.encode(modifiers, key.getName());
     }
 
     private int modifiersOf(Object keybind) {
@@ -242,14 +241,14 @@ final class MeteorLive implements LiveSource {
     }
 
     @Override
-    public boolean bind(String hotkeyId, InputUtil.Key key, int modifiers) {
+    public boolean bind(String hotkeyId, InputConstants.Key key, int modifiers) {
         Target target = targets.get(hotkeyId);
         if (target == null || !available()) {
             return false;
         }
-        boolean none = key == null || key.equals(InputUtil.UNKNOWN_KEY);
-        boolean isKey = none || key.getCategory() != InputUtil.Type.MOUSE;
-        int value = none ? UNBOUND : key.getCode();
+        boolean none = key == null || key.equals(InputConstants.UNKNOWN);
+        boolean isKey = none || key.getType() != InputConstants.Type.MOUSE;
+        int value = none ? UNBOUND : key.getValue();
         // Meteor's own key recorder never binds a module to the left or right mouse button (that would fire on every attack / use).
         if (!none && !isKey && value <= 1 && target.moduleBind()) {
             return false;
@@ -281,10 +280,10 @@ final class MeteorLive implements LiveSource {
             return false;
         }
         if (ExternalKeys.isUnboundValue(value)) {
-            return bind(hotkeyId, InputUtil.UNKNOWN_KEY, 0);
+            return bind(hotkeyId, InputConstants.UNKNOWN, 0);
         }
         KeyCombo combo = KeyCombo.parse(value);
-        InputUtil.Key key = combo.inputKey();
+        InputConstants.Key key = combo.inputKey();
         return key != null && bind(hotkeyId, key, combo.modifiers());
     }
 

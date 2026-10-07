@@ -2,9 +2,8 @@ package io.github.autyism.keybindprofilesplus.keys;
 
 import net.fabricmc.loader.api.FabricLoader;
 import net.fabricmc.loader.api.ModContainer;
-import net.minecraft.client.option.GameOptions;
-import net.minecraft.client.option.KeyBinding;
-
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Options;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.HashMap;
@@ -17,7 +16,7 @@ import java.util.Set;
 /**
  * Works out which mod registered a key binding. Minecraft does not record this, so it is deduced:
  * <ol>
- *   <li>bindings held in a field of {@link GameOptions} are vanilla;</li>
+ *   <li>bindings held in a field of {@link Options} are vanilla;</li>
  *   <li>otherwise the mod whose code created the binding (see {@link KeyOrigins});</li>
  *   <li>otherwise the namespace of the binding's category names the mod, if such a mod is loaded;</li>
  *   <li>otherwise a part of the binding's id (e.g. {@code key.<modid>.open}) that is a loaded mod id;</li>
@@ -31,7 +30,7 @@ public final class KeySourceResolver {
     private final Map<String, ModContainer> modsByNormalizedId = new HashMap<>();
     private final Map<String, KeySource> cache = new HashMap<>();
 
-    public KeySourceResolver(GameOptions options) {
+    public KeySourceResolver(Options options) {
         collectVanillaIds(options);
         for (ModContainer mod : FabricLoader.getInstance().getAllMods()) {
             String id = mod.getMetadata().getId();
@@ -41,16 +40,16 @@ public final class KeySourceResolver {
         }
     }
 
-    public KeySource resolve(KeyBinding binding) {
-        return cache.computeIfAbsent(binding.getId(), id -> resolveUncached(binding));
+    public KeySource resolve(KeyMapping binding) {
+        return cache.computeIfAbsent(binding.getName(), id -> resolveUncached(binding));
     }
 
     public boolean isVanilla(String bindingId) {
         return vanillaIds.contains(bindingId);
     }
 
-    private KeySource resolveUncached(KeyBinding binding) {
-        if (vanillaIds.contains(binding.getId())) {
+    private KeySource resolveUncached(KeyMapping binding) {
+        if (vanillaIds.contains(binding.getName())) {
             return KeySource.VANILLA;
         }
 
@@ -66,7 +65,7 @@ public final class KeySourceResolver {
             return toSource(byNamespace);
         }
 
-        for (String part : binding.getId().split("[.:/]")) {
+        for (String part : binding.getName().split("[.:/]")) {
             ModContainer byIdPart = modsByNormalizedId.get(normalize(part));
             if (byIdPart != null) {
                 return toSource(byIdPart);
@@ -80,9 +79,9 @@ public final class KeySourceResolver {
         return KeySource.mod(mod.getMetadata().getId(), mod.getMetadata().getName());
     }
 
-    /** Every KeyBinding stored in a field of GameOptions (single or in an array) is a vanilla one. */
-    private void collectVanillaIds(GameOptions options) {
-        for (Field field : GameOptions.class.getDeclaredFields()) {
+    /** Every KeyMapping stored in a field of Options (single or in an array) is a vanilla one. */
+    private void collectVanillaIds(Options options) {
+        for (Field field : Options.class.getDeclaredFields()) {
             if (Modifier.isStatic(field.getModifiers())) {
                 continue;
             }
@@ -90,13 +89,13 @@ public final class KeySourceResolver {
             try {
                 field.setAccessible(true);
                 Object value = field.get(options);
-                if (value instanceof KeyBinding binding) {
-                    vanillaIds.add(binding.getId());
-                } else if (value instanceof KeyBinding[] bindings && bindings != options.allKeys) {
+                if (value instanceof KeyMapping binding) {
+                    vanillaIds.add(binding.getName());
+                } else if (value instanceof KeyMapping[] bindings && bindings != options.keyMappings) {
                     // allKeys is skipped: Fabric appends the mods' bindings to it.
-                    for (KeyBinding binding : bindings) {
+                    for (KeyMapping binding : bindings) {
                         if (binding != null) {
-                            vanillaIds.add(binding.getId());
+                            vanillaIds.add(binding.getName());
                         }
                     }
                 }

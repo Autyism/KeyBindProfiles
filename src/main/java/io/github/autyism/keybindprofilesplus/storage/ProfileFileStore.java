@@ -4,10 +4,10 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonSyntaxException;
 import com.google.gson.reflect.TypeToken;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.input.KeyInput;
-import net.minecraft.client.option.KeyBinding;
-import net.minecraft.client.util.InputUtil;
+import com.mojang.blaze3d.platform.InputConstants;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.input.KeyEvent;
 import net.minecraft.util.Util;
 import io.github.autyism.keybindprofilesplus.KeyBindProfilesPlus;
 import io.github.autyism.keybindprofilesplus.keys.KeyCombo;
@@ -61,14 +61,14 @@ public final class ProfileFileStore {
         }
     }
 
-    public void saveProfile(String name, KeyBinding[] bindings, Map<String, Map<String, String>> profiles) {
+    public void saveProfile(String name, KeyMapping[] bindings, Map<String, Map<String, String>> profiles) {
         Objects.requireNonNull(name, "Profile name cannot be null");
         Objects.requireNonNull(bindings, "Bindings cannot be null");
 
         Map<String, String> keyMap = new HashMap<>();
-        for (KeyBinding binding : bindings) {
+        for (KeyMapping binding : bindings) {
             if (binding != null) {
-                keyMap.put(binding.getId(), KeyCombos.valueOf(binding));
+                keyMap.put(binding.getName(), KeyCombos.valueOf(binding));
             }
         }
 
@@ -162,7 +162,7 @@ public final class ProfileFileStore {
         }
 
         try {
-            Util.getOperatingSystem().open(dir);
+            Util.getPlatform().openFile(dir);
             return true;
         } catch (RuntimeException e) {
             KeyBindProfilesPlus.LOGGER.error("Failed to open keybind profiles folder '{}'", dir.getAbsolutePath(), e);
@@ -230,7 +230,7 @@ public final class ProfileFileStore {
             if (item instanceof String key) {
                 hotkeys.add(key);
             } else if (item instanceof Number code) {
-                hotkeys.add(InputUtil.fromKeyCode(new KeyInput(code.intValue(), -1, 0)).getTranslationKey());
+                hotkeys.add(InputConstants.getKey(new KeyEvent(code.intValue(), -1, 0)).getName());
             }
         }
         return hotkeys;
@@ -308,13 +308,13 @@ public final class ProfileFileStore {
             return profilesDir;
         }
 
-        MinecraftClient client = MinecraftClient.getInstance();
-        if (client == null || client.runDirectory == null) {
+        Minecraft client = Minecraft.getInstance();
+        if (client == null || client.gameDirectory == null) {
             return null;
         }
 
-        profilesDir = new File(client.runDirectory, CONFIG_DIRECTORY);
-        migrateLegacyDirectory(new File(client.runDirectory, LEGACY_CONFIG_DIRECTORY), profilesDir);
+        profilesDir = new File(client.gameDirectory, CONFIG_DIRECTORY);
+        migrateLegacyDirectory(new File(client.gameDirectory, LEGACY_CONFIG_DIRECTORY), profilesDir);
         if (!profilesDir.exists() && !profilesDir.mkdirs()) {
             KeyBindProfilesPlus.LOGGER.error("Failed to create keybind profile directory '{}'", profilesDir.getAbsolutePath());
         }

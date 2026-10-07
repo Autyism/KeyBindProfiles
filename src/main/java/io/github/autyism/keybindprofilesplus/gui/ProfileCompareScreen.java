@@ -6,26 +6,25 @@ import io.github.autyism.keybindprofilesplus.external.ExternalKeys;
 import io.github.autyism.keybindprofilesplus.keys.KeySource;
 import io.github.autyism.keybindprofilesplus.profile.ProfileComparison;
 import io.github.autyism.keybindprofilesplus.profile.ProfileService;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.Element;
-import net.minecraft.client.gui.Selectable;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.client.gui.widget.CyclingButtonWidget;
-import net.minecraft.client.gui.widget.DirectionalLayoutWidget;
-import net.minecraft.client.gui.widget.ElementListWidget;
-import net.minecraft.client.gui.widget.EmptyWidget;
-import net.minecraft.client.gui.widget.TextWidget;
-import net.minecraft.client.gui.widget.ThreePartsLayoutWidget;
-import net.minecraft.client.option.KeyBinding;
-import net.minecraft.screen.ScreenTexts;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-
 import java.util.ArrayList;
 import java.util.List;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.ContainerObjectSelectionList;
+import net.minecraft.client.gui.components.CycleButton;
+import net.minecraft.client.gui.components.StringWidget;
+import net.minecraft.client.gui.components.events.GuiEventListener;
+import net.minecraft.client.gui.layouts.HeaderAndFooterLayout;
+import net.minecraft.client.gui.layouts.LinearLayout;
+import net.minecraft.client.gui.layouts.SpacerElement;
+import net.minecraft.client.gui.narration.NarratableEntry;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.CommonComponents;
+import net.minecraft.network.chat.Component;
 
 /**
  * Two sets of settings side by side: any saved profile, or the game as it is right now, on each
@@ -40,24 +39,24 @@ public class ProfileCompareScreen extends ResizingScreen {
 
     private final Screen parent;
     private final ProfileService service;
-    private ThreePartsLayoutWidget layout;
+    private HeaderAndFooterLayout layout;
 
     private String left;
     private String right;
     private boolean onlyDifferences;
-    private CyclingButtonWidget<String> leftButton;
-    private CyclingButtonWidget<String> rightButton;
-    private CyclingButtonWidget<Boolean> onlyDifferencesButton;
+    private CycleButton<String> leftButton;
+    private CycleButton<String> rightButton;
+    private CycleButton<Boolean> onlyDifferencesButton;
     private CompareList list;
     private ProfileComparison.Result result = new ProfileComparison.Result(List.of(), 0, 0);
-    private Text summary = Text.empty();
+    private Component summary = Component.empty();
 
     /**
      * @param left  profile name for the left side, or null for the game's current settings
      * @param right profile name for the right side, or null for the game's current settings
      */
     public ProfileCompareScreen(Screen parent, ProfileService service, String left, String right) {
-        super(Text.translatable("keybindprofilesplus.compare.title"));
+        super(Component.translatable("keybindprofilesplus.compare.title"));
         this.parent = parent;
         this.service = service;
         this.left = left == null ? CURRENT : left;
@@ -79,62 +78,62 @@ public class ProfileCompareScreen extends ResizingScreen {
             right = CURRENT;
         }
 
-        DirectionalLayoutWidget header = layout.addHeader(DirectionalLayoutWidget.vertical().spacing(4));
-        header.getMainPositioner().alignHorizontalCenter();
-        header.add(new TextWidget(title, textRenderer));
+        LinearLayout header = layout.addToHeader(LinearLayout.vertical().spacing(4));
+        header.defaultCellSetting().alignHorizontallyCenter();
+        header.addChild(new StringWidget(title, font));
 
-        DirectionalLayoutWidget controls = header.add(DirectionalLayoutWidget.horizontal().spacing(4));
+        LinearLayout controls = header.addChild(LinearLayout.horizontal().spacing(4));
         int buttonWidth = Math.max(80, Math.min(160, (width - 28) / 3));
-        leftButton = controls.add(CyclingButtonWidget.<String>builder(ProfileCompareScreen::sideLabel, left)
-                .values(sides)
-                .build(0, 0, buttonWidth, 20, Text.translatable("keybindprofilesplus.compare.side_a"), (button, value) -> {
+        leftButton = controls.addChild(CycleButton.<String>builder(ProfileCompareScreen::sideLabel, left)
+                .withValues(sides)
+                .create(0, 0, buttonWidth, 20, Component.translatable("keybindprofilesplus.compare.side_a"), (button, value) -> {
                     left = value;
                     refresh();
                 }));
-        rightButton = controls.add(CyclingButtonWidget.<String>builder(ProfileCompareScreen::sideLabel, right)
-                .values(sides)
-                .build(0, 0, buttonWidth, 20, Text.translatable("keybindprofilesplus.compare.side_b"), (button, value) -> {
+        rightButton = controls.addChild(CycleButton.<String>builder(ProfileCompareScreen::sideLabel, right)
+                .withValues(sides)
+                .create(0, 0, buttonWidth, 20, Component.translatable("keybindprofilesplus.compare.side_b"), (button, value) -> {
                     right = value;
                     refresh();
                 }));
-        onlyDifferencesButton = controls.add(CyclingButtonWidget.onOffBuilder(onlyDifferences)
-                .build(0, 0, buttonWidth, 20, Text.translatable("keybindprofilesplus.compare.only_differences"), (button, value) -> {
+        onlyDifferencesButton = controls.addChild(CycleButton.onOffBuilder(onlyDifferences)
+                .create(0, 0, buttonWidth, 20, Component.translatable("keybindprofilesplus.compare.only_differences"), (button, value) -> {
                     onlyDifferences = value;
                     refresh();
                 }));
         // Placeholder line: the summary text is drawn here by render().
-        header.add(new EmptyWidget(1, textRenderer.fontHeight));
+        header.addChild(new SpacerElement(1, font.lineHeight));
 
-        list = layout.addBody(new CompareList(client));
-        layout.addFooter(ButtonWidget.builder(ScreenTexts.DONE, button -> close()).width(200).build());
+        list = layout.addToContents(new CompareList(minecraft));
+        layout.addToFooter(Button.builder(CommonComponents.GUI_DONE, button -> onClose()).width(200).build());
 
-        layout.forEachChild(this::addDrawableChild);
+        layout.visitWidgets(this::addRenderableWidget);
         refresh();
-        refreshWidgetPositions();
+        repositionElements();
     }
 
     @Override
-    protected void refreshWidgetPositions() {
+    protected void repositionElements() {
         if (rebuiltAfterResize()) {
             return;
         }
-        layout.refreshPositions();
+        layout.arrangeElements();
         if (list != null) {
-            list.position(width, layout);
+            list.updateSize(width, layout);
         }
     }
 
     @Override
-    public void close() {
-        client.setScreen(parent);
+    public void onClose() {
+        minecraft.setScreen(parent);
     }
 
     @Override
-    public void render(DrawContext context, int mouseX, int mouseY, float deltaTicks) {
+    public void render(GuiGraphics context, int mouseX, int mouseY, float deltaTicks) {
         super.render(context, mouseX, mouseY, deltaTicks);
-        context.drawCenteredTextWithShadow(textRenderer, summary, width / 2, leftButton.getY() + 24, GuiUtil.GRAY);
+        context.drawCenteredString(font, summary, width / 2, leftButton.getY() + 24, GuiUtil.GRAY);
         if (visibleRowCount() == 0) {
-            context.drawCenteredTextWithShadow(textRenderer, Text.translatable("keybindprofilesplus.compare.no_differences"),
+            context.drawCenteredString(font, Component.translatable("keybindprofilesplus.compare.no_differences"),
                     width / 2, layout.getHeaderHeight() + layout.getContentHeight() / 2 - 4, GuiUtil.GRAY);
         }
     }
@@ -173,17 +172,17 @@ public class ProfileCompareScreen extends ResizingScreen {
     }
 
     private void refresh() {
-        result = ProfileComparison.compare(service, client.options, leftSide(), rightSide());
+        result = ProfileComparison.compare(service, minecraft.options, leftSide(), rightSide());
         list.setRows(result.rows());
-        summary = Text.translatable("keybindprofilesplus.compare.summary", result.different(), result.rows().size(), result.oneSided());
+        summary = Component.translatable("keybindprofilesplus.compare.summary", result.different(), result.rows().size(), result.oneSided());
     }
 
-    private static Text sideLabel(String side) {
-        return side.equals(CURRENT) ? Text.translatable("keybindprofilesplus.compare.current") : Text.literal(side);
+    private static Component sideLabel(String side) {
+        return side.equals(CURRENT) ? Component.translatable("keybindprofilesplus.compare.current") : Component.literal(side);
     }
 
-    private final class CompareList extends ElementListWidget<CompareList.Entry> {
-        CompareList(MinecraftClient client) {
+    private final class CompareList extends ContainerObjectSelectionList<CompareList.Entry> {
+        CompareList(Minecraft client) {
             super(client, ProfileCompareScreen.this.width, layout.getContentHeight(), layout.getHeaderHeight(), ROW_HEIGHT);
         }
 
@@ -209,7 +208,7 @@ public class ProfileCompareScreen extends ResizingScreen {
                 }
                 addEntry(new RowEntry(row));
             }
-            setScrollY(0);
+            setScrollAmount(0);
         }
 
         @Override
@@ -221,14 +220,14 @@ public class ProfileCompareScreen extends ResizingScreen {
             return Math.max(60, Math.min(120, getRowWidth() / 4));
         }
 
-        private abstract static class Entry extends ElementListWidget.Entry<Entry> {
+        private abstract static class Entry extends ContainerObjectSelectionList.Entry<Entry> {
             @Override
-            public List<? extends Element> children() {
+            public List<? extends GuiEventListener> children() {
                 return List.of();
             }
 
             @Override
-            public List<? extends Selectable> selectableChildren() {
+            public List<? extends NarratableEntry> narratables() {
                 return List.of();
             }
         }
@@ -236,29 +235,29 @@ public class ProfileCompareScreen extends ResizingScreen {
         /** The two side names above the value columns. */
         private final class ColumnsEntry extends Entry {
             @Override
-            public void render(DrawContext context, int mouseX, int mouseY, boolean hovered, float deltaTicks) {
-                TextRenderer font = textRenderer;
+            public void renderContent(GuiGraphics context, int mouseX, int mouseY, boolean hovered, float deltaTicks) {
+                Font font = ProfileCompareScreen.this.font;
                 int box = boxWidth();
-                int right = getContentRightEnd();
-                int textY = getContentMiddleY() - font.fontHeight / 2;
+                int right = getContentRight();
+                int textY = getContentYMiddle() - font.lineHeight / 2;
                 String leftName = GuiUtil.ellipsize(font, sideLabel(left).getString(), box - 2);
                 String rightName = GuiUtil.ellipsize(font, sideLabel(ProfileCompareScreen.this.right).getString(), box - 2);
-                context.drawCenteredTextWithShadow(font, leftName, right - box - 4 - box / 2, textY, GuiUtil.GRAY);
-                context.drawCenteredTextWithShadow(font, rightName, right - box / 2, textY, GuiUtil.GRAY);
+                context.drawCenteredString(font, leftName, right - box - 4 - box / 2, textY, GuiUtil.GRAY);
+                context.drawCenteredString(font, rightName, right - box / 2, textY, GuiUtil.GRAY);
             }
         }
 
         private final class GroupEntry extends Entry {
-            private final Text label;
+            private final Component label;
 
-            GroupEntry(Text group, int differing) {
-                this.label = differing == 0 ? group : Text.empty().append(group)
-                        .append(Text.translatable("keybindprofilesplus.compare.group_differs", differing).formatted(Formatting.YELLOW));
+            GroupEntry(Component group, int differing) {
+                this.label = differing == 0 ? group : Component.empty().append(group)
+                        .append(Component.translatable("keybindprofilesplus.compare.group_differs", differing).withStyle(ChatFormatting.YELLOW));
             }
 
             @Override
-            public void render(DrawContext context, int mouseX, int mouseY, boolean hovered, float deltaTicks) {
-                context.drawTextWithShadow(textRenderer, label, getContentX(), getContentBottomEnd() - textRenderer.fontHeight - 1, GuiUtil.WHITE);
+            public void renderContent(GuiGraphics context, int mouseX, int mouseY, boolean hovered, float deltaTicks) {
+                context.drawString(font, label, getContentX(), getContentBottom() - font.lineHeight - 1, GuiUtil.WHITE);
             }
         }
 
@@ -270,8 +269,8 @@ public class ProfileCompareScreen extends ResizingScreen {
 
             RowEntry(ProfileComparison.Row row) {
                 this.row = row;
-                KeyBinding binding = row.keyBinding() ? KeyBinding.byId(row.id()) : null;
-                KeySource resolved = binding == null ? null : KeyConflicts.sources(client.options).resolve(binding);
+                KeyMapping binding = row.keyBinding() ? KeyMapping.get(row.id()) : null;
+                KeySource resolved = binding == null ? null : KeyConflicts.sources(minecraft.options).resolve(binding);
                 if (resolved == null && row.keyBinding() && ExternalKeys.isExternalId(row.id())) {
                     ExternalBinding external = ExternalKeys.find(row.id());
                     resolved = external == null ? null : KeySource.external(external.sourceId(), external.group().getString());
@@ -280,13 +279,13 @@ public class ProfileCompareScreen extends ResizingScreen {
             }
 
             @Override
-            public void render(DrawContext context, int mouseX, int mouseY, boolean hovered, float deltaTicks) {
-                TextRenderer font = textRenderer;
+            public void renderContent(GuiGraphics context, int mouseX, int mouseY, boolean hovered, float deltaTicks) {
+                Font font = ProfileCompareScreen.this.font;
                 int left = getContentX();
-                int right = getContentRightEnd();
+                int right = getContentRight();
                 int top = getContentY();
-                int bottom = getContentBottomEnd();
-                int textY = getContentMiddleY() - font.fontHeight / 2;
+                int bottom = getContentBottom();
+                int textY = getContentYMiddle() - font.lineHeight / 2;
                 if (hovered) {
                     context.fill(left - 2, top - 1, right + 2, bottom + 1, GuiUtil.ROW_HOVER);
                 }
@@ -302,21 +301,21 @@ public class ProfileCompareScreen extends ResizingScreen {
                 int nameRight = leftBox - 8;
                 if (source != null) {
                     String sourceText = GuiUtil.ellipsize(font, source.label().getString(), (nameRight - left) / 3);
-                    nameRight -= font.getWidth(sourceText);
-                    context.drawTextWithShadow(font, sourceText, nameRight, textY, source.color());
+                    nameRight -= font.width(sourceText);
+                    context.drawString(font, sourceText, nameRight, textY, source.color());
                     nameRight -= 6;
                 }
                 String name = GuiUtil.ellipsize(font, row.name().getString(), nameRight - left - 8);
-                context.drawTextWithShadow(font, name, left + 8, textY, nameColor);
+                context.drawString(font, name, left + 8, textY, nameColor);
             }
 
-            private void drawValue(DrawContext context, TextRenderer font, Text value, int x, int width, int top, int bottom, int textY, boolean different) {
+            private void drawValue(GuiGraphics context, Font font, Component value, int x, int width, int top, int bottom, int textY, boolean different) {
                 context.fill(x, top, x + width, bottom, different ? DIFFERENT_BOX : GuiUtil.VALUE_BOX);
                 if (value == null) {
-                    context.drawCenteredTextWithShadow(font, "-", x + width / 2, textY, GuiUtil.DARK_GRAY);
+                    context.drawCenteredString(font, "-", x + width / 2, textY, GuiUtil.DARK_GRAY);
                 } else {
                     String text = GuiUtil.ellipsize(font, value.getString(), width - 6);
-                    context.drawCenteredTextWithShadow(font, text, x + width / 2, textY, different ? GuiUtil.YELLOW : GuiUtil.WHITE);
+                    context.drawCenteredString(font, text, x + width / 2, textY, different ? GuiUtil.YELLOW : GuiUtil.WHITE);
                 }
             }
         }

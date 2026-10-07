@@ -1,12 +1,11 @@
 package io.github.autyism.keybindprofilesplus.gui;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import io.github.autyism.keybindprofilesplus.profile.ProfileService;
-import net.minecraft.client.input.KeyInput;
-import net.minecraft.client.util.InputUtil;
-import net.minecraft.text.Text;
-
 import java.util.ArrayList;
 import java.util.List;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.network.chat.Component;
 
 /**
  * Records the hotkey that switches to a profile: one key, or two keys held together.
@@ -27,12 +26,12 @@ final class ProfileHotkeyCapture {
         return profileName != null;
     }
 
-    Text getButtonText(String profile) {
+    Component getButtonText(String profile) {
         if (isCapturing()) {
-            return capturedKeys.isEmpty() ? Text.translatable("keybindprofilesplus.hotkey.press") : Text.literal(formatKeys(capturedKeys) + " ...");
+            return capturedKeys.isEmpty() ? Component.translatable("keybindprofilesplus.hotkey.press") : Component.literal(formatKeys(capturedKeys) + " ...");
         }
         List<String> keys = service.getProfileHotkey(profile);
-        return keys == null || keys.isEmpty() ? Text.translatable("keybindprofilesplus.hotkey.none") : Text.literal(formatKeys(keys));
+        return keys == null || keys.isEmpty() ? Component.translatable("keybindprofilesplus.hotkey.none") : Component.literal(formatKeys(keys));
     }
 
     /** Starts recording for the profile, or saves what was recorded when already recording. */
@@ -51,28 +50,28 @@ final class ProfileHotkeyCapture {
         clear();
     }
 
-    boolean handleKeyPressed(KeyInput input) {
+    boolean handleKeyPressed(KeyEvent input) {
         if (!isCapturing()) {
             return false;
         }
 
         int keyCode = input.key();
-        if (keyCode == InputUtil.GLFW_KEY_ESCAPE) {
+        if (keyCode == InputConstants.KEY_ESCAPE) {
             clear();
             return true;
         }
-        if (keyCode == InputUtil.GLFW_KEY_BACKSPACE) {
+        if (keyCode == InputConstants.KEY_BACKSPACE) {
             service.setProfileHotkey(profileName, null);
             clear();
             return true;
         }
-        if (keyCode == InputUtil.GLFW_KEY_ENTER) {
+        if (keyCode == InputConstants.KEY_RETURN) {
             saveCapturedKeys();
             clear();
             return true;
         }
 
-        addCapturedKey(InputUtil.fromKeyCode(input).getTranslationKey());
+        addCapturedKey(InputConstants.getKey(input).getName());
         return true;
     }
 
@@ -80,7 +79,7 @@ final class ProfileHotkeyCapture {
         if (!isCapturing()) {
             return false;
         }
-        addCapturedKey(InputUtil.Type.MOUSE.createFromCode(button).getTranslationKey());
+        addCapturedKey(InputConstants.Type.MOUSE.getOrCreate(button).getName());
         return true;
     }
 
@@ -91,7 +90,7 @@ final class ProfileHotkeyCapture {
                 text.append(" + ");
             }
             try {
-                text.append(InputUtil.fromTranslationKey(keys.get(i)).getLocalizedText().getString());
+                text.append(InputConstants.getKey(keys.get(i)).getDisplayName().getString());
             } catch (IllegalArgumentException e) {
                 text.append(keys.get(i));
             }

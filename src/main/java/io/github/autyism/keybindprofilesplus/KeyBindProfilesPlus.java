@@ -7,12 +7,7 @@ import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.screen.option.KeybindsScreen;
-import net.minecraft.client.option.KeyBinding;
-import net.minecraft.client.util.InputUtil;
-import net.minecraft.util.Identifier;
+import com.mojang.blaze3d.platform.InputConstants;
 import io.github.autyism.keybindprofilesplus.gui.ConflictSummaryOverlay;
 import io.github.autyism.keybindprofilesplus.gui.ControlsScreenProfileButton;
 import io.github.autyism.keybindprofilesplus.gui.KeyBindProfileScreen;
@@ -28,6 +23,11 @@ import io.github.autyism.keybindprofilesplus.storage.LegacyOptions;
 import io.github.autyism.keybindprofilesplus.storage.ModSettings;
 import io.github.autyism.keybindprofilesplus.storage.ProfileFileStore;
 import net.fabricmc.loader.api.FabricLoader;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.options.controls.KeyBindsScreen;
+import net.minecraft.resources.Identifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -49,7 +49,7 @@ public class KeyBindProfilesPlus implements ClientModInitializer {
     public static final Map<String, List<String>> PROFILE_HOTKEYS = PROFILE_SERVICE.profileHotkeys();
     public static final Map<String, List<String>> PROFILE_AUTO_SWITCH_SERVERS = PROFILE_SERVICE.profileAutoSwitchServers();
 
-    private static KeyBinding openProfileScreenKey;
+    private static KeyMapping openProfileScreenKey;
     private static String legacyOpenKey;
 
     @Override
@@ -61,7 +61,7 @@ public class KeyBindProfilesPlus implements ClientModInitializer {
         registerClientEvents();
         registerConnectionEvents();
         registerControlsScreenButton();
-        HudElementRegistry.addLast(Identifier.of(MOD_ID, "profile_notice"), NOTICE_HUD::render);
+        HudElementRegistry.addLast(Identifier.fromNamespaceAndPath(MOD_ID, "profile_notice"), NOTICE_HUD::render);
         loadProfilesOnClientStart();
         if (SelfTest.isRequested()) {
             SelfTest.install(PROFILE_SERVICE);
@@ -85,14 +85,14 @@ public class KeyBindProfilesPlus implements ClientModInitializer {
     }
 
     public static void openConfigScreen(Screen parent) {
-        MinecraftClient.getInstance().setScreen(new KeyBindProfileScreen(parent));
+        Minecraft.getInstance().setScreen(new KeyBindProfileScreen(parent));
     }
 
     public static void reloadProfilesFromDirectory() {
         PROFILE_SERVICE.reloadProfiles();
     }
 
-    public static void saveProfile(String name, KeyBinding[] bindings) {
+    public static void saveProfile(String name, KeyMapping[] bindings) {
         PROFILE_SERVICE.saveProfile(name, bindings);
     }
 
@@ -162,11 +162,11 @@ public class KeyBindProfilesPlus implements ClientModInitializer {
     }
 
     private static void registerOpenScreenKey() {
-        openProfileScreenKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+        openProfileScreenKey = KeyBindingHelper.registerKeyBinding(new KeyMapping(
                 "key.keybindprofilesplus.open",
-                InputUtil.Type.KEYSYM,
-                InputUtil.GLFW_KEY_O,
-                KeyBinding.Category.MISC
+                InputConstants.Type.KEYSYM,
+                InputConstants.KEY_O,
+                KeyMapping.Category.MISC
         ));
     }
 
@@ -192,11 +192,11 @@ public class KeyBindProfilesPlus implements ClientModInitializer {
 
     private static void registerControlsScreenButton() {
         ScreenEvents.AFTER_INIT.register((client, screen, scaledWidth, scaledHeight) -> {
-            if (screen instanceof KeybindsScreen) {
+            if (screen instanceof KeyBindsScreen) {
                 ControlsScreenProfileButton.addOrReplace(screen, scaledWidth, scaledHeight);
                 // The vanilla screen moves its own buttons back on a window resize without
                 // re-initialising, so lay the row out again whenever the size has changed.
-                ComboRecorder.install((KeybindsScreen) screen);
+                ComboRecorder.install((KeyBindsScreen) screen);
                 ConflictSummaryOverlay conflictSummary = new ConflictSummaryOverlay();
                 ScreenEvents.afterRender(screen).register((current, context, mouseX, mouseY, tickDelta) -> conflictSummary.render(current, context));
                 int[] lastSize = {scaledWidth, scaledHeight};
@@ -220,15 +220,15 @@ public class KeyBindProfilesPlus implements ClientModInitializer {
         });
     }
 
-    private static void carryOverLegacyOpenKey(MinecraftClient client) {
+    private static void carryOverLegacyOpenKey(Minecraft client) {
         if (legacyOpenKey == null || openProfileScreenKey == null || !openProfileScreenKey.isDefault()) {
             return;
         }
 
         try {
-            openProfileScreenKey.setBoundKey(InputUtil.fromTranslationKey(legacyOpenKey));
-            KeyBinding.updateKeysByCode();
-            client.options.write();
+            openProfileScreenKey.setKey(InputConstants.getKey(legacyOpenKey));
+            KeyMapping.resetMapping();
+            client.options.save();
             LOGGER.info("Carried over the 'open profiles' key from KeyBindProfiles: {}", legacyOpenKey);
         } catch (RuntimeException e) {
             LOGGER.warn("Could not carry over the old 'open profiles' key '{}'", legacyOpenKey, e);
@@ -237,7 +237,7 @@ public class KeyBindProfilesPlus implements ClientModInitializer {
     }
 
     private static void openProfileScreenWhenKeyPressed() {
-        while (openProfileScreenKey.wasPressed()) {
+        while (openProfileScreenKey.consumeClick()) {
             openConfigScreen(null);
         }
     }

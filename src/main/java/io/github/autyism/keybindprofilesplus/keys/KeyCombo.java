@@ -1,12 +1,11 @@
 package io.github.autyism.keybindprofilesplus.keys;
 
-import net.minecraft.client.util.InputUtil;
-import net.minecraft.text.MutableText;
-import net.minecraft.text.Text;
-
+import com.mojang.blaze3d.platform.InputConstants;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 
 /**
  * A key together with the modifier keys that must be held with it: "Ctrl + X".
@@ -59,32 +58,32 @@ public record KeyCombo(int modifiers, String key) {
     }
 
     /** The main key, or null when the name is not a key the game knows. */
-    public InputUtil.Key inputKey() {
+    public InputConstants.Key inputKey() {
         try {
-            return InputUtil.fromTranslationKey(key);
+            return InputConstants.getKey(key);
         } catch (IllegalArgumentException e) {
             return null;
         }
     }
 
     /** "Ctrl + Shift + X" in the game's language. */
-    public Text displayText() {
-        InputUtil.Key inputKey = inputKey();
-        return withModifiers(modifiers, inputKey == null ? Text.literal(key) : inputKey.getLocalizedText());
+    public Component displayText() {
+        InputConstants.Key inputKey = inputKey();
+        return withModifiers(modifiers, inputKey == null ? Component.literal(key) : inputKey.getDisplayName());
     }
 
     /** Formats a stored text value for display. */
-    public static Text describe(String encoded) {
+    public static Component describe(String encoded) {
         return parse(encoded).displayText();
     }
 
-    public static Text withModifiers(int modifiers, Text keyName) {
+    public static Component withModifiers(int modifiers, Component keyName) {
         if (modifiers == 0) {
             return keyName;
         }
-        MutableText text = Text.empty();
+        MutableComponent text = Component.empty();
         for (String name : modifierNames(modifiers)) {
-            text.append(Text.translatable("keybindprofilesplus.modifier." + name)).append(" + ");
+            text.append(Component.translatable("keybindprofilesplus.modifier." + name)).append(" + ");
         }
         return text.append(keyName);
     }
@@ -92,9 +91,9 @@ public record KeyCombo(int modifiers, String key) {
     /** The modifier a key stands for when held ({@link #CTRL} for either Control key...), or 0. */
     public static int modifierOfKeyCode(int keyCode) {
         return switch (keyCode) {
-            case InputUtil.GLFW_KEY_LEFT_CONTROL, InputUtil.GLFW_KEY_RIGHT_CONTROL -> CTRL;
-            case InputUtil.GLFW_KEY_LEFT_SHIFT, InputUtil.GLFW_KEY_RIGHT_SHIFT -> SHIFT;
-            case InputUtil.GLFW_KEY_LEFT_ALT, InputUtil.GLFW_KEY_RIGHT_ALT -> ALT;
+            case InputConstants.KEY_LCONTROL, InputConstants.KEY_RCONTROL -> CTRL;
+            case InputConstants.KEY_LSHIFT, InputConstants.KEY_RSHIFT -> SHIFT;
+            case InputConstants.KEY_LALT, InputConstants.KEY_RALT -> ALT;
             default -> 0;
         };
     }

@@ -18,19 +18,17 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.SharedConstants;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.option.KeyBinding;
-import net.minecraft.client.util.InputUtil;
-import net.minecraft.resource.DataConfiguration;
-import net.minecraft.resource.featuretoggle.FeatureFlags;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.Difficulty;
-import net.minecraft.world.GameMode;
-import net.minecraft.world.gen.GeneratorOptions;
-import net.minecraft.world.gen.WorldPresets;
-import net.minecraft.world.level.LevelInfo;
-import net.minecraft.world.rule.GameRules;
-
+import net.minecraft.world.flag.FeatureFlags;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.LevelSettings;
+import net.minecraft.world.level.WorldDataConfiguration;
+import net.minecraft.world.level.gamerules.GameRules;
+import net.minecraft.world.level.levelgen.WorldOptions;
+import net.minecraft.world.level.levelgen.presets.WorldPresets;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -45,6 +43,8 @@ import static io.github.autyism.keybindprofilesplus.selftest.LogicChecks.DEMO_UN
 import static io.github.autyism.keybindprofilesplus.selftest.LogicChecks.PROFILE_A;
 import static io.github.autyism.keybindprofilesplus.selftest.LogicChecks.PROFILE_C;
 import static io.github.autyism.keybindprofilesplus.selftest.LogicChecks.PROFILE_PREFIX;
+
+import com.mojang.blaze3d.platform.InputConstants;
 
 /**
  * Development-only automated check. It only runs when the dev client is started with
@@ -110,30 +110,30 @@ public final class SelfTest extends SelfTestRunner {
      * the Debug category (an F3 combination of its own). They only exist while the self-test is running. Their creator is forgotten on purpose so the naming rules are used.
      */
     private static void registerDemoBindings() {
-        List<KeyBinding> demo = List.of(
-                new KeyBinding(DEMO_MOD_BINDING, InputUtil.Type.KEYSYM, InputUtil.GLFW_KEY_KP_5, KeyBinding.Category.MISC),
-                new KeyBinding(DEMO_SCREEN_BINDING, InputUtil.Type.KEYSYM, InputUtil.UNKNOWN_KEY.getCode(), KeyBinding.Category.MISC),
-                new KeyBinding(DEMO_UNKNOWN_BINDING, InputUtil.Type.KEYSYM, InputUtil.UNKNOWN_KEY.getCode(),
-                        KeyBinding.Category.create(Identifier.of("selftestmod", "demo"))),
-                new KeyBinding(DEMO_DEBUG_BINDING, InputUtil.Type.KEYSYM, InputUtil.GLFW_KEY_J, KeyBinding.Category.DEBUG));
-        for (KeyBinding binding : demo) {
+        List<KeyMapping> demo = List.of(
+                new KeyMapping(DEMO_MOD_BINDING, InputConstants.Type.KEYSYM, InputConstants.KEY_NUMPAD5, KeyMapping.Category.MISC),
+                new KeyMapping(DEMO_SCREEN_BINDING, InputConstants.Type.KEYSYM, InputConstants.UNKNOWN.getValue(), KeyMapping.Category.MISC),
+                new KeyMapping(DEMO_UNKNOWN_BINDING, InputConstants.Type.KEYSYM, InputConstants.UNKNOWN.getValue(),
+                        KeyMapping.Category.register(Identifier.fromNamespaceAndPath("selftestmod", "demo"))),
+                new KeyMapping(DEMO_DEBUG_BINDING, InputConstants.Type.KEYSYM, InputConstants.KEY_J, KeyMapping.Category.DEBUG));
+        for (KeyMapping binding : demo) {
             KeyBindingHelper.registerKeyBinding(binding);
             KeyOrigins.forget(binding);
         }
     }
 
-    private void tick(MinecraftClient client) {
+    private void tick(Minecraft client) {
         if (finished) {
             return;
         }
         if (!started) {
-            boolean ready = client.getOverlay() == null && client.currentScreen != null && client.world == null;
+            boolean ready = client.getOverlay() == null && client.screen != null && client.level == null;
             readyTicks = ready ? readyTicks + 1 : 0;
             if (readyTicks < READY_TICKS) {
                 return;
             }
             started = true;
-            homeScreen = client.currentScreen;
+            homeScreen = client.screen;
             buildSteps(client);
             log("START steps=" + stepCount());
             return;
@@ -143,7 +143,7 @@ public final class SelfTest extends SelfTestRunner {
         }
     }
 
-    private void finish(MinecraftClient client) {
+    private void finish(Minecraft client) {
         finished = true;
         try {
             cleanup(client);
@@ -153,12 +153,12 @@ public final class SelfTest extends SelfTestRunner {
         }
         log("SUMMARY " + summary());
         log("DONE");
-        client.scheduleStop();
+        client.stop();
     }
 
     // ------------------------------------------------------------------ scenario
 
-    private void buildSteps(MinecraftClient client) {
+    private void buildSteps(Minecraft client) {
         step("environment", () -> logEnvironment(client));
         step("snapshot current settings", () -> snapshot(client));
         // Staged by the harness before this start, written before any mod read its settings.
@@ -219,7 +219,7 @@ public final class SelfTest extends SelfTestRunner {
             KeyBindProfilesPlus.settings().setAutoSwitch(true);
         });
         stepUntil("world: create and enter " + WORLD_NAME, () -> enterWorld(client),
-                () -> client.player != null && client.world != null && client.currentScreen == null, 20 * 90);
+                () -> client.player != null && client.level != null && client.screen == null, 20 * 90);
         step("world: settle", 30, () -> {
         });
         step("world: auto-switch rules", 2, () -> worldAutoSwitch(client));
@@ -243,21 +243,21 @@ public final class SelfTest extends SelfTestRunner {
      * Every screen once more at the smallest interface size the game allows (what "GUI Scale: Auto"
      * gives, about 427 x 240), to see that nothing is pushed off the screen there.
      */
-    private void smallWindowTour(MinecraftClient client) {
+    private void smallWindowTour(Minecraft client) {
         // The interface shrinks while a screen is open, as when the window is dragged smaller.
         open("key binds screen before the interface shrinks", () -> new KeyOverviewScreen(homeScreen));
         step("small: largest interface scale", SCREEN_SETTLE_TICKS, () -> {
             var window = client.getWindow();
-            savedScaleFactor = window.getScaleFactor();
-            window.setScaleFactor(window.calculateScaleFactor(0, client.forcesUnicodeFont()));
-            client.currentScreen.resize(window.getScaledWidth(), window.getScaledHeight());
-            log("small: interface is now " + window.getScaledWidth() + "x" + window.getScaledHeight() + " (scale " + window.getScaleFactor() + ")");
+            savedScaleFactor = window.getGuiScale();
+            window.setGuiScale(window.calculateScale(0, client.isEnforceUnicode()));
+            client.screen.resize(window.getGuiScaledWidth(), window.getGuiScaledHeight());
+            log("small: interface is now " + window.getGuiScaledWidth() + "x" + window.getGuiScaledHeight() + " (scale " + window.getGuiScale() + ")");
         });
         step("small: the open screen was laid out again", () -> {
             var manage = widget(translated("keybindprofilesplus.open"));
             var done = widget(translated("gui.done"));
-            check("small: a screen that was open while the interface shrank fits the new size (" + manage.getX() + " .. " + (done.getX() + done.getWidth()) + " of " + client.currentScreen.width + ")",
-                    isScreen(KeyOverviewScreen.class) && manage.getX() >= 0 && done.getX() + done.getWidth() <= client.currentScreen.width);
+            check("small: a screen that was open while the interface shrank fits the new size (" + manage.getX() + " .. " + (done.getX() + done.getWidth()) + " of " + client.screen.width + ")",
+                    isScreen(KeyOverviewScreen.class) && manage.getX() >= 0 && done.getX() + done.getWidth() <= client.screen.width);
         });
         shot("small_keybinds_after_resize");
         step("small: main screen", SCREEN_SETTLE_TICKS, () -> {
@@ -278,23 +278,23 @@ public final class SelfTest extends SelfTestRunner {
         smallVisit("keybindprofilesplus.overview.open", "small_overview", "gui.done");
         smallVisit("keybindprofilesplus.rules.open", "small_server_rules", "gui.done");
         smallVisit("keybindprofilesplus.settings.open", "small_settings", "gui.done");
-        open("key binds screen from the options (small)", () -> new net.minecraft.client.gui.screen.option.KeybindsScreen(homeScreen, client.options));
+        open("key binds screen from the options (small)", () -> new net.minecraft.client.gui.screens.options.controls.KeyBindsScreen(homeScreen, client.options));
         step("small: the four buttons fit side by side", () -> {
             var manage = widget(translated("keybindprofilesplus.open"));
             var done = widget(translated("gui.done"));
-            check("small: the key binds screen's footer buttons are inside the screen (" + manage.getX() + " .. " + (done.getX() + done.getWidth()) + " of " + client.currentScreen.width + ")",
-                    manage.getX() >= 0 && done.getX() + done.getWidth() <= client.currentScreen.width && manage.getX() + manage.getWidth() <= widget(translated("keybindprofilesplus.compare.open_short")).getX());
+            check("small: the key binds screen's footer buttons are inside the screen (" + manage.getX() + " .. " + (done.getX() + done.getWidth()) + " of " + client.screen.width + ")",
+                    manage.getX() >= 0 && done.getX() + done.getWidth() <= client.screen.width && manage.getX() + manage.getWidth() <= widget(translated("keybindprofilesplus.compare.open_short")).getX());
         });
         shot("small_keybinds_from_options");
         step("small: the vanilla screen with the mod's buttons", SCREEN_SETTLE_TICKS, () -> {
             KeyBindProfilesPlus.settings().setReplaceKeyBinds(false);
-            client.setScreen(new net.minecraft.client.gui.screen.option.KeybindsScreen(homeScreen, client.options));
+            client.setScreen(new net.minecraft.client.gui.screens.options.controls.KeyBindsScreen(homeScreen, client.options));
         });
         step("small: the four buttons fit side by side there too", () -> {
             var manage = widget(translated("keybindprofilesplus.open"));
             var done = widget(translated("gui.done"));
-            check("small: vanilla footer buttons are inside the screen (" + manage.getX() + " .. " + (done.getX() + done.getWidth()) + " of " + client.currentScreen.width + ")",
-                    manage.getX() >= 0 && done.getX() + done.getWidth() <= client.currentScreen.width && manage.getX() + manage.getWidth() <= widget(translated("keybindprofilesplus.compare.open_short")).getX());
+            check("small: vanilla footer buttons are inside the screen (" + manage.getX() + " .. " + (done.getX() + done.getWidth()) + " of " + client.screen.width + ")",
+                    manage.getX() >= 0 && done.getX() + done.getWidth() <= client.screen.width && manage.getX() + manage.getWidth() <= widget(translated("keybindprofilesplus.compare.open_short")).getX());
             KeyBindProfilesPlus.settings().setReplaceKeyBinds(true);
         });
         shot("small_vanilla_keybinds");
@@ -315,17 +315,17 @@ public final class SelfTest extends SelfTestRunner {
         });
     }
 
-    private void restoreScale(MinecraftClient client) {
+    private void restoreScale(Minecraft client) {
         if (savedScaleFactor > 0) {
-            client.getWindow().setScaleFactor(savedScaleFactor);
+            client.getWindow().setGuiScale(savedScaleFactor);
             savedScaleFactor = 0;
-            if (client.currentScreen != null) {
-                client.currentScreen.resize(client.getWindow().getScaledWidth(), client.getWindow().getScaledHeight());
+            if (client.screen != null) {
+                client.screen.resize(client.getWindow().getGuiScaledWidth(), client.getWindow().getGuiScaledHeight());
             }
         }
     }
 
-    private void worldAutoSwitch(MinecraftClient client) {
+    private void worldAutoSwitch(Minecraft client) {
         ModSettings settings = KeyBindProfilesPlus.settings();
         ServerAutoSwitchController controller = KeyBindProfilesPlus.autoSwitchController();
         check("joining singleplayer auto-switched to " + PROFILE_A + " (specific rule beats *)", PROFILE_A.equals(service.getCurrentProfile()));
@@ -351,7 +351,7 @@ public final class SelfTest extends SelfTestRunner {
     }
 
     /** A profile's hotkey during play. The keys are pretended to be held: real key state cannot be faked. */
-    private void worldHotkey(MinecraftClient client) {
+    private void worldHotkey(Minecraft client) {
         ModSettings settings = KeyBindProfilesPlus.settings();
         ProfileHotkeyController hotkeys = KeyBindProfilesPlus.hotkeyController();
         List<String> keys = List.of("key.keyboard.keypad.5", "key.keyboard.f6");
@@ -361,7 +361,7 @@ public final class SelfTest extends SelfTestRunner {
             settings.setAutoSwitch(false);
             service.setProfileHotkey(PROFILE_C, keys);
             service.applyProfile(PROFILE_A);
-            hotkeys.setKeyStateForTesting(key -> down.contains(key.getTranslationKey()));
+            hotkeys.setKeyStateForTesting(key -> down.contains(key.getName()));
 
             down.add(keys.get(0));
             hotkeys.tick(client);
@@ -391,23 +391,23 @@ public final class SelfTest extends SelfTestRunner {
         }
     }
 
-    private void logEnvironment(MinecraftClient client) {
+    private void logEnvironment(Minecraft client) {
         var window = client.getWindow();
-        log("ENV minecraft=" + SharedConstants.getGameVersion().name()
+        log("ENV minecraft=" + SharedConstants.getCurrentVersion().name()
                 + " mod=" + FabricLoader.getInstance().getModContainer(KeyBindProfilesPlus.MOD_ID)
                 .map(mod -> mod.getMetadata().getVersion().getFriendlyString()).orElse("?")
-                + " framebuffer=" + window.getFramebufferWidth() + "x" + window.getFramebufferHeight()
-                + " scaled=" + window.getScaledWidth() + "x" + window.getScaledHeight()
-                + " guiScale=" + window.getScaleFactor()
+                + " framebuffer=" + window.getWidth() + "x" + window.getHeight()
+                + " scaled=" + window.getGuiScaledWidth() + "x" + window.getGuiScaledHeight()
+                + " guiScale=" + window.getGuiScale()
                 + " fullscreen=" + window.isFullscreen()
-                + " lang=" + client.getLanguageManager().getLanguage()
-                + " keyBindings=" + client.options.allKeys.length);
+                + " lang=" + client.getLanguageManager().getSelected()
+                + " keyBindings=" + client.options.keyMappings.length);
     }
 
-    private void snapshot(MinecraftClient client) {
+    private void snapshot(Minecraft client) {
         savedBindings.putAll(currentKeyValues());
         savedCurrentProfile = service.getCurrentProfile();
-        savedLanguage = client.getLanguageManager().getLanguage();
+        savedLanguage = client.getLanguageManager().getSelected();
         savedPauseOnLostFocus = client.options.pauseOnLostFocus;
         ModSettings settings = KeyBindProfilesPlus.settings();
         savedConfirmApply = settings.confirmApply();
@@ -428,34 +428,34 @@ public final class SelfTest extends SelfTestRunner {
         List<String> names = new ArrayList<>(service.profiles().keySet());
         names.sort(String.CASE_INSENSITIVE_ORDER);
         log("current profile before test: " + savedCurrentProfile + ", existing profiles: " + names);
-        for (KeyBinding binding : client.options.allKeys) {
+        for (KeyMapping binding : client.options.keyMappings) {
             for (KeyConflicts.Conflict conflict : KeyConflicts.conflictsOf(binding, client.options)) {
-                log("conflict in the current key layout: " + binding.getId() + " (" + binding.getBoundKeyLocalizedText().getString() + ") vs "
+                log("conflict in the current key layout: " + binding.getName() + " (" + binding.getTranslatedKeyMessage().getString() + ") vs "
                         + conflict.otherId() + " -> " + conflict.level() + " " + conflict.reason());
             }
         }
         deleteTestProfiles();
     }
 
-    private void enterWorld(MinecraftClient client) {
+    private void enterWorld(Minecraft client) {
         // The dev client is usually not the focused window; without this the pause menu would cover the HUD.
         client.options.pauseOnLostFocus = false;
-        Path worldDir = client.getLevelStorage().getSavesDirectory().resolve(WORLD_NAME);
+        Path worldDir = client.getLevelSource().getBaseDir().resolve(WORLD_NAME);
         try {
             LogicChecks.deleteRecursively(worldDir);
         } catch (IOException e) {
             fail("could not remove the old " + WORLD_NAME + " folder: " + e);
         }
 
-        LevelInfo levelInfo = new LevelInfo(WORLD_NAME, GameMode.CREATIVE, false, Difficulty.PEACEFUL, true,
-                new GameRules(FeatureFlags.DEFAULT_ENABLED_FEATURES), DataConfiguration.SAFE_MODE);
-        client.createIntegratedServerLoader().createAndStart(WORLD_NAME, levelInfo, GeneratorOptions.createTestWorld(),
-                WorldPresets::createTestOptions, homeScreen);
+        LevelSettings levelInfo = new LevelSettings(WORLD_NAME, GameType.CREATIVE, false, Difficulty.PEACEFUL, true,
+                new GameRules(FeatureFlags.DEFAULT_FLAGS), WorldDataConfiguration.DEFAULT);
+        client.createWorldOpenFlows().createFreshLevel(WORLD_NAME, levelInfo, WorldOptions.testWorldWithRandomSeed(),
+                WorldPresets::createFlatWorldDimensions, homeScreen);
     }
 
     // ------------------------------------------------------------------ cleanup
 
-    private void cleanup(MinecraftClient client) {
+    private void cleanup(Minecraft client) {
         restoreScale(client);
         deleteTestProfiles();
         logic.removeFixtures();
@@ -469,14 +469,14 @@ public final class SelfTest extends SelfTestRunner {
         }
         if (!savedBindings.isEmpty()) {
             KeyCombos.batch(() -> {
-                for (KeyBinding binding : client.options.allKeys) {
-                    String key = savedBindings.get(binding.getId());
+                for (KeyMapping binding : client.options.keyMappings) {
+                    String key = savedBindings.get(binding.getName());
                     if (key != null) {
                         KeyCombos.applyValue(binding, key);
                     }
                 }
             });
-            KeyBinding.updateKeysByCode();
+            KeyMapping.resetMapping();
             GameOptionsBridge.apply(client.options, savedOptions);
             settings.setConfirmApply(savedConfirmApply);
             settings.setAutoSwitch(savedAutoSwitch);
@@ -484,10 +484,10 @@ public final class SelfTest extends SelfTestRunner {
             settings.setReturnToDefault(savedReturnToDefault);
             settings.setReplaceKeyBinds(savedReplaceKeyBinds);
             client.options.pauseOnLostFocus = savedPauseOnLostFocus;
-            if (savedLanguage != null && !savedLanguage.equals(client.getLanguageManager().getLanguage())) {
+            if (savedLanguage != null && !savedLanguage.equals(client.getLanguageManager().getSelected())) {
                 setLanguage(client, savedLanguage);
             }
-            client.options.write();
+            client.options.save();
             service.saveCurrentProfile(savedCurrentProfile != null && service.profiles().containsKey(savedCurrentProfile) ? savedCurrentProfile : null);
             log("restored " + savedBindings.size() + " key bindings and current profile '" + service.getCurrentProfile() + "'");
             check("cleanup: key bindings are back as they were", currentKeyValues().equals(savedBindings));
@@ -500,7 +500,7 @@ public final class SelfTest extends SelfTestRunner {
             }
         }
         check("cleanup: no " + PROFILE_PREFIX + "* profiles left", leftovers.isEmpty());
-        if (client.world == null) {
+        if (client.level == null) {
             client.setScreen(homeScreen);
         }
     }
@@ -514,9 +514,9 @@ public final class SelfTest extends SelfTestRunner {
         }
     }
 
-    private static void setLanguage(MinecraftClient client, String code) {
+    private static void setLanguage(Minecraft client, String code) {
         // Only the in-memory language is switched; options.txt keeps the user's choice.
-        client.getLanguageManager().setLanguage(code);
-        client.getLanguageManager().reload(client.getResourceManager());
+        client.getLanguageManager().setSelected(code);
+        client.getLanguageManager().onResourceManagerReload(client.getResourceManager());
     }
 }
