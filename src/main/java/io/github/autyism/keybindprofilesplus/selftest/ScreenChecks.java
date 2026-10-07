@@ -266,6 +266,8 @@ final class ScreenChecks {
         t.bind("key.sprint", "key.keyboard.f14");
         t.bind("key.playerlist", "ctrl+key.keyboard.f16");
         t.bind("key.smoothCamera", "key.keyboard.z");
+        // Before 1.21.11 the debug keys were no key bindings: nothing to share a key with
+        //? if >=1.21.11 {
         for (KeyMapping debug : client().options.keyMappings) {
             if (KeyConflicts.scopeOf(debug, sources) != KeyConflicts.Scope.DEBUG_COMBO || debug.isUnbound()) {
                 continue;
@@ -288,6 +290,7 @@ final class ScreenChecks {
         }
         t.check("examples: advancements shares its key only with an F3 combination",
                 KeyConflicts.conflictsOf(SelfTestRunner.binding("key.advancements"), client().options).isEmpty());
+        //?}
         t.check("examples: the cinematic camera on Z clashes with the Meteor module on Z",
                 KeyConflicts.conflictsOf(SelfTestRunner.binding("key.smoothCamera"), client().options).stream().anyMatch(conflict -> conflict.external() != null));
     }
@@ -376,14 +379,17 @@ final class ScreenChecks {
             String debugKey = SelfTestRunner.keyLabel("key.advancements");
             t.check("overview: the real conflict on " + hardKey + " is marked", t.hasWidget("[ " + hardKey + " ]"));
             t.check("overview: the possible conflict on " + softKey + " is marked", t.hasWidget("[ " + softKey + " ]"));
+            //? if >=1.21.11
             t.check("overview: sharing " + debugKey + " with an F3 combination is not marked", !t.hasWidget("[ " + debugKey + " ]") && t.hasWidget(debugKey));
             t.check("overview: a key that clashes with a Meteor module is marked", t.hasWidget("[ " + SelfTestRunner.keyLabel("key.smoothCamera") + " ]"));
             t.check("overview: attack and use, which only share the mouse buttons with Litematica's tool, are not marked",
                     !t.hasWidget("[ " + SelfTestRunner.keyLabel("key.attack") + " ]") && !t.hasWidget("[ " + SelfTestRunner.keyLabel("key.use") + " ]"));
             t.check("overview: combinations are shown as such", t.hasWidget("Ctrl + F16"));
+            //? if >=1.21.11 {
             String modDebugKey = SelfTestRunner.keyLabel(LogicChecks.DEMO_DEBUG_BINDING);
             t.check("overview: a mod's F3 combination on " + modDebugKey + " is not marked although a Meteor module is on " + modDebugKey,
                     KeyConflicts.conflictsOf(SelfTestRunner.binding(LogicChecks.DEMO_DEBUG_BINDING), client().options).isEmpty());
+            //?}
             KeyConflicts.Summary summary = KeyConflicts.summarize(client().options);
             t.check("overview: summary counts them (" + summary.hard() + " conflicts, " + summary.soft() + " possible)", summary.hard() >= 3 && summary.soft() >= 2);
         });
@@ -430,7 +436,11 @@ final class ScreenChecks {
                 int mods = overview.visibleBindingCount();
                 overview.setSourceFilter(KeyOverviewScreen.FILTER_ALL);
                 t.check("overview: Minecraft (" + vanilla + ") + mods (" + mods + ") = everything (" + overview.visibleBindingCount() + ")",
+                        // before 1.21.11 the game had no debug key bindings: about 35 instead of 55
+                        //? if >=1.21.11 {
                         vanilla > 50 && mods >= 4 && vanilla + mods == overview.visibleBindingCount());
+                        //?} else
+                        /*vanilla > 30 && mods >= 4 && vanilla + mods == overview.visibleBindingCount());*/
             });
             t.step("overview: conflicts only", 3, () -> {
                 KeyOverviewScreen overview = t.screen(KeyOverviewScreen.class);
@@ -976,8 +986,10 @@ final class ScreenChecks {
             String debugKey = SelfTestRunner.keyLabel("key.advancements");
             t.check("vanilla list: the real conflict on " + hardKey + " is marked", t.hasWidget("[ " + hardKey + " ]"));
             t.check("vanilla list: the possible conflict on " + softKey + " is marked", t.hasWidget("[ " + softKey + " ]"));
+            //? if >=1.21.11 {
             t.check("vanilla list: sharing " + debugKey + " with an F3 combination is not marked",
                     !t.hasWidget("[ " + debugKey + " ]") && t.hasWidget(debugKey));
+            //?}
             t.check("vanilla list: a key that clashes with a Meteor module is marked", t.hasWidget("[ " + SelfTestRunner.keyLabel("key.smoothCamera") + " ]"));
             t.check("vanilla list: combinations are shown as such", t.hasWidget("Ctrl + F16"));
             KeyConflicts.Summary summary = KeyConflicts.summarize(client().options);

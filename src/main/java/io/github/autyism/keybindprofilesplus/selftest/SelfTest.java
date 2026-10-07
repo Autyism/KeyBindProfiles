@@ -116,8 +116,12 @@ public final class SelfTest extends SelfTestRunner {
                 new KeyMapping(DEMO_MOD_BINDING, InputConstants.Type.KEYSYM, InputConstants.KEY_NUMPAD5, KeyMapping.Category.MISC),
                 new KeyMapping(DEMO_SCREEN_BINDING, InputConstants.Type.KEYSYM, InputConstants.UNKNOWN.getValue(), KeyMapping.Category.MISC),
                 new KeyMapping(DEMO_UNKNOWN_BINDING, InputConstants.Type.KEYSYM, InputConstants.UNKNOWN.getValue(),
-                        KeyMapping.Category.register(Identifier.fromNamespaceAndPath("selftestmod", "demo"))),
-                new KeyMapping(DEMO_DEBUG_BINDING, InputConstants.Type.KEYSYM, InputConstants.KEY_J, KeyMapping.Category.DEBUG));
+                        KeyMapping.Category.register(Identifier.fromNamespaceAndPath("selftestmod", "demo")))
+                // Before 1.21.11 the debug keys were no key bindings, so there is no Debug category to put one into
+                //? if >=1.21.11 {
+                , new KeyMapping(DEMO_DEBUG_BINDING, InputConstants.Type.KEYSYM, InputConstants.KEY_J, KeyMapping.Category.DEBUG)
+                //?}
+        );
         for (KeyMapping binding : demo) {
             KeyBindingHelper.registerKeyBinding(binding);
             KeyOrigins.forget(binding);
@@ -254,7 +258,10 @@ public final class SelfTest extends SelfTestRunner {
             var window = client.getWindow();
             savedScaleFactor = window.getGuiScale();
             window.setGuiScale(window.calculateScale(0, client.isEnforceUnicode()));
+            //? if >=1.21.11 {
             client.screen.resize(window.getGuiScaledWidth(), window.getGuiScaledHeight());
+            //?} else
+            /*client.screen.resize(client, window.getGuiScaledWidth(), window.getGuiScaledHeight());*/
             log("small: interface is now " + window.getGuiScaledWidth() + "x" + window.getGuiScaledHeight() + " (scale " + window.getGuiScale() + ")");
         });
         step("small: the open screen was laid out again", () -> {
@@ -324,7 +331,10 @@ public final class SelfTest extends SelfTestRunner {
             client.getWindow().setGuiScale(savedScaleFactor);
             savedScaleFactor = 0;
             if (client.screen != null) {
+                //? if >=1.21.11 {
                 client.screen.resize(client.getWindow().getGuiScaledWidth(), client.getWindow().getGuiScaledHeight());
+                //?} else
+                /*client.screen.resize(client, client.getWindow().getGuiScaledWidth(), client.getWindow().getGuiScaledHeight());*/
             }
         }
     }

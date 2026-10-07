@@ -151,7 +151,10 @@ public class KeyOverviewScreen extends ResizingScreen {
                     refreshList(false);
                 }));
         groupButton = second.addChild(CycleButton.<Boolean>builder(bySource -> Component.translatable(
+                        //? if >=1.21.11 {
                         bySource ? "keybindprofilesplus.overview.group.source" : "keybindprofilesplus.overview.group.category"), groupBySource)
+                        //?} else
+                        /*bySource ? "keybindprofilesplus.overview.group.source" : "keybindprofilesplus.overview.group.category")).withInitialValue(groupBySource)*/
                 .withValues(Boolean.FALSE, Boolean.TRUE)
                 .create(0, 0, half, 20, Component.translatable("keybindprofilesplus.overview.group"), (button, value) -> {
                     groupBySource = value;
