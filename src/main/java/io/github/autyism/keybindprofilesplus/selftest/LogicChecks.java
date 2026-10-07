@@ -304,7 +304,10 @@ final class LogicChecks {
             t.check("conflicts: the default key bindings have none (" + defaults.hard() + " / " + defaults.soft() + ")", defaults.isEmpty());
 
             t.bind("key.jump", "key.keyboard.g");
+            //? if >=1.21.6 {
             conflict("a normal key on G conflicts with Quick Actions (also G), never with F3+G", "key.jump", KeyConflicts.Level.HARD, 1, "general");
+            //?} else
+            /*conflict("a normal key on G is free (Quick Actions came in 1.21.6) and never clashes with F3+G", "key.jump", KeyConflicts.Level.NONE, 0, null);*/
             t.bind("key.jump", "key.keyboard.b");
             conflict("a normal key on B and F3+B (show hitboxes) do not conflict", "key.jump", KeyConflicts.Level.NONE, 0, null);
             t.bind("key.jump", "key.keyboard.1");
