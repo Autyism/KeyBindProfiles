@@ -1,6 +1,6 @@
 # Shared values; per-version sections below override or add to them.
 mod.id = "keybindprofilesplus"
-mod.version = "0.2.0"
+mod.version = "0.2.1"
 mod.group = "io.github.autyism.keybindprofilesplus"
 mod.loader_compat = ">=0.17.3"
 mod.java_compat = ">=21"
