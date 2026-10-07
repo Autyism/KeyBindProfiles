@@ -7,10 +7,6 @@ import io.github.autyism.keybindprofilesplus.keys.KeyCombos;
 import io.github.autyism.keybindprofilesplus.keys.KeyLabels;
 import io.github.autyism.keybindprofilesplus.options.GameOptionsBridge;
 import io.github.autyism.keybindprofilesplus.options.OptionCatalog;
-import net.minecraft.client.option.GameOptions;
-import net.minecraft.client.option.KeyBinding;
-import net.minecraft.text.Text;
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
@@ -18,6 +14,9 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Options;
+import net.minecraft.network.chat.Component;
 
 /**
  * Side-by-side comparison of two sets of settings. Each side is either a saved profile or the
@@ -40,26 +39,26 @@ public final class ProfileComparison {
      * @param group heading the row belongs under (key binding category or settings group)
      * @param left  formatted value on the left side; null when that side does not save the item
      */
-    public record Row(boolean keyBinding, String id, Text name, Text group, Text left, Text right, State state) {
+    public record Row(boolean keyBinding, String id, Component name, Component group, Component left, Component right, State state) {
     }
 
     public record Result(List<Row> rows, int different, int oneSided) {
     }
 
-    public static Result compare(ProfileService service, GameOptions options, String leftProfile, String rightProfile) {
+    public static Result compare(ProfileService service, Options options, String leftProfile, String rightProfile) {
         List<Row> rows = new ArrayList<>();
         Map<String, String> leftKeys = keysOf(service, leftProfile);
         Map<String, String> rightKeys = keysOf(service, rightProfile);
 
-        KeyBinding[] bindings = options.allKeys.clone();
+        KeyMapping[] bindings = options.keyMappings.clone();
         Arrays.sort(bindings);
         Set<String> liveIds = new LinkedHashSet<>();
-        for (KeyBinding binding : bindings) {
-            liveIds.add(binding.getId());
-            String left = leftProfile == null ? KeyCombos.valueOf(binding) : leftKeys.get(binding.getId());
-            String right = rightProfile == null ? KeyCombos.valueOf(binding) : rightKeys.get(binding.getId());
-            addRow(rows, true, binding.getId(), KeyLabels.name(binding), KeyLabels.category(binding.getCategory()),
-                    left, right, describeKey(binding.getId(), left), describeKey(binding.getId(), right));
+        for (KeyMapping binding : bindings) {
+            liveIds.add(binding.getName());
+            String left = leftProfile == null ? KeyCombos.valueOf(binding) : leftKeys.get(binding.getName());
+            String right = rightProfile == null ? KeyCombos.valueOf(binding) : rightKeys.get(binding.getName());
+            addRow(rows, true, binding.getName(), KeyLabels.name(binding), KeyLabels.category(binding.getCategory()),
+                    left, right, describeKey(binding.getName(), left), describeKey(binding.getName(), right));
         }
 
         // Hotkeys of other mods (Meteor, malilib) that are running and can be saved in profiles.
@@ -78,11 +77,11 @@ public final class ProfileComparison {
         Set<String> orphanIds = new LinkedHashSet<>(leftKeys.keySet());
         orphanIds.addAll(rightKeys.keySet());
         orphanIds.removeAll(liveIds);
-        Text orphanGroup = Text.translatable("keybindprofilesplus.contents.keys_missing");
+        Component orphanGroup = Component.translatable("keybindprofilesplus.contents.keys_missing");
         for (String id : orphanIds) {
             String left = leftKeys.get(id);
             String right = rightKeys.get(id);
-            Text name = ExternalKeys.isExternalId(id) ? ExternalKeys.nameOf(id).copy().append(" [").append(ExternalKeys.groupOf(id)).append("]") : KeyLabels.name(id);
+            Component name = ExternalKeys.isExternalId(id) ? ExternalKeys.nameOf(id).copy().append(" [").append(ExternalKeys.groupOf(id)).append("]") : KeyLabels.name(id);
             addRow(rows, true, id, name, orphanGroup, left, right, describeKey(id, left), describeKey(id, right));
         }
 
@@ -115,8 +114,8 @@ public final class ProfileComparison {
         return new Result(rows, different, oneSided);
     }
 
-    private static void addRow(List<Row> rows, boolean keyBinding, String id, Text name, Text group,
-                               String leftRaw, String rightRaw, Text left, Text right) {
+    private static void addRow(List<Row> rows, boolean keyBinding, String id, Component name, Component group,
+                               String leftRaw, String rightRaw, Component left, Component right) {
         if (leftRaw == null && rightRaw == null) {
             return;
         }
@@ -137,7 +136,7 @@ public final class ProfileComparison {
         return left.equals(right) || (ExternalKeys.isExternalId(id) && ExternalKeys.isUnboundValue(left) && ExternalKeys.isUnboundValue(right));
     }
 
-    private static Text describeKey(String id, String value) {
+    private static Component describeKey(String id, String value) {
         if (value == null) {
             return null;
         }

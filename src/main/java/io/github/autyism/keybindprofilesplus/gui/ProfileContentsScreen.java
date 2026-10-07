@@ -9,25 +9,6 @@ import io.github.autyism.keybindprofilesplus.options.GameOptionsBridge;
 import io.github.autyism.keybindprofilesplus.options.OptionCatalog;
 import io.github.autyism.keybindprofilesplus.profile.ProfileNames;
 import io.github.autyism.keybindprofilesplus.profile.ProfileService;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.Click;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.Element;
-import net.minecraft.client.gui.Selectable;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.tooltip.Tooltip;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.client.gui.widget.DirectionalLayoutWidget;
-import net.minecraft.client.gui.widget.ElementListWidget;
-import net.minecraft.client.gui.widget.EmptyWidget;
-import net.minecraft.client.gui.widget.TextFieldWidget;
-import net.minecraft.client.gui.widget.TextWidget;
-import net.minecraft.client.gui.widget.ThreePartsLayoutWidget;
-import net.minecraft.client.option.KeyBinding;
-import net.minecraft.screen.ScreenTexts;
-import net.minecraft.text.Text;
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -37,6 +18,24 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.ContainerObjectSelectionList;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.components.StringWidget;
+import net.minecraft.client.gui.components.Tooltip;
+import net.minecraft.client.gui.components.events.GuiEventListener;
+import net.minecraft.client.gui.layouts.HeaderAndFooterLayout;
+import net.minecraft.client.gui.layouts.LinearLayout;
+import net.minecraft.client.gui.layouts.SpacerElement;
+import net.minecraft.client.gui.narration.NarratableEntry;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.network.chat.CommonComponents;
+import net.minecraft.network.chat.Component;
 
 /**
  * "What does this profile save?" - a tree with a check box on every branch and leaf.
@@ -58,17 +57,17 @@ public class ProfileContentsScreen extends ResizingScreen {
     private final String profileName;
     private final boolean creating;
     private final Consumer<String> onSaved;
-    private ThreePartsLayoutWidget layout;
-    private final Group root = new Group("root", Text.empty());
+    private HeaderAndFooterLayout layout;
+    private final Group root = new Group("root", Component.empty());
     private final Map<String, Node> nodesById = new HashMap<>();
 
-    private TextFieldWidget searchField;
-    private TextFieldWidget nameField;
+    private EditBox searchField;
+    private EditBox nameField;
     private String newName = "";
-    private Text error;
+    private Component error;
     private TreeList list;
     private String query = "";
-    private Text summary = Text.empty();
+    private Component summary = Component.empty();
     private boolean built;
 
     /**
@@ -89,7 +88,7 @@ public class ProfileContentsScreen extends ResizingScreen {
     }
 
     private ProfileContentsScreen(Screen parent, ProfileService service, String profileName, boolean creating, Consumer<String> onSaved) {
-        super(creating ? Text.translatable("keybindprofilesplus.new.title") : Text.translatable("keybindprofilesplus.contents.title", profileName));
+        super(creating ? Component.translatable("keybindprofilesplus.new.title") : Component.translatable("keybindprofilesplus.contents.title", profileName));
         this.parent = parent;
         this.service = service;
         this.profileName = profileName;
@@ -105,77 +104,77 @@ public class ProfileContentsScreen extends ResizingScreen {
             built = true;
         }
 
-        DirectionalLayoutWidget header = layout.addHeader(DirectionalLayoutWidget.vertical().spacing(4));
-        header.getMainPositioner().alignHorizontalCenter();
-        header.add(new TextWidget(title, textRenderer));
+        LinearLayout header = layout.addToHeader(LinearLayout.vertical().spacing(4));
+        header.defaultCellSetting().alignHorizontallyCenter();
+        header.addChild(new StringWidget(title, font));
         if (creating) {
             // The field has the focus from the start, which hides a hint inside it: so the label sits beside it.
-            Text nameLabel = Text.translatable("keybindprofilesplus.profile_name");
+            Component nameLabel = Component.translatable("keybindprofilesplus.profile_name");
             int rowWidth = Math.max(100, Math.min(260, width - 40));
-            DirectionalLayoutWidget nameRow = header.add(DirectionalLayoutWidget.horizontal().spacing(6));
-            nameRow.getMainPositioner().alignVerticalCenter();
-            nameRow.add(new TextWidget(nameLabel, textRenderer));
-            nameField = nameRow.add(new TextFieldWidget(textRenderer, Math.max(60, rowWidth - textRenderer.getWidth(nameLabel) - 6), 20, nameLabel));
+            LinearLayout nameRow = header.addChild(LinearLayout.horizontal().spacing(6));
+            nameRow.defaultCellSetting().alignVerticallyMiddle();
+            nameRow.addChild(new StringWidget(nameLabel, font));
+            nameField = nameRow.addChild(new EditBox(font, Math.max(60, rowWidth - font.width(nameLabel) - 6), 20, nameLabel));
             nameField.setMaxLength(ProfileNames.MAX_LENGTH);
-            nameField.setText(newName);
-            nameField.setChangedListener(value -> {
+            nameField.setValue(newName);
+            nameField.setResponder(value -> {
                 newName = value;
                 error = null;
             });
         }
-        searchField = header.add(new TextFieldWidget(textRenderer, Math.max(100, Math.min(260, width - 40)), 20,
-                Text.translatable("keybindprofilesplus.contents.search")));
+        searchField = header.addChild(new EditBox(font, Math.max(100, Math.min(260, width - 40)), 20,
+                Component.translatable("keybindprofilesplus.contents.search")));
         searchField.setMaxLength(64);
-        searchField.setText(query);
-        searchField.setPlaceholder(Text.translatable("keybindprofilesplus.contents.search").setStyle(TextFieldWidget.SEARCH_STYLE));
-        searchField.setChangedListener(value -> {
+        searchField.setValue(query);
+        searchField.setHint(Component.translatable("keybindprofilesplus.contents.search").setStyle(EditBox.SEARCH_HINT_STYLE));
+        searchField.setResponder(value -> {
             query = value;
             refreshRows(false);
         });
         // Placeholder line: the summary text is drawn here by render().
-        header.add(new EmptyWidget(1, textRenderer.fontHeight));
+        header.addChild(new SpacerElement(1, font.lineHeight));
 
-        list = layout.addBody(new TreeList(client));
+        list = layout.addToContents(new TreeList(minecraft));
 
-        DirectionalLayoutWidget footer = layout.addFooter(DirectionalLayoutWidget.horizontal().spacing(8));
+        LinearLayout footer = layout.addToFooter(LinearLayout.horizontal().spacing(8));
         int buttonWidth = Math.max(70, Math.min(150, (width - 40) / 3));
         if (creating) {
             // A new profile always takes the values the game has right now, so there is nothing to "use current values" for.
-            footer.add(ButtonWidget.builder(Text.translatable("keybindprofilesplus.new.create"), button -> save()).width(buttonWidth).build());
+            footer.addChild(Button.builder(Component.translatable("keybindprofilesplus.new.create"), button -> save()).width(buttonWidth).build());
         } else {
-            footer.add(ButtonWidget.builder(Text.translatable("keybindprofilesplus.contents.recapture"), button -> recapture())
+            footer.addChild(Button.builder(Component.translatable("keybindprofilesplus.contents.recapture"), button -> recapture())
                     .width(buttonWidth)
-                    .tooltip(Tooltip.of(Text.translatable("keybindprofilesplus.contents.recapture.tooltip")))
+                    .tooltip(Tooltip.create(Component.translatable("keybindprofilesplus.contents.recapture.tooltip")))
                     .build());
-            footer.add(ButtonWidget.builder(ScreenTexts.DONE, button -> save()).width(buttonWidth).build());
+            footer.addChild(Button.builder(CommonComponents.GUI_DONE, button -> save()).width(buttonWidth).build());
         }
-        footer.add(ButtonWidget.builder(ScreenTexts.CANCEL, button -> close()).width(buttonWidth).build());
+        footer.addChild(Button.builder(CommonComponents.GUI_CANCEL, button -> onClose()).width(buttonWidth).build());
 
-        layout.forEachChild(this::addDrawableChild);
+        layout.visitWidgets(this::addRenderableWidget);
         refreshRows(false);
-        refreshWidgetPositions();
+        repositionElements();
     }
 
     @Override
-    protected void refreshWidgetPositions() {
+    protected void repositionElements() {
         if (rebuiltAfterResize()) {
             return;
         }
-        layout.refreshPositions();
+        layout.arrangeElements();
         if (list != null) {
-            list.position(width, layout);
+            list.updateSize(width, layout);
         }
     }
 
     @Override
-    public void close() {
-        client.setScreen(parent);
+    public void onClose() {
+        minecraft.setScreen(parent);
     }
 
     @Override
-    public void render(DrawContext context, int mouseX, int mouseY, float deltaTicks) {
+    public void render(GuiGraphics context, int mouseX, int mouseY, float deltaTicks) {
         super.render(context, mouseX, mouseY, deltaTicks);
-        context.drawCenteredTextWithShadow(textRenderer, error != null ? error : summary, width / 2, searchField.getY() + 24,
+        context.drawCenteredString(font, error != null ? error : summary, width / 2, searchField.getY() + 24,
                 error != null ? GuiUtil.RED : GuiUtil.GRAY);
     }
 
@@ -204,18 +203,18 @@ public class ProfileContentsScreen extends ResizingScreen {
             String name = newName.trim();
             String problem = ProfileNames.validate(name);
             if (problem == null && ProfileNames.containsIgnoreCase(service.profiles().keySet(), name)) {
-                error = Text.translatable("keybindprofilesplus.status.profile_exists", name);
+                error = Component.translatable("keybindprofilesplus.status.profile_exists", name);
                 return;
             }
             if (problem != null) {
-                error = Text.translatable(problem);
+                error = Component.translatable(problem);
                 return;
             }
             if (!service.createProfile(name, keyBindings, options)) {
-                error = Text.translatable("keybindprofilesplus.status.profile_exists", name);
+                error = Component.translatable("keybindprofilesplus.status.profile_exists", name);
                 return;
             }
-            client.setScreen(parent);
+            minecraft.setScreen(parent);
             onSaved.accept(name);
             if (parent instanceof KeyBindProfileScreen main) {
                 main.showStatus("keybindprofilesplus.status.profile_created", name);
@@ -224,7 +223,7 @@ public class ProfileContentsScreen extends ResizingScreen {
         }
 
         service.setProfileContents(profileName, keyBindings, options);
-        client.setScreen(parent);
+        minecraft.setScreen(parent);
         onSaved.accept(profileName);
     }
 
@@ -259,13 +258,13 @@ public class ProfileContentsScreen extends ResizingScreen {
     }
 
     public void setQuery(String query) {
-        searchField.setText(query);
+        searchField.setValue(query);
     }
 
     /** Types into the name field of a new profile. */
     public void setProfileName(String name) {
         if (nameField != null) {
-            nameField.setText(name);
+            nameField.setValue(name);
         }
     }
 
@@ -312,21 +311,21 @@ public class ProfileContentsScreen extends ResizingScreen {
         Map<String, String> savedKeys = creating ? Map.of() : service.profiles().getOrDefault(profileName, Map.of());
         Map<String, String> savedOptions = creating ? Map.of() : service.getProfileOptions(profileName);
 
-        Group keys = addGroup(root, "keys", Text.translatable("keybindprofilesplus.contents.keys"));
+        Group keys = addGroup(root, "keys", Component.translatable("keybindprofilesplus.contents.keys"));
         keys.expanded = true;
-        KeyBinding[] bindings = client.options.allKeys.clone();
+        KeyMapping[] bindings = minecraft.options.keyMappings.clone();
         Arrays.sort(bindings);
         Map<String, String> unknownKeys = new LinkedHashMap<>(savedKeys);
-        for (KeyBinding binding : bindings) {
+        for (KeyMapping binding : bindings) {
             String categoryId = "keys/" + binding.getCategory().id();
             Group category = nodesById.get(categoryId) instanceof Group existing ? existing : addGroup(keys, categoryId, KeyLabels.category(binding.getCategory()));
-            addItem(category, "key:" + binding.getId(), KeyLabels.name(binding), true, binding.getId(),
-                    savedKeys.get(binding.getId()), KeyCombos.valueOf(binding), ProfileContentsScreen::describeKey);
+            addItem(category, "key:" + binding.getName(), KeyLabels.name(binding), true, binding.getName(),
+                    savedKeys.get(binding.getName()), KeyCombos.valueOf(binding), ProfileContentsScreen::describeKey);
             if (creating) {
                 // A new profile starts out saving every key binding, like profiles always did.
-                nodesById.get("key:" + binding.getId()).setChecked(true);
+                nodesById.get("key:" + binding.getName()).setChecked(true);
             }
-            unknownKeys.remove(binding.getId());
+            unknownKeys.remove(binding.getName());
         }
         // Hotkeys of other mods: one group per mod (Meteor, Meteor addons, Meteor macros, Litematica...), only
         // those that can be changed from here.
@@ -336,7 +335,7 @@ public class ProfileContentsScreen extends ResizingScreen {
                 continue;
             }
             if (external == null) {
-                external = addGroup(root, "external", Text.translatable("keybindprofilesplus.contents.external"));
+                external = addGroup(root, "external", Component.translatable("keybindprofilesplus.contents.external"));
                 external.expanded = true;
             }
             String groupId = "external/" + hotkey.group().getString();
@@ -351,10 +350,10 @@ public class ProfileContentsScreen extends ResizingScreen {
 
         if (!unknownKeys.isEmpty()) {
             // Saved for a mod that is not installed right now; kept so nothing is lost silently.
-            Group missing = addGroup(keys, "keys/missing", Text.translatable("keybindprofilesplus.contents.keys_missing"));
+            Group missing = addGroup(keys, "keys/missing", Component.translatable("keybindprofilesplus.contents.keys_missing"));
             unknownKeys.forEach((id, key) -> {
                 if (ExternalKeys.isExternalId(id)) {
-                    Text name = ExternalKeys.nameOf(id).copy().append(" [").append(ExternalKeys.groupOf(id)).append("]");
+                    Component name = ExternalKeys.nameOf(id).copy().append(" [").append(ExternalKeys.groupOf(id)).append("]");
                     addItem(missing, "key:" + id, name, true, id, key, null, value -> ExternalKeys.describeValue(id, value));
                 } else {
                     addItem(missing, "key:" + id, KeyLabels.name(id), true, id, key, null, ProfileContentsScreen::describeKey);
@@ -362,9 +361,9 @@ public class ProfileContentsScreen extends ResizingScreen {
             });
         }
 
-        Group settings = addGroup(root, "options", Text.translatable("keybindprofilesplus.contents.settings"));
+        Group settings = addGroup(root, "options", Component.translatable("keybindprofilesplus.contents.settings"));
         settings.expanded = true;
-        Map<String, GameOptionsBridge.Entry> current = GameOptionsBridge.readAll(client.options);
+        Map<String, GameOptionsBridge.Entry> current = GameOptionsBridge.readAll(minecraft.options);
         for (OptionCatalog.Category category : OptionCatalog.Category.values()) {
             Group group = null;
             for (GameOptionsBridge.Entry entry : current.values()) {
@@ -380,14 +379,14 @@ public class ProfileContentsScreen extends ResizingScreen {
         }
     }
 
-    private Group addGroup(Group parentGroup, String id, Text label) {
+    private Group addGroup(Group parentGroup, String id, Component label) {
         Group group = new Group(id, label);
         attach(parentGroup, group);
         return group;
     }
 
-    private void addItem(Group parentGroup, String id, Text label, boolean keyBinding, String key, String stored, String current,
-                         Function<String, Text> formatter) {
+    private void addItem(Group parentGroup, String id, Component label, boolean keyBinding, String key, String stored, String current,
+                         Function<String, Component> formatter) {
         attach(parentGroup, new Item(id, label, keyBinding, key, stored, current, formatter));
     }
 
@@ -397,7 +396,7 @@ public class ProfileContentsScreen extends ResizingScreen {
         nodesById.put(node.id, node);
     }
 
-    private static Text describeKey(String translationKey) {
+    private static Component describeKey(String translationKey) {
         return KeyCombo.describe(translationKey);
     }
 
@@ -412,13 +411,13 @@ public class ProfileContentsScreen extends ResizingScreen {
     }
 
     private void refreshRows(boolean keepScroll) {
-        double scroll = keepScroll ? list.getScrollY() : 0;
+        double scroll = keepScroll ? list.scrollAmount() : 0;
         String needle = query.trim().toLowerCase(Locale.ROOT);
         List<Node> rows = new ArrayList<>();
         collectRows(root, needle, rows);
         list.setRows(rows);
-        list.setScrollY(scroll);
-        summary = Text.translatable("keybindprofilesplus.contents.summary", checkedCount(true), checkedCount(false));
+        list.setScrollAmount(scroll);
+        summary = Component.translatable("keybindprofilesplus.contents.summary", checkedCount(true), checkedCount(false));
     }
 
     /** Depth-first list of the rows to show. While searching, only matching leaves and their parents. */
@@ -455,10 +454,10 @@ public class ProfileContentsScreen extends ResizingScreen {
 
     private abstract static class Node {
         final String id;
-        final Text label;
+        final Component label;
         int depth;
 
-        Node(String id, Text label) {
+        Node(String id, Component label) {
             this.id = id;
             this.label = label;
         }
@@ -472,7 +471,7 @@ public class ProfileContentsScreen extends ResizingScreen {
         final List<Node> children = new ArrayList<>();
         boolean expanded;
 
-        Group(String id, Text label) {
+        Group(String id, Component label) {
             super(id, label);
         }
 
@@ -508,12 +507,12 @@ public class ProfileContentsScreen extends ResizingScreen {
         final String key;
         /** Value currently in the game; null when the game does not have this item (missing mod). */
         final String current;
-        final Function<String, Text> formatter;
+        final Function<String, Component> formatter;
         /** Value saved in the profile; null when the profile does not save this item (yet). */
         String stored;
         boolean checked;
 
-        Item(String id, Text label, boolean keyBinding, String key, String stored, String current, Function<String, Text> formatter) {
+        Item(String id, Component label, boolean keyBinding, String key, String stored, String current, Function<String, Component> formatter) {
             super(id, label);
             this.keyBinding = keyBinding;
             this.key = key;
@@ -544,8 +543,8 @@ public class ProfileContentsScreen extends ResizingScreen {
 
     // ------------------------------------------------------------------ list widget
 
-    private final class TreeList extends ElementListWidget<TreeList.Entry> {
-        TreeList(MinecraftClient client) {
+    private final class TreeList extends ContainerObjectSelectionList<TreeList.Entry> {
+        TreeList(Minecraft client) {
             super(client, ProfileContentsScreen.this.width, layout.getContentHeight(), layout.getHeaderHeight(), ROW_HEIGHT);
         }
 
@@ -565,15 +564,15 @@ public class ProfileContentsScreen extends ResizingScreen {
             for (Entry entry : children()) {
                 if (entry.node.id.equals(nodeId)) {
                     // Scrolled into view first, as a player would before clicking it.
-                    scrollTo(entry);
+                    scrollToEntry(entry);
                     int x = onCheckbox ? entry.checkboxX() + GuiUtil.CHECKBOX_SIZE / 2 : entry.checkboxX() + GuiUtil.CHECKBOX_SIZE + 30;
-                    return new int[]{x, entry.getContentMiddleY()};
+                    return new int[]{x, entry.getContentYMiddle()};
                 }
             }
             return null;
         }
 
-        private final class Entry extends ElementListWidget.Entry<Entry> {
+        private final class Entry extends ContainerObjectSelectionList.Entry<Entry> {
             private final Node node;
 
             Entry(Node node) {
@@ -581,12 +580,12 @@ public class ProfileContentsScreen extends ResizingScreen {
             }
 
             @Override
-            public List<? extends Element> children() {
+            public List<? extends GuiEventListener> children() {
                 return List.of();
             }
 
             @Override
-            public List<? extends Selectable> selectableChildren() {
+            public List<? extends NarratableEntry> narratables() {
                 return List.of();
             }
 
@@ -595,7 +594,7 @@ public class ProfileContentsScreen extends ResizingScreen {
             }
 
             @Override
-            public boolean mouseClicked(Click click, boolean doubled) {
+            public boolean mouseClicked(MouseButtonEvent click, boolean doubled) {
                 if (click.button() != 0) {
                     return false;
                 }
@@ -612,34 +611,34 @@ public class ProfileContentsScreen extends ResizingScreen {
             }
 
             @Override
-            public void render(DrawContext context, int mouseX, int mouseY, boolean hovered, float deltaTicks) {
-                TextRenderer font = textRenderer;
+            public void renderContent(GuiGraphics context, int mouseX, int mouseY, boolean hovered, float deltaTicks) {
+                Font font = ProfileContentsScreen.this.font;
                 int left = getContentX();
-                int right = getContentRightEnd();
-                int textY = getContentMiddleY() - font.fontHeight / 2;
+                int right = getContentRight();
+                int textY = getContentYMiddle() - font.lineHeight / 2;
                 if (hovered) {
-                    context.fill(left - 2, getContentY() - 1, right + 2, getContentBottomEnd() + 1, GuiUtil.ROW_HOVER);
+                    context.fill(left - 2, getContentY() - 1, right + 2, getContentBottom() + 1, GuiUtil.ROW_HOVER);
                 }
 
                 int boxLeft = checkboxX();
-                GuiUtil.drawCheckbox(context, boxLeft, getContentMiddleY() - GuiUtil.CHECKBOX_SIZE / 2, node.checkState(), hovered);
+                GuiUtil.drawCheckbox(context, boxLeft, getContentYMiddle() - GuiUtil.CHECKBOX_SIZE / 2, node.checkState(), hovered);
                 int labelLeft = boxLeft + GuiUtil.CHECKBOX_SIZE + 5;
 
                 if (node instanceof Group group) {
                     boolean open = group.expanded || !query.isBlank();
-                    context.drawTextWithShadow(font, open ? "v" : ">", boxLeft - ARROW_WIDTH + 1, textY, GuiUtil.GRAY);
+                    context.drawString(font, open ? "v" : ">", boxLeft - ARROW_WIDTH + 1, textY, GuiUtil.GRAY);
                     int[] counts = group.counts();
                     String count = counts[0] + "/" + counts[1];
-                    int countWidth = font.getWidth(count);
-                    context.drawTextWithShadow(font, count, right - countWidth, textY, counts[0] == 0 ? GuiUtil.DARK_GRAY : GuiUtil.GRAY);
+                    int countWidth = font.width(count);
+                    context.drawString(font, count, right - countWidth, textY, counts[0] == 0 ? GuiUtil.DARK_GRAY : GuiUtil.GRAY);
                     String label = GuiUtil.ellipsize(font, group.label.getString(), right - countWidth - 8 - labelLeft);
-                    context.drawTextWithShadow(font, label, labelLeft, textY, GuiUtil.WHITE);
+                    context.drawString(font, label, labelLeft, textY, GuiUtil.WHITE);
                 } else if (node instanceof Item item) {
                     renderItem(context, font, item, labelLeft, right, textY);
                 }
             }
 
-            private void renderItem(DrawContext context, TextRenderer font, Item item, int labelLeft, int right, int textY) {
+            private void renderItem(GuiGraphics context, Font font, Item item, int labelLeft, int right, int textY) {
                 int valueBudget = (right - labelLeft) / 2;
                 int valueLeft = right;
                 if (item.checked) {
@@ -647,22 +646,22 @@ public class ProfileContentsScreen extends ResizingScreen {
                     boolean differs = item.current != null && saved != null && !saved.equals(item.current);
                     if (differs) {
                         String now = GuiUtil.ellipsize(font,
-                                Text.translatable("keybindprofilesplus.contents.now", item.formatter.apply(item.current)).getString(), valueBudget / 2);
-                        valueLeft -= font.getWidth(now);
-                        context.drawTextWithShadow(font, now, valueLeft, textY, GuiUtil.DARK_GRAY);
+                                Component.translatable("keybindprofilesplus.contents.now", item.formatter.apply(item.current)).getString(), valueBudget / 2);
+                        valueLeft -= font.width(now);
+                        context.drawString(font, now, valueLeft, textY, GuiUtil.DARK_GRAY);
                         valueLeft -= 4;
                     }
                     String value = saved == null ? "" : GuiUtil.ellipsize(font, item.formatter.apply(saved).getString(), valueBudget / (differs ? 2 : 1));
-                    valueLeft -= font.getWidth(value);
-                    context.drawTextWithShadow(font, value, valueLeft, textY, differs ? GuiUtil.YELLOW : GuiUtil.GREEN);
+                    valueLeft -= font.width(value);
+                    context.drawString(font, value, valueLeft, textY, differs ? GuiUtil.YELLOW : GuiUtil.GREEN);
                 } else if (item.current != null) {
                     String value = GuiUtil.ellipsize(font, item.formatter.apply(item.current).getString(), valueBudget);
-                    valueLeft -= font.getWidth(value);
-                    context.drawTextWithShadow(font, value, valueLeft, textY, GuiUtil.DARK_GRAY);
+                    valueLeft -= font.width(value);
+                    context.drawString(font, value, valueLeft, textY, GuiUtil.DARK_GRAY);
                 }
 
                 String label = GuiUtil.ellipsize(font, item.label.getString(), valueLeft - 8 - labelLeft);
-                context.drawTextWithShadow(font, label, labelLeft, textY, item.checked ? GuiUtil.WHITE : GuiUtil.GRAY);
+                context.drawString(font, label, labelLeft, textY, item.checked ? GuiUtil.WHITE : GuiUtil.GRAY);
             }
         }
     }

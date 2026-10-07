@@ -1,10 +1,9 @@
 package io.github.autyism.keybindprofilesplus.options;
 
-import net.minecraft.text.Text;
-
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import net.minecraft.network.chat.Component;
 
 /**
  * Sorts the game's settings (by their options.txt names) into a few groups for the
@@ -64,8 +63,8 @@ public final class OptionCatalog {
             this.key = key;
         }
 
-        public Text label() {
-            return Text.translatable("keybindprofilesplus.option_category." + key);
+        public Component label() {
+            return Component.translatable("keybindprofilesplus.option_category." + key);
         }
     }
 

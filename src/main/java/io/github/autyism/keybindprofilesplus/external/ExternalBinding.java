@@ -1,7 +1,7 @@
 package io.github.autyism.keybindprofilesplus.external;
 
-import net.minecraft.client.util.InputUtil;
-import net.minecraft.text.Text;
+import com.mojang.blaze3d.platform.InputConstants;
+import net.minecraft.network.chat.Component;
 
 /**
  * A hotkey that another mod manages on its own, outside the game's key binding system (a Meteor
@@ -22,7 +22,7 @@ import net.minecraft.text.Text;
  * @param value        its trigger in the form profiles store (see {@link ExternalKeys}); null when read-only
  * @param defaultValue the trigger the mod gives it out of the box; null when read-only or not known
  */
-public record ExternalBinding(String sourceId, Text group, String name, Text title, int modifiers, InputUtil.Key key, Text keyText,
+public record ExternalBinding(String sourceId, Component group, String name, Component title, int modifiers, InputConstants.Key key, Component keyText,
                               When when, boolean active, String file, String hotkeyId, String value, String defaultValue) {
     /** When a hotkey of another mod does something. */
     public enum When {
@@ -41,9 +41,9 @@ public record ExternalBinding(String sourceId, Text group, String name, Text tit
     }
 
     /** A hotkey only known from a config file: shown and compared against, never changed. */
-    public static ExternalBinding readOnly(String sourceId, Text group, String name, int modifiers, InputUtil.Key key, Text keyText,
+    public static ExternalBinding readOnly(String sourceId, Component group, String name, int modifiers, InputConstants.Key key, Component keyText,
                                            When when, boolean active, String file) {
-        return new ExternalBinding(sourceId, group, name, Text.literal(name), modifiers, key, keyText, when, active, file, null, null, null);
+        return new ExternalBinding(sourceId, group, name, Component.literal(name), modifiers, key, keyText, when, active, file, null, null, null);
     }
 
     /** Whether it can be rebound from this mod (the other mod is running and was reached). */
@@ -62,7 +62,7 @@ public record ExternalBinding(String sourceId, Text group, String name, Text tit
     }
 
     /** Label for lists and conflict messages: "Auto Totem [Meteor]". */
-    public Text label() {
+    public Component label() {
         return title.copy().append(" [").append(group).append("]");
     }
 

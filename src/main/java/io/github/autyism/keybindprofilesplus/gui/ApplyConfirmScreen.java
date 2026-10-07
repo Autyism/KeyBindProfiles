@@ -2,23 +2,22 @@ package io.github.autyism.keybindprofilesplus.gui;
 
 import io.github.autyism.keybindprofilesplus.profile.ProfileChange;
 import io.github.autyism.keybindprofilesplus.storage.ModSettings;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.Element;
-import net.minecraft.client.gui.Selectable;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.client.gui.widget.CheckboxWidget;
-import net.minecraft.client.gui.widget.DirectionalLayoutWidget;
-import net.minecraft.client.gui.widget.ElementListWidget;
-import net.minecraft.client.gui.widget.TextWidget;
-import net.minecraft.client.gui.widget.ThreePartsLayoutWidget;
-import net.minecraft.screen.ScreenTexts;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-
 import java.util.List;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.Checkbox;
+import net.minecraft.client.gui.components.ContainerObjectSelectionList;
+import net.minecraft.client.gui.components.StringWidget;
+import net.minecraft.client.gui.components.events.GuiEventListener;
+import net.minecraft.client.gui.layouts.HeaderAndFooterLayout;
+import net.minecraft.client.gui.layouts.LinearLayout;
+import net.minecraft.client.gui.narration.NarratableEntry;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.CommonComponents;
+import net.minecraft.network.chat.Component;
 
 /**
  * Shown before a profile is applied from the profile screen: lists every key binding and game
@@ -32,14 +31,14 @@ public class ApplyConfirmScreen extends ResizingScreen {
     private final List<ProfileChange> changes;
     private final ModSettings settings;
     private final Runnable onConfirm;
-    private ThreePartsLayoutWidget layout;
+    private HeaderAndFooterLayout layout;
 
     private ChangeList list;
-    private CheckboxWidget dontAskAgain;
+    private Checkbox dontAskAgain;
     private boolean dontAsk;
 
     public ApplyConfirmScreen(Screen parent, String profileName, List<ProfileChange> changes, ModSettings settings, Runnable onConfirm) {
-        super(Text.translatable("keybindprofilesplus.confirm.title", profileName));
+        super(Component.translatable("keybindprofilesplus.confirm.title", profileName));
         this.parent = parent;
         this.changes = changes;
         this.settings = settings;
@@ -49,35 +48,35 @@ public class ApplyConfirmScreen extends ResizingScreen {
     @Override
     protected void init() {
         layout = startLayout(42, 62);
-        DirectionalLayoutWidget header = layout.addHeader(DirectionalLayoutWidget.vertical().spacing(4));
-        header.getMainPositioner().alignHorizontalCenter();
-        header.add(new TextWidget(title, textRenderer));
-        header.add(new TextWidget(Text.translatable("keybindprofilesplus.confirm.subtitle", changes.size()).formatted(Formatting.GRAY), textRenderer));
+        LinearLayout header = layout.addToHeader(LinearLayout.vertical().spacing(4));
+        header.defaultCellSetting().alignHorizontallyCenter();
+        header.addChild(new StringWidget(title, font));
+        header.addChild(new StringWidget(Component.translatable("keybindprofilesplus.confirm.subtitle", changes.size()).withStyle(ChatFormatting.GRAY), font));
 
-        list = layout.addBody(new ChangeList(client));
+        list = layout.addToContents(new ChangeList(minecraft));
 
-        DirectionalLayoutWidget footer = layout.addFooter(DirectionalLayoutWidget.vertical().spacing(4));
-        footer.getMainPositioner().alignHorizontalCenter();
-        dontAskAgain = footer.add(CheckboxWidget.builder(Text.translatable("keybindprofilesplus.confirm.dont_ask"), textRenderer)
-                .checked(dontAsk)
-                .callback((checkbox, checked) -> dontAsk = checked)
+        LinearLayout footer = layout.addToFooter(LinearLayout.vertical().spacing(4));
+        footer.defaultCellSetting().alignHorizontallyCenter();
+        dontAskAgain = footer.addChild(Checkbox.builder(Component.translatable("keybindprofilesplus.confirm.dont_ask"), font)
+                .selected(dontAsk)
+                .onValueChange((checkbox, checked) -> dontAsk = checked)
                 .build());
-        DirectionalLayoutWidget buttons = footer.add(DirectionalLayoutWidget.horizontal().spacing(8));
-        buttons.add(ButtonWidget.builder(Text.translatable("keybindprofilesplus.confirm.apply"), button -> confirm(dontAskAgain.isChecked())).width(150).build());
-        buttons.add(ButtonWidget.builder(ScreenTexts.CANCEL, button -> close()).width(150).build());
+        LinearLayout buttons = footer.addChild(LinearLayout.horizontal().spacing(8));
+        buttons.addChild(Button.builder(Component.translatable("keybindprofilesplus.confirm.apply"), button -> confirm(dontAskAgain.selected())).width(150).build());
+        buttons.addChild(Button.builder(CommonComponents.GUI_CANCEL, button -> onClose()).width(150).build());
 
-        layout.forEachChild(this::addDrawableChild);
-        refreshWidgetPositions();
+        layout.visitWidgets(this::addRenderableWidget);
+        repositionElements();
     }
 
     @Override
-    protected void refreshWidgetPositions() {
+    protected void repositionElements() {
         if (rebuiltAfterResize()) {
             return;
         }
-        layout.refreshPositions();
+        layout.arrangeElements();
         if (list != null) {
-            list.position(width, layout);
+            list.updateSize(width, layout);
         }
     }
 
@@ -86,17 +85,17 @@ public class ApplyConfirmScreen extends ResizingScreen {
         if (dontAskAgain) {
             settings.setConfirmApply(false);
         }
-        client.setScreen(parent);
+        minecraft.setScreen(parent);
         onConfirm.run();
     }
 
     @Override
-    public void close() {
-        client.setScreen(parent);
+    public void onClose() {
+        minecraft.setScreen(parent);
     }
 
-    private final class ChangeList extends ElementListWidget<ChangeList.Entry> {
-        ChangeList(MinecraftClient client) {
+    private final class ChangeList extends ContainerObjectSelectionList<ChangeList.Entry> {
+        ChangeList(Minecraft client) {
             super(client, ApplyConfirmScreen.this.width, layout.getContentHeight(), layout.getHeaderHeight(), ROW_HEIGHT);
             addGroup(ProfileChange.Kind.KEY_BINDING, "keybindprofilesplus.confirm.group.keys");
             addGroup(ProfileChange.Kind.EXTERNAL, "keybindprofilesplus.confirm.group.external");
@@ -108,7 +107,7 @@ public class ApplyConfirmScreen extends ResizingScreen {
             if (group.isEmpty()) {
                 return;
             }
-            addEntry(new HeaderEntry(Text.translatable(titleKey, group.size())));
+            addEntry(new HeaderEntry(Component.translatable(titleKey, group.size())));
             for (ProfileChange change : group) {
                 addEntry(new ChangeEntry(change));
             }
@@ -119,28 +118,28 @@ public class ApplyConfirmScreen extends ResizingScreen {
             return Math.max(220, Math.min(460, width - 40));
         }
 
-        private abstract static class Entry extends ElementListWidget.Entry<Entry> {
+        private abstract static class Entry extends ContainerObjectSelectionList.Entry<Entry> {
             @Override
-            public List<? extends Element> children() {
+            public List<? extends GuiEventListener> children() {
                 return List.of();
             }
 
             @Override
-            public List<? extends Selectable> selectableChildren() {
+            public List<? extends NarratableEntry> narratables() {
                 return List.of();
             }
         }
 
         private final class HeaderEntry extends Entry {
-            private final Text label;
+            private final Component label;
 
-            HeaderEntry(Text label) {
+            HeaderEntry(Component label) {
                 this.label = label;
             }
 
             @Override
-            public void render(DrawContext context, int mouseX, int mouseY, boolean hovered, float deltaTicks) {
-                context.drawCenteredTextWithShadow(textRenderer, label, ChangeList.this.width / 2, getContentBottomEnd() - textRenderer.fontHeight - 1, GuiUtil.WHITE);
+            public void renderContent(GuiGraphics context, int mouseX, int mouseY, boolean hovered, float deltaTicks) {
+                context.drawCenteredString(font, label, ChangeList.this.width / 2, getContentBottom() - font.lineHeight - 1, GuiUtil.WHITE);
             }
         }
 
@@ -152,27 +151,27 @@ public class ApplyConfirmScreen extends ResizingScreen {
             }
 
             @Override
-            public void render(DrawContext context, int mouseX, int mouseY, boolean hovered, float deltaTicks) {
-                TextRenderer font = textRenderer;
+            public void renderContent(GuiGraphics context, int mouseX, int mouseY, boolean hovered, float deltaTicks) {
+                Font font = ApplyConfirmScreen.this.font;
                 int left = getContentX();
-                int right = getContentRightEnd();
-                int textY = getContentMiddleY() - font.fontHeight / 2;
+                int right = getContentRight();
+                int textY = getContentYMiddle() - font.lineHeight / 2;
                 if (hovered) {
-                    context.fill(left - 2, getContentY() - 1, right + 2, getContentBottomEnd() + 1, GuiUtil.ROW_HOVER);
+                    context.fill(left - 2, getContentY() - 1, right + 2, getContentBottom() + 1, GuiUtil.ROW_HOVER);
                 }
 
                 int valueBudget = (right - left) / 4;
                 String to = GuiUtil.ellipsize(font, change.to().getString(), valueBudget);
                 String from = GuiUtil.ellipsize(font, change.from().getString(), valueBudget);
-                int x = right - font.getWidth(to);
-                context.drawTextWithShadow(font, to, x, textY, GuiUtil.GREEN);
-                x -= font.getWidth(ARROW);
-                context.drawTextWithShadow(font, ARROW, x, textY, GuiUtil.DARK_GRAY);
-                x -= font.getWidth(from);
-                context.drawTextWithShadow(font, from, x, textY, GuiUtil.GRAY);
+                int x = right - font.width(to);
+                context.drawString(font, to, x, textY, GuiUtil.GREEN);
+                x -= font.width(ARROW);
+                context.drawString(font, ARROW, x, textY, GuiUtil.DARK_GRAY);
+                x -= font.width(from);
+                context.drawString(font, from, x, textY, GuiUtil.GRAY);
 
                 String name = GuiUtil.ellipsize(font, change.name().getString(), x - left - 8);
-                context.drawTextWithShadow(font, name, left, textY, GuiUtil.WHITE);
+                context.drawString(font, name, left, textY, GuiUtil.WHITE);
             }
         }
     }

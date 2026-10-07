@@ -1,6 +1,6 @@
 package io.github.autyism.keybindprofilesplus.profile;
 
-import net.minecraft.text.Text;
+import net.minecraft.network.chat.Component;
 
 /**
  * One thing that applying a profile would change: a key binding, a hotkey of another mod (Meteor,
@@ -11,7 +11,7 @@ import net.minecraft.text.Text;
  * @param from the current value, formatted for display
  * @param to   the value stored in the profile, formatted for display
  */
-public record ProfileChange(Kind kind, String id, Text name, Text from, Text to) {
+public record ProfileChange(Kind kind, String id, Component name, Component from, Component to) {
     public enum Kind {
         KEY_BINDING,
         EXTERNAL,

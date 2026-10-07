@@ -1,20 +1,20 @@
 accessWidener v2 named
 
 # Enumerating and applying the game's own options (FOV, sensitivity, ...) the same way
-# GameOptions.load()/write() do. There is no public or Fabric API for this.
-accessible class net/minecraft/client/option/GameOptions$OptionVisitor
-accessible class net/minecraft/client/option/GameOptions$Visitor
-accessible method net/minecraft/client/option/GameOptions accept (Lnet/minecraft/client/option/GameOptions$Visitor;)V
-accessible field net/minecraft/client/option/SimpleOption text Lnet/minecraft/text/Text;
-accessible field net/minecraft/client/option/SimpleOption textGetter Ljava/util/function/Function;
+# Options.load()/save() do. There is no public or Fabric API for this.
+accessible class net/minecraft/client/Options$OptionAccess
+accessible class net/minecraft/client/Options$FieldAccess
+accessible method net/minecraft/client/Options processOptions (Lnet/minecraft/client/Options$FieldAccess;)V
+accessible field net/minecraft/client/OptionInstance caption Lnet/minecraft/network/chat/Component;
+accessible field net/minecraft/client/OptionInstance toString Ljava/util/function/Function;
 
 # Returning from the mod's screens to the vanilla Key Binds screen and refreshing its list.
-accessible field net/minecraft/client/gui/screen/option/GameOptionsScreen parent Lnet/minecraft/client/gui/screen/Screen;
-accessible field net/minecraft/client/gui/screen/option/KeybindsScreen controlsList Lnet/minecraft/client/gui/screen/option/ControlsListWidget;
+accessible field net/minecraft/client/gui/screens/options/OptionsSubScreen lastScreen Lnet/minecraft/client/gui/screens/Screen;
+accessible field net/minecraft/client/gui/screens/options/controls/KeyBindsScreen keyBindsList Lnet/minecraft/client/gui/screens/options/controls/KeyBindsList;
 
 # Modifier combinations: finding the bindings that share a key.
-accessible field net/minecraft/client/option/KeyBinding KEY_TO_BINDINGS Ljava/util/Map;
-accessible field net/minecraft/client/option/KeyBinding boundKey Lnet/minecraft/client/util/InputUtil$Key;
+accessible field net/minecraft/client/KeyMapping MAP Ljava/util/Map;
+accessible field net/minecraft/client/KeyMapping key Lcom/mojang/blaze3d/platform/InputConstants$Key;
 
 # Self-test only: feeding key events through the game's real key handling.
-accessible method net/minecraft/client/Keyboard onKey (JILnet/minecraft/client/input/KeyInput;)V
+accessible method net/minecraft/client/KeyboardHandler keyPress (JILnet/minecraft/client/input/KeyEvent;)V

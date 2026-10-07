@@ -1,25 +1,11 @@
 package io.github.autyism.keybindprofilesplus.selftest;
 
+import com.mojang.blaze3d.pipeline.RenderTarget;
+import com.mojang.blaze3d.platform.InputConstants;
 import io.github.autyism.keybindprofilesplus.KeyBindProfilesPlus;
 import io.github.autyism.keybindprofilesplus.keys.KeyCombos;
 import io.github.autyism.keybindprofilesplus.options.GameOptionsBridge;
 import io.github.autyism.keybindprofilesplus.profile.ProfileService;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gl.Framebuffer;
-import net.minecraft.client.gui.Click;
-import net.minecraft.client.gui.Element;
-import net.minecraft.client.gui.ParentElement;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.widget.ClickableWidget;
-import net.minecraft.client.gui.widget.PressableWidget;
-import net.minecraft.client.gui.widget.TextFieldWidget;
-import net.minecraft.client.input.KeyInput;
-import net.minecraft.client.input.MouseInput;
-import net.minecraft.client.option.KeyBinding;
-import net.minecraft.client.util.InputUtil;
-import net.minecraft.client.util.ScreenshotRecorder;
-import net.minecraft.text.Text;
-
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.LinkedHashMap;
@@ -27,6 +13,19 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.components.AbstractButton;
+import net.minecraft.client.gui.components.AbstractWidget;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.components.events.ContainerEventHandler;
+import net.minecraft.client.gui.components.events.GuiEventListener;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.client.input.MouseButtonInfo;
+import net.minecraft.network.chat.Component;
 
 /**
  * The machinery of the self-test: a queue of steps run one per tick (with waits in between so
@@ -173,17 +172,17 @@ abstract class SelfTestRunner {
 
     // ------------------------------------------------------------------ operating the game
 
-    static MinecraftClient client() {
-        return MinecraftClient.getInstance();
+    static Minecraft client() {
+        return Minecraft.getInstance();
     }
 
     static String translated(String translationKey, Object... args) {
-        return Text.translatable(translationKey, args).getString();
+        return Component.translatable(translationKey, args).getString();
     }
 
     @SuppressWarnings("unchecked")
     final <T extends Screen> T screen(Class<T> type) {
-        Screen current = client().currentScreen;
+        Screen current = client().screen;
         if (!type.isInstance(current)) {
             throw new IllegalStateException("expected " + type.getSimpleName() + " but the screen is "
                     + (current == null ? "none" : current.getClass().getSimpleName()));
@@ -192,14 +191,14 @@ abstract class SelfTestRunner {
     }
 
     final boolean isScreen(Class<? extends Screen> type) {
-        return type.isInstance(client().currentScreen);
+        return type.isInstance(client().screen);
     }
 
     /** Presses the button (anywhere on the current screen, lists included) that shows this label. */
     final boolean click(String label) {
-        ClickableWidget widget = findWidget(client().currentScreen, label);
-        String where = client().currentScreen == null ? "no screen" : client().currentScreen.getClass().getSimpleName();
-        if (!(widget instanceof PressableWidget pressable)) {
+        AbstractWidget widget = findWidget(client().screen, label);
+        String where = client().screen == null ? "no screen" : client().screen.getClass().getSimpleName();
+        if (!(widget instanceof AbstractButton pressable)) {
             fail("no button labelled '" + label + "' on " + where);
             return false;
         }
@@ -207,39 +206,39 @@ abstract class SelfTestRunner {
             fail("button '" + label + "' on " + where + " is disabled");
             return false;
         }
-        pressable.onPress(new KeyInput(InputUtil.GLFW_KEY_ENTER, 0, 0));
+        pressable.onPress(new KeyEvent(InputConstants.KEY_RETURN, 0, 0));
         pass("clicked '" + label + "'");
         return true;
     }
 
     final boolean hasWidget(String label) {
-        return findWidget(client().currentScreen, label) != null;
+        return findWidget(client().screen, label) != null;
     }
 
-    final ClickableWidget widget(String label) {
-        return findWidget(client().currentScreen, label);
+    final AbstractWidget widget(String label) {
+        return findWidget(client().screen, label);
     }
 
     /** Types into the text field with this name (its narration label), replacing what was there. */
     final boolean type(String fieldTranslationKey, String text) {
-        if (findWidget(client().currentScreen, translated(fieldTranslationKey)) instanceof TextFieldWidget field) {
-            field.setText(text);
+        if (findWidget(client().screen, translated(fieldTranslationKey)) instanceof EditBox field) {
+            field.setValue(text);
             return true;
         }
         fail("no text field '" + translated(fieldTranslationKey) + "' on the current screen");
         return false;
     }
 
-    static ClickableWidget findWidget(ParentElement parent, String label) {
+    static AbstractWidget findWidget(ContainerEventHandler parent, String label) {
         if (parent == null) {
             return null;
         }
-        for (Element element : parent.children()) {
-            if (element instanceof ClickableWidget widget && label.equals(widget.getMessage().getString())) {
+        for (GuiEventListener element : parent.children()) {
+            if (element instanceof AbstractWidget widget && label.equals(widget.getMessage().getString())) {
                 return widget;
             }
-            if (element instanceof ParentElement nested) {
-                ClickableWidget found = findWidget(nested, label);
+            if (element instanceof ContainerEventHandler nested) {
+                AbstractWidget found = findWidget(nested, label);
                 if (found != null) {
                     return found;
                 }
@@ -250,29 +249,29 @@ abstract class SelfTestRunner {
 
     /** A left click at screen coordinates, through the screen like a real mouse click. */
     final void mouseClick(int[] point, int modifiers) {
-        if (point == null || client().currentScreen == null) {
+        if (point == null || client().screen == null) {
             fail("nothing to click at");
             return;
         }
-        client().currentScreen.mouseClicked(new Click(point[0], point[1], new MouseInput(0, modifiers)), false);
+        client().screen.mouseClicked(new MouseButtonEvent(point[0], point[1], new MouseButtonInfo(0, modifiers)), false);
     }
 
     /** Feeds one key event into the game exactly where GLFW would. */
     final void sendKey(int keyCode, boolean press, int modifiers) {
-        client().keyboard.onKey(client().getWindow().getHandle(), press ? 1 : 0, new KeyInput(keyCode, 0, modifiers));
+        client().keyboardHandler.keyPress(client().getWindow().handle(), press ? 1 : 0, new KeyEvent(keyCode, 0, modifiers));
     }
 
     /** Binds a key or a combination given in text form ("ctrl+key.keyboard.x"). */
     final void bind(String bindingId, String value) {
-        KeyBinding binding = KeyBinding.byId(bindingId);
+        KeyMapping binding = KeyMapping.get(bindingId);
         if (binding != null) {
             KeyCombos.applyValue(binding, value);
-            KeyBinding.updateKeysByCode();
+            KeyMapping.resetMapping();
         }
     }
 
-    static KeyBinding binding(String bindingId) {
-        KeyBinding binding = KeyBinding.byId(bindingId);
+    static KeyMapping binding(String bindingId) {
+        KeyMapping binding = KeyMapping.get(bindingId);
         if (binding == null) {
             throw new IllegalStateException("missing key binding " + bindingId);
         }
@@ -280,13 +279,13 @@ abstract class SelfTestRunner {
     }
 
     static String keyLabel(String bindingId) {
-        return binding(bindingId).getBoundKeyLocalizedText().getString();
+        return binding(bindingId).getTranslatedKeyMessage().getString();
     }
 
     static Map<String, String> currentKeyValues() {
         Map<String, String> values = new LinkedHashMap<>();
-        for (KeyBinding binding : client().options.allKeys) {
-            values.put(binding.getId(), KeyCombos.valueOf(binding));
+        for (KeyMapping binding : client().options.keyMappings) {
+            values.put(binding.getName(), KeyCombos.valueOf(binding));
         }
         return values;
     }
@@ -295,23 +294,23 @@ abstract class SelfTestRunner {
         return GameOptionsBridge.readAll(client().options).get(key).rawValue();
     }
 
-    static boolean drainPressed(KeyBinding binding) {
+    static boolean drainPressed(KeyMapping binding) {
         boolean any = false;
-        while (binding.wasPressed()) {
+        while (binding.consumeClick()) {
             any = true;
         }
         return any;
     }
 
     private void screenshot(String name) {
-        MinecraftClient client = client();
+        Minecraft client = client();
         String fileName = String.format("selftest_%02d_%s.png", ++screenshotIndex, name);
-        Framebuffer framebuffer = client.getFramebuffer();
+        RenderTarget framebuffer = client.getMainRenderTarget();
         // 4K frames are halved so the files stay small; GUI pixels are still at least 2 px wide.
-        int downscale = framebuffer.textureWidth >= 3000 && framebuffer.textureWidth % 2 == 0 && framebuffer.textureHeight % 2 == 0 ? 2 : 1;
-        String screenName = client.currentScreen == null ? "none" : client.currentScreen.getClass().getSimpleName();
+        int downscale = framebuffer.width >= 3000 && framebuffer.width % 2 == 0 && framebuffer.height % 2 == 0 ? 2 : 1;
+        String screenName = client.screen == null ? "none" : client.screen.getClass().getSimpleName();
         pendingScreenshots.incrementAndGet();
-        ScreenshotRecorder.saveScreenshot(client.runDirectory, fileName, framebuffer, downscale, message -> {
+        Screenshot.grab(client.gameDirectory, fileName, framebuffer, downscale, message -> {
             pendingScreenshots.decrementAndGet();
             log("SCREENSHOT " + fileName + " screen=" + screenName);
         });

@@ -2,6 +2,7 @@ package io.github.autyism.keybindprofilesplus.selftest;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.mojang.blaze3d.platform.InputConstants;
 import io.github.autyism.keybindprofilesplus.KeyBindProfilesPlus;
 import io.github.autyism.keybindprofilesplus.external.ExternalBinding;
 import io.github.autyism.keybindprofilesplus.external.ExternalKeys;
@@ -26,15 +27,13 @@ import io.github.autyism.keybindprofilesplus.storage.LegacyOptions;
 import io.github.autyism.keybindprofilesplus.storage.ModSettings;
 import io.github.autyism.keybindprofilesplus.storage.ProfileFileStore;
 import net.fabricmc.loader.api.FabricLoader;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.input.KeyInput;
-import net.minecraft.client.option.KeyBinding;
-import net.minecraft.client.util.InputUtil;
-import net.minecraft.nbt.NbtCompound;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.NbtIo;
-import net.minecraft.nbt.NbtList;
-import net.minecraft.text.Text;
-
+import net.minecraft.network.chat.Component;
 import java.io.File;
 import java.io.IOException;
 import java.io.Reader;
@@ -90,8 +89,8 @@ final class LogicChecks {
         this.service = service;
     }
 
-    private static MinecraftClient client() {
-        return MinecraftClient.getInstance();
+    private static Minecraft client() {
+        return Minecraft.getInstance();
     }
 
     // ------------------------------------------------------------------ identity and files
@@ -107,8 +106,8 @@ final class LogicChecks {
         t.check("profiles live in config/keybindprofilesplus",
                 service.profilesDirectory().getPath().replace('\\', '/').endsWith("config/keybindprofilesplus"));
         t.check("title is translated", "KeyBind Profiles+".equals(SelfTestRunner.translated("keybindprofilesplus.title")));
-        KeyBinding open = KeyBinding.byId("key.keybindprofilesplus.open");
-        t.check("the open key exists and defaults to O", open != null && open.getDefaultKey().getTranslationKey().equals("key.keyboard.o"));
+        KeyMapping open = KeyMapping.get("key.keybindprofilesplus.open");
+        t.check("the open key exists and defaults to O", open != null && open.getDefaultKey().getName().equals("key.keyboard.o"));
     }
 
     void migration() {
@@ -186,7 +185,7 @@ final class LogicChecks {
         label("an untranslated binding in camel case", KeyLabels.name("key.somemod.toggleFreeCam").getString(), "Toggle Free Cam");
         label("an untranslated binding with nothing but one word", KeyLabels.name("zoom").getString(), "Zoom");
         label("an untranslated category", KeyLabels.category(SelfTestRunner.binding(DEMO_UNKNOWN_BINDING).getCategory()).getString(), "Selftestmod Demo");
-        label("a vanilla category", KeyLabels.category(KeyBinding.Category.MOVEMENT).getString(), "Movement");
+        label("a vanilla category", KeyLabels.category(KeyMapping.Category.MOVEMENT).getString(), "Movement");
         settingsAreReadable("en_us");
     }
 
@@ -218,7 +217,7 @@ final class LogicChecks {
     }
 
     private void keyName(String translationKey, String expected) {
-        String actual = InputUtil.fromTranslationKey(translationKey).getLocalizedText().getString();
+        String actual = InputConstants.getKey(translationKey).getDisplayName().getString();
         t.check("key name " + translationKey + " -> '" + expected + "'" + (expected.equals(actual) ? "" : " but was '" + actual + "'"), expected.equals(actual));
     }
 
@@ -230,7 +229,7 @@ final class LogicChecks {
         source(resolver, "key.hotbar.1", KeySource.Kind.VANILLA, "minecraft");
         source(resolver, "key.debug.reloadChunk", KeySource.Kind.VANILLA, "minecraft");
 
-        KeyBinding own = SelfTestRunner.binding("key.keybindprofilesplus.open");
+        KeyMapping own = SelfTestRunner.binding("key.keybindprofilesplus.open");
         SelfTestRunner.log("key source: creator of the open key = " + KeyOrigins.creatorClassOf(own) + ", mod root paths = "
                 + FabricLoader.getInstance().getModContainer(KeyBindProfilesPlus.MOD_ID).map(mod -> mod.getRootPaths().toString()).orElse("?"));
         t.check("key source: the code that created a binding is traced to its mod",
@@ -242,14 +241,14 @@ final class LogicChecks {
         source(resolver, DEMO_UNKNOWN_BINDING, KeySource.Kind.UNKNOWN, "selftestmod");
 
         int vanilla = 0;
-        for (KeyBinding binding : client().options.allKeys) {
+        for (KeyMapping binding : client().options.keyMappings) {
             if (resolver.resolve(binding).isVanilla()) {
                 vanilla++;
             }
         }
         // Mod Menu is in the dev client (for its configure button) and registers one key binding of its own:
         // a real mod jar, so this is the one place where tracing the creating class is checked for real.
-        KeyBinding modMenuKey = KeyBinding.byId(MOD_MENU_BINDING);
+        KeyMapping modMenuKey = KeyMapping.get(MOD_MENU_BINDING);
         if (modMenuKey != null) {
             KeySource modMenu = resolver.resolve(modMenuKey);
             t.check("key source: Mod Menu's own key binding is traced to Mod Menu (" + modMenu.description().getString() + ")",
@@ -257,19 +256,19 @@ final class LogicChecks {
         }
         // Other mods in the dev client (Mod Menu, Meteor, ...) register bindings of their own: each must be traced to its mod.
         int otherMods = 0;
-        for (KeyBinding binding : client().options.allKeys) {
+        for (KeyMapping binding : client().options.keyMappings) {
             String creator = KeyOrigins.modOf(binding).map(mod -> mod.getMetadata().getId()).orElse("minecraft");
             if (!creator.equals("minecraft") && !creator.equals(KeyBindProfilesPlus.MOD_ID)) {
                 otherMods++;
                 KeySource traced = resolver.resolve(binding);
                 if (traced.kind() != KeySource.Kind.MOD || !creator.equals(traced.modId())) {
-                    t.fail("key source: " + binding.getId() + " was created by " + creator + " but is labelled " + traced.description().getString());
+                    t.fail("key source: " + binding.getName() + " was created by " + creator + " but is labelled " + traced.description().getString());
                 }
             }
         }
-        t.check("key sources: every binding except the mod ones is vanilla (" + vanilla + " of " + client().options.allKeys.length
+        t.check("key sources: every binding except the mod ones is vanilla (" + vanilla + " of " + client().options.keyMappings.length
                         + ", " + otherMods + " from other mods in the dev client)",
-                vanilla == client().options.allKeys.length - DEMO_BINDINGS - 1 - otherMods);
+                vanilla == client().options.keyMappings.length - DEMO_BINDINGS - 1 - otherMods);
     }
 
     private void source(KeySourceResolver resolver, String bindingId, KeySource.Kind kind, String modId) {
@@ -286,10 +285,10 @@ final class LogicChecks {
         // Only the game's own bindings here: the other mods in the dev client (IPN, Meteor...) have their own checks.
         ExternalKeys.setEnvironmentForTesting(new FixtureEnvironment(null, false, List.of()));
         try {
-            for (KeyBinding binding : client().options.allKeys) {
+            for (KeyMapping binding : client().options.keyMappings) {
                 KeyCombos.bind(binding, binding.getDefaultKey(), 0);
             }
-            KeyBinding.updateKeysByCode();
+            KeyMapping.resetMapping();
             KeyConflicts.Summary defaults = KeyConflicts.summarize(client().options);
             t.check("conflicts: the default key bindings have none (" + defaults.hard() + " / " + defaults.soft() + ")", defaults.isEmpty());
 
@@ -332,7 +331,7 @@ final class LogicChecks {
 
             // A key that only works inside screens against a key used during play.
             KeySourceResolver sources = KeyConflicts.sources(client().options);
-            KeyBinding screenKey = SelfTestRunner.binding(DEMO_SCREEN_BINDING);
+            KeyMapping screenKey = SelfTestRunner.binding(DEMO_SCREEN_BINDING);
             t.check("conflicts: a mod key named after the inventory is taken to work only in screens",
                     KeyConflicts.scopeOf(screenKey, sources) == KeyConflicts.Scope.SCREEN_ONLY);
             t.bind(DEMO_SCREEN_BINDING, "key.keyboard.space");
@@ -394,51 +393,51 @@ final class LogicChecks {
         t.check("combos: numpad names work inside a combination", KeyCombo.describe("alt+key.keyboard.keypad.5").getString().equals("Alt + Num 5"));
 
         Map<String, String> before = SelfTestRunner.currentKeyValues();
-        KeyBinding plain = SelfTestRunner.binding("key.advancements");
-        KeyBinding combo = SelfTestRunner.binding("key.socialInteractions");
-        InputUtil.Key f15 = InputUtil.fromTranslationKey("key.keyboard.f15");
+        KeyMapping plain = SelfTestRunner.binding("key.advancements");
+        KeyMapping combo = SelfTestRunner.binding("key.socialInteractions");
+        InputConstants.Key f15 = InputConstants.getKey("key.keyboard.f15");
         int[] held = {0};
         KeyCombos.setHeldModifiersForTesting(() -> held[0]);
         try {
             t.bind("key.advancements", "key.keyboard.f15");
             t.bind("key.socialInteractions", "ctrl+key.keyboard.f15");
             t.check("combos: the binding reports its combination", KeyCombos.valueOf(combo).equals("ctrl+key.keyboard.f15")
-                    && combo.getBoundKeyLocalizedText().getString().equals("Ctrl + F15"));
+                    && combo.getTranslatedKeyMessage().getString().equals("Ctrl + F15"));
             t.check("combos: a combination is never the default", !combo.isDefault());
 
             SelfTestRunner.drainPressed(plain);
             SelfTestRunner.drainPressed(combo);
             held[0] = 0;
-            KeyBinding.onKeyPressed(f15);
+            KeyMapping.click(f15);
             boolean plainOnBare = SelfTestRunner.drainPressed(plain);
             boolean comboOnBare = SelfTestRunner.drainPressed(combo);
             t.check("combos: F15 alone triggers the plain binding, not Ctrl + F15", plainOnBare && !comboOnBare);
 
             held[0] = KeyCombo.CTRL;
-            KeyBinding.onKeyPressed(f15);
+            KeyMapping.click(f15);
             boolean plainOnCtrl = SelfTestRunner.drainPressed(plain);
             boolean comboOnCtrl = SelfTestRunner.drainPressed(combo);
             t.check("combos: Ctrl + F15 triggers the combination, not the plain binding", comboOnCtrl && !plainOnCtrl);
 
             held[0] = KeyCombo.CTRL | KeyCombo.SHIFT;
-            KeyBinding.onKeyPressed(f15);
+            KeyMapping.click(f15);
             t.check("combos: extra modifiers held still trigger Ctrl + F15", SelfTestRunner.drainPressed(combo) && !SelfTestRunner.drainPressed(plain));
 
             held[0] = KeyCombo.CTRL;
-            KeyBinding.setKeyPressed(f15, true);
-            t.check("combos: held state follows the same rule", combo.isPressed() && !plain.isPressed());
-            KeyBinding.setKeyPressed(f15, false);
-            t.check("combos: releasing the key releases every binding on it", !combo.isPressed() && !plain.isPressed());
+            KeyMapping.set(f15, true);
+            t.check("combos: held state follows the same rule", combo.isDown() && !plain.isDown());
+            KeyMapping.set(f15, false);
+            t.check("combos: releasing the key releases every binding on it", !combo.isDown() && !plain.isDown());
 
             t.check("combos: screen key checks respect modifiers",
-                    combo.matchesKey(new KeyInput(InputUtil.GLFW_KEY_F15, 0, KeyCombo.CTRL)) && !plain.matchesKey(new KeyInput(InputUtil.GLFW_KEY_F15, 0, KeyCombo.CTRL))
-                            && plain.matchesKey(new KeyInput(InputUtil.GLFW_KEY_F15, 0, 0)) && !combo.matchesKey(new KeyInput(InputUtil.GLFW_KEY_F15, 0, 0)));
+                    combo.matches(new KeyEvent(InputConstants.KEY_F15, 0, KeyCombo.CTRL)) && !plain.matches(new KeyEvent(InputConstants.KEY_F15, 0, KeyCombo.CTRL))
+                            && plain.matches(new KeyEvent(InputConstants.KEY_F15, 0, 0)) && !combo.matches(new KeyEvent(InputConstants.KEY_F15, 0, 0)));
 
             // A key without any combination on it keeps the vanilla behaviour whatever is held.
-            KeyBinding jump = SelfTestRunner.binding(TEST_BINDING_ID);
+            KeyMapping jump = SelfTestRunner.binding(TEST_BINDING_ID);
             SelfTestRunner.drainPressed(jump);
             held[0] = KeyCombo.CTRL | KeyCombo.ALT;
-            KeyBinding.onKeyPressed(jump.boundKey);
+            KeyMapping.click(jump.key);
             t.check("combos: bindings on other keys are untouched by held modifiers", SelfTestRunner.drainPressed(jump));
 
             conflict("X and Ctrl + X on the same key do not conflict", "key.socialInteractions", KeyConflicts.Level.NONE, 0, null);
@@ -460,17 +459,17 @@ final class LogicChecks {
             t.check("combos: read back from combos.json", KeyCombos.valueOf(combo).equals("ctrl+key.keyboard.f15"));
 
             String comboProfile = PROFILE_PREFIX + "combo";
-            service.saveProfile(comboProfile, client().options.allKeys);
+            service.saveProfile(comboProfile, client().options.keyMappings);
             t.check("combos: stored in a profile", "ctrl+key.keyboard.f15".equals(service.profiles().get(comboProfile).get("key.socialInteractions")));
-            combo.setBoundKey(InputUtil.fromTranslationKey("key.keyboard.f16"));
-            KeyBinding.updateKeysByCode();
+            combo.setKey(InputConstants.getKey("key.keyboard.f16"));
+            KeyMapping.resetMapping();
             t.check("combos: rebinding the vanilla way drops the modifiers", KeyCombos.valueOf(combo).equals("key.keyboard.f16"));
             t.check("combos: the profile preview shows the combination",
                     service.previewApply(comboProfile).stream().anyMatch(change -> change.to().getString().equals("Ctrl + F15")));
             service.applyProfile(comboProfile);
             held[0] = KeyCombo.CTRL;
             SelfTestRunner.drainPressed(combo);
-            KeyBinding.onKeyPressed(f15);
+            KeyMapping.click(f15);
             t.check("combos: applying the profile restores a working combination",
                     KeyCombos.valueOf(combo).equals("ctrl+key.keyboard.f15") && SelfTestRunner.drainPressed(combo));
             SelfTestRunner.drainPressed(plain);
@@ -727,7 +726,7 @@ final class LogicChecks {
         ModSettings settings = KeyBindProfilesPlus.settings();
         try {
             // Default keys, so the outcome does not depend on the layout the dev client happens to have.
-            for (KeyBinding binding : client().options.allKeys) {
+            for (KeyMapping binding : client().options.keyMappings) {
                 KeyCombos.bind(binding, binding.getDefaultKey(), 0);
             }
             // Litematica ships with its tool on the mouse buttons and its hold-keys on Shift / Ctrl: by design, so no conflict.
@@ -737,8 +736,8 @@ final class LogicChecks {
             conflict("... nor its hold-key on Left Shift with sneak", "key.sneak", KeyConflicts.Level.NONE, 0, null);
             conflict("... nor its hold-key on Left Control with sprint", "key.sprint", KeyConflicts.Level.NONE, 0, null);
             ExternalBinding corner1 = all.stream().filter(binding -> binding.name().equals("Tool Place Corner 1")).findFirst().orElseThrow();
-            List<Text> sharedWithAttack = KeyConflicts.sharedWithoutConflict(SelfTestRunner.binding("key.attack"), client().options);
-            t.check("external: the attack key's tooltip still says what shares the left mouse button " + sharedWithAttack.stream().map(Text::getString).toList(),
+            List<Component> sharedWithAttack = KeyConflicts.sharedWithoutConflict(SelfTestRunner.binding("key.attack"), client().options);
+            t.check("external: the attack key's tooltip still says what shares the left mouse button " + sharedWithAttack.stream().map(Component::getString).toList(),
                     sharedWithAttack.size() == 1 && sharedWithAttack.get(0).getString().contains("Tool Place Corner 1"));
             t.check("external: ... and seen from Litematica's side: no conflict, attack named as sharing the key",
                     KeyConflicts.conflictsOf(corner1, client().options).isEmpty()
@@ -750,7 +749,7 @@ final class LogicChecks {
 
             // The case from real play: Language Reload adds F3+J as a key binding of its own in the Debug
             // category, and a Meteor module sits on J. An F3 combination stays one whoever registered it.
-            KeyBinding modDebugKey = SelfTestRunner.binding(DEMO_DEBUG_BINDING);
+            KeyMapping modDebugKey = SelfTestRunner.binding(DEMO_DEBUG_BINDING);
             KeySourceResolver sources = KeyConflicts.sources(client().options);
             t.check("external: a mod's key binding in the Debug category counts as an F3 combination, and cannot be re-labelled by hand",
                     !sources.isVanilla(DEMO_DEBUG_BINDING) && KeyConflicts.scopeOf(modDebugKey, sources) == KeyConflicts.Scope.DEBUG_COMBO
@@ -855,19 +854,19 @@ final class LogicChecks {
 
     private static void writeFixtures(Path root) throws IOException {
         Path meteor = Files.createDirectories(root.resolve("meteor-client"));
-        NbtList modules = new NbtList();
-        NbtCompound autoTotem = meteorModule("auto-totem", true, 90, 0);
-        NbtCompound setting = new NbtCompound();
+        ListTag modules = new ListTag();
+        CompoundTag autoTotem = meteorModule("auto-totem", true, 90, 0);
+        CompoundTag setting = new CompoundTag();
         setting.putString("name", "swap-key");
         setting.put("value", meteorKeybind(true, 344, 0));
-        NbtList settingList = new NbtList();
+        ListTag settingList = new ListTag();
         settingList.add(setting);
-        NbtCompound group = new NbtCompound();
+        CompoundTag group = new CompoundTag();
         group.putString("name", "General");
         group.put("settings", settingList);
-        NbtList groups = new NbtList();
+        ListTag groups = new ListTag();
         groups.add(group);
-        NbtCompound settings = new NbtCompound();
+        CompoundTag settings = new CompoundTag();
         settings.put("groups", groups);
         autoTotem.put("settings", settings);
         modules.add(autoTotem);
@@ -877,32 +876,32 @@ final class LogicChecks {
         modules.add(meteorModule("light-overlay", true, 66, 0));
         modules.add(meteorModule("auto-eat", true, 74, 0));
         // The same things the way newer Meteor versions write them: key names and modifier names.
-        NbtCompound antiAfk = meteorModule("anti-afk", "key.keyboard.h", "CONTROL");
-        NbtCompound pauseKey = new NbtCompound();
+        CompoundTag antiAfk = meteorModule("anti-afk", "key.keyboard.h", "CONTROL");
+        CompoundTag pauseKey = new CompoundTag();
         pauseKey.putString("name", "pause-key");
         pauseKey.put("value", meteorKeybind("key.mouse.5"));
-        NbtList pauseSettings = new NbtList();
+        ListTag pauseSettings = new ListTag();
         pauseSettings.add(pauseKey);
-        NbtCompound pauseGroup = new NbtCompound();
+        CompoundTag pauseGroup = new CompoundTag();
         pauseGroup.putString("name", "General");
         pauseGroup.put("settings", pauseSettings);
-        NbtList pauseGroups = new NbtList();
+        ListTag pauseGroups = new ListTag();
         pauseGroups.add(pauseGroup);
-        NbtCompound antiAfkSettings = new NbtCompound();
+        CompoundTag antiAfkSettings = new CompoundTag();
         antiAfkSettings.put("groups", pauseGroups);
         antiAfk.put("settings", antiAfkSettings);
         modules.add(antiAfk);
         modules.add(meteorModule("new-unbound", "key.keyboard.unknown"));
         modules.add(meteorModule("super-module", "key.keyboard.n", "SUPER"));
-        NbtCompound rootTag = new NbtCompound();
+        CompoundTag rootTag = new CompoundTag();
         rootTag.putString("name", "modules");
         rootTag.put("modules", modules);
         NbtIo.write(rootTag, meteor.resolve("modules.nbt"));
 
         Path pvp = Files.createDirectories(meteor.resolve("profiles").resolve("pvp"));
-        NbtList pvpModules = new NbtList();
+        ListTag pvpModules = new ListTag();
         pvpModules.add(meteorModule("auto-totem", true, 89, 0));
-        NbtCompound pvpRoot = new NbtCompound();
+        CompoundTag pvpRoot = new CompoundTag();
         pvpRoot.put("modules", pvpModules);
         NbtIo.write(pvpRoot, pvp.resolve("modules.nbt"));
 
@@ -938,37 +937,37 @@ final class LogicChecks {
                 """);
     }
 
-    private static NbtCompound meteorModule(String name, boolean isKey, int value, int modifiers) {
-        NbtCompound module = new NbtCompound();
+    private static CompoundTag meteorModule(String name, boolean isKey, int value, int modifiers) {
+        CompoundTag module = new CompoundTag();
         module.putString("name", name);
         module.put("keybind", meteorKeybind(isKey, value, modifiers));
         module.putBoolean("toggleOnKeyRelease", false);
         module.putBoolean("chatFeedback", true);
         module.putBoolean("favorite", false);
-        module.put("settings", new NbtCompound());
+        module.put("settings", new CompoundTag());
         module.putBoolean("active", false);
         return module;
     }
 
-    private static NbtCompound meteorModule(String name, String keyName, String... modifierNames) {
-        NbtCompound module = meteorModule(name, true, -1, 0);
+    private static CompoundTag meteorModule(String name, String keyName, String... modifierNames) {
+        CompoundTag module = meteorModule(name, true, -1, 0);
         module.put("keybind", meteorKeybind(keyName, modifierNames));
         return module;
     }
 
-    private static NbtCompound meteorKeybind(String keyName, String... modifierNames) {
-        NbtCompound keybind = new NbtCompound();
+    private static CompoundTag meteorKeybind(String keyName, String... modifierNames) {
+        CompoundTag keybind = new CompoundTag();
         keybind.putString("key", keyName);
-        NbtList modifiers = new NbtList();
+        ListTag modifiers = new ListTag();
         for (String modifier : modifierNames) {
-            modifiers.add(net.minecraft.nbt.NbtString.of(modifier));
+            modifiers.add(net.minecraft.nbt.StringTag.valueOf(modifier));
         }
         keybind.put("modifiers", modifiers);
         return keybind;
     }
 
-    private static NbtCompound meteorKeybind(boolean isKey, int value, int modifiers) {
-        NbtCompound keybind = new NbtCompound();
+    private static CompoundTag meteorKeybind(boolean isKey, int value, int modifiers) {
+        CompoundTag keybind = new CompoundTag();
         keybind.putBoolean("isKey", isKey);
         keybind.putInt("value", value);
         keybind.putInt("modifiers", modifiers);
@@ -1006,10 +1005,10 @@ final class LogicChecks {
     // ------------------------------------------------------------------ profiles
 
     void profileCreate() {
-        KeyBinding jump = SelfTestRunner.binding(TEST_BINDING_ID);
-        originalTestKey = jump.getBoundKeyTranslationKey();
+        KeyMapping jump = SelfTestRunner.binding(TEST_BINDING_ID);
+        originalTestKey = jump.saveString();
 
-        service.saveProfile(PROFILE_A, client().options.allKeys);
+        service.saveProfile(PROFILE_A, client().options.keyMappings);
         t.check("create " + PROFILE_A + ": in memory", service.profiles().containsKey(PROFILE_A));
         t.check("create " + PROFILE_A + ": file written", profileFile(PROFILE_A).isFile());
         t.check("create " + PROFILE_A + ": the file is readable JSON with the key bindings in it", readableProfileFile(PROFILE_A));
@@ -1017,7 +1016,7 @@ final class LogicChecks {
                 originalTestKey.equals(service.profiles().get(PROFILE_A).get(TEST_BINDING_ID)));
 
         t.bind(TEST_BINDING_ID, TEST_KEY);
-        service.saveProfile(PROFILE_B, client().options.allKeys);
+        service.saveProfile(PROFILE_B, client().options.keyMappings);
         t.check("create " + PROFILE_B + ": stores " + TEST_BINDING_ID + "=" + TEST_KEY,
                 TEST_KEY.equals(service.profiles().get(PROFILE_B).get(TEST_BINDING_ID)));
         t.check("create " + PROFILE_B + ": file written", profileFile(PROFILE_B).isFile());
@@ -1026,20 +1025,20 @@ final class LogicChecks {
     }
 
     void profileApply() {
-        KeyBinding jump = SelfTestRunner.binding(TEST_BINDING_ID);
+        KeyMapping jump = SelfTestRunner.binding(TEST_BINDING_ID);
 
         service.applyProfile(PROFILE_A);
-        t.check("apply " + PROFILE_A + ": " + TEST_BINDING_ID + " back to " + originalTestKey, originalTestKey.equals(jump.getBoundKeyTranslationKey()));
+        t.check("apply " + PROFILE_A + ": " + TEST_BINDING_ID + " back to " + originalTestKey, originalTestKey.equals(jump.saveString()));
         t.check("apply " + PROFILE_A + ": becomes current profile", PROFILE_A.equals(service.getCurrentProfile()));
 
         service.applyProfile(PROFILE_B);
-        t.check("apply " + PROFILE_B + ": " + TEST_BINDING_ID + " is " + TEST_KEY, TEST_KEY.equals(jump.getBoundKeyTranslationKey()));
+        t.check("apply " + PROFILE_B + ": " + TEST_BINDING_ID + " is " + TEST_KEY, TEST_KEY.equals(jump.saveString()));
         t.check("apply " + PROFILE_B + ": becomes current profile", PROFILE_B.equals(service.getCurrentProfile()));
         t.check("apply " + PROFILE_B + ": options.txt updated", optionsFileContains("key_" + TEST_BINDING_ID + ":" + TEST_KEY));
     }
 
     void profileRename() {
-        KeyBinding jump = SelfTestRunner.binding(TEST_BINDING_ID);
+        KeyMapping jump = SelfTestRunner.binding(TEST_BINDING_ID);
         service.setProfileHotkey(PROFILE_B, List.of("key.keyboard.keypad.5", "key.keyboard.f6"));
         service.setProfileAutoSwitchServers(PROFILE_B, List.of("example.org", "*.selftest.example"));
 
@@ -1049,7 +1048,7 @@ final class LogicChecks {
         t.check("rename: current profile follows", PROFILE_C.equals(service.getCurrentProfile()));
         t.check("rename: hotkey kept", List.of("key.keyboard.keypad.5", "key.keyboard.f6").equals(service.getProfileHotkey(PROFILE_C)));
         t.check("rename: servers kept", List.of("example.org", "*.selftest.example").equals(service.getProfileAutoSwitchServers(PROFILE_C)));
-        t.check("rename: live key bindings untouched", TEST_KEY.equals(jump.getBoundKeyTranslationKey()));
+        t.check("rename: live key bindings untouched", TEST_KEY.equals(jump.saveString()));
         t.check("rename onto an existing name is refused", !service.renameProfile(PROFILE_C, PROFILE_A));
     }
 
@@ -1167,7 +1166,7 @@ final class LogicChecks {
 
     boolean optionsFileContains(String line) {
         try {
-            return Files.readAllLines(new File(client().runDirectory, "options.txt").toPath(), StandardCharsets.UTF_8).contains(line);
+            return Files.readAllLines(new File(client().gameDirectory, "options.txt").toPath(), StandardCharsets.UTF_8).contains(line);
         } catch (IOException e) {
             return false;
         }

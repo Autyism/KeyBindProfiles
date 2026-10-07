@@ -1,7 +1,7 @@
 package io.github.autyism.keybindprofilesplus.gui;
 
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
 
 /** Small drawing helpers shared by the mod's screens. */
 final class GuiUtil {
@@ -26,16 +26,16 @@ final class GuiUtil {
     }
 
     /** Cuts the text and appends "..." when it is wider than maxWidth. */
-    static String ellipsize(TextRenderer font, String text, int maxWidth) {
-        if (font.getWidth(text) <= maxWidth) {
+    static String ellipsize(Font font, String text, int maxWidth) {
+        if (font.width(text) <= maxWidth) {
             return text;
         }
         String ellipsis = "...";
-        return font.trimToWidth(text, Math.max(0, maxWidth - font.getWidth(ellipsis))) + ellipsis;
+        return font.plainSubstrByWidth(text, Math.max(0, maxWidth - font.width(ellipsis))) + ellipsis;
     }
 
     /** A small square check box: empty, filled (checked) or with a bar (some children checked). */
-    static void drawCheckbox(DrawContext context, int x, int y, CheckState state, boolean hovered) {
+    static void drawCheckbox(GuiGraphics context, int x, int y, CheckState state, boolean hovered) {
         int border = hovered ? WHITE : GRAY;
         context.fill(x, y, x + CHECKBOX_SIZE, y + CHECKBOX_SIZE, border);
         context.fill(x + 1, y + 1, x + CHECKBOX_SIZE - 1, y + CHECKBOX_SIZE - 1, 0xFF101010);

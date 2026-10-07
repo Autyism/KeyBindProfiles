@@ -1,7 +1,6 @@
 package io.github.autyism.keybindprofilesplus.external;
 
-import net.minecraft.client.util.InputUtil;
-
+import com.mojang.blaze3d.platform.InputConstants;
 import java.util.List;
 
 /**
@@ -30,10 +29,10 @@ public interface LiveSource {
     boolean owns(String hotkeyId);
 
     /**
-     * Binds a hotkey to a key plus Ctrl / Shift / Alt ({@link InputUtil#UNKNOWN_KEY} = no key).
+     * Binds a hotkey to a key plus Ctrl / Shift / Alt ({@link InputConstants#UNKNOWN} = no key).
      * False when the hotkey is unknown or the mod does not accept that key for it.
      */
-    boolean bind(String hotkeyId, InputUtil.Key key, int modifiers);
+    boolean bind(String hotkeyId, InputConstants.Key key, int modifiers);
 
     /** Sets a hotkey to a value as {@link ExternalBinding#value()} gives it (from a profile). False if that did not work. */
     boolean setValue(String hotkeyId, String value);

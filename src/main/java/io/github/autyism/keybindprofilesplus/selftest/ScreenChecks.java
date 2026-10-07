@@ -18,15 +18,13 @@ import io.github.autyism.keybindprofilesplus.options.GameOptionsBridge;
 import io.github.autyism.keybindprofilesplus.profile.ProfileService;
 import io.github.autyism.keybindprofilesplus.profile.ShareCode;
 import io.github.autyism.keybindprofilesplus.storage.ModSettings;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.screen.ConfirmScreen;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.screen.option.KeybindsScreen;
-import net.minecraft.client.option.KeyBinding;
-import net.minecraft.client.util.InputUtil;
-
 import java.util.List;
 import java.util.Map;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.ConfirmScreen;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.options.controls.KeyBindsScreen;
 
 import static io.github.autyism.keybindprofilesplus.selftest.LogicChecks.DEMO_MOD_BINDING;
 import static io.github.autyism.keybindprofilesplus.selftest.LogicChecks.PROFILE_A;
@@ -38,6 +36,8 @@ import static io.github.autyism.keybindprofilesplus.selftest.LogicChecks.TEST_BI
 import static io.github.autyism.keybindprofilesplus.selftest.LogicChecks.TEST_KEY;
 import static io.github.autyism.keybindprofilesplus.selftest.SelfTestRunner.SCREEN_SETTLE_TICKS;
 import static io.github.autyism.keybindprofilesplus.selftest.SelfTestRunner.translated;
+
+import com.mojang.blaze3d.platform.InputConstants;
 
 /**
  * The part of the self-test that drives the screens: it opens each one, takes screenshots, and
@@ -66,8 +66,8 @@ final class ScreenChecks {
         this.service = service;
     }
 
-    private static MinecraftClient client() {
-        return MinecraftClient.getInstance();
+    private static Minecraft client() {
+        return Minecraft.getInstance();
     }
 
     // ------------------------------------------------------------------ recording combinations with real key events
@@ -80,7 +80,7 @@ final class ScreenChecks {
         String id = "key.socialInteractions";
         String[] original = new String[1];
         Map<String, String> layout = new java.util.LinkedHashMap<>();
-        t.open("key binds screen, the way the options menu opens it", () -> new KeybindsScreen(t.homeScreen, client().options));
+        t.open("key binds screen, the way the options menu opens it", () -> new KeyBindsScreen(t.homeScreen, client().options));
         t.step("keys: the mod's screen is shown in place of the vanilla one", 3, () -> {
             t.check("keys: opening the vanilla Key Binds screen shows the mod's screen instead", t.isScreen(KeyOverviewScreen.class));
             KeyOverviewScreen keys = t.screen(KeyOverviewScreen.class);
@@ -95,29 +95,29 @@ final class ScreenChecks {
         });
         t.shot("en_keybinds_waiting_for_key");
         t.step("keys: Ctrl goes down", 2, () -> {
-            t.sendKey(InputUtil.GLFW_KEY_LEFT_CONTROL, true, KeyCombo.CTRL);
+            t.sendKey(InputConstants.KEY_LCONTROL, true, KeyCombo.CTRL);
             KeyOverviewScreen keys = t.screen(KeyOverviewScreen.class);
             t.check("keys: holding Ctrl does not bind Left Control yet", id.equals(keys.waitingFor())
                     && KeyCombos.valueOf(SelfTestRunner.binding(id)).equals(original[0]));
             t.check("keys: the button shows the modifier being held", t.hasWidget("> Ctrl + ... <"));
         });
         t.step("keys: F15 goes down with Ctrl held", 2, () -> {
-            t.sendKey(InputUtil.GLFW_KEY_F15, true, KeyCombo.CTRL);
-            KeyBinding binding = SelfTestRunner.binding(id);
+            t.sendKey(InputConstants.KEY_F15, true, KeyCombo.CTRL);
+            KeyMapping binding = SelfTestRunner.binding(id);
             KeyOverviewScreen keys = t.screen(KeyOverviewScreen.class);
             t.check("keys: Ctrl + F15 was recorded", KeyCombos.valueOf(binding).equals("ctrl+key.keyboard.f15") && keys.waitingFor() == null);
             t.check("keys: the list shows Ctrl + F15", t.hasWidget("Ctrl + F15"));
-            t.sendKey(InputUtil.GLFW_KEY_F15, false, KeyCombo.CTRL);
-            t.sendKey(InputUtil.GLFW_KEY_LEFT_CONTROL, false, 0);
+            t.sendKey(InputConstants.KEY_F15, false, KeyCombo.CTRL);
+            t.sendKey(InputConstants.KEY_LCONTROL, false, 0);
             t.check("keys: releasing the keys afterwards changes nothing", KeyCombos.valueOf(binding).equals("ctrl+key.keyboard.f15"));
-            keys.charTyped(new net.minecraft.client.input.CharInput('x', 0));
+            keys.charTyped(new net.minecraft.client.input.CharacterEvent('x', 0));
             t.check("keys: the character of the key just bound does not land in the search box", keys.visibleBindingCount() == 1);
         });
         t.step("keys: a modifier pressed and released alone is bound as a plain key", 2, () -> {
             KeyOverviewScreen keys = t.screen(KeyOverviewScreen.class);
             t.mouseClick(keys.keyButtonPoint(id), 0);
-            t.sendKey(InputUtil.GLFW_KEY_RIGHT_SHIFT, true, KeyCombo.SHIFT);
-            t.sendKey(InputUtil.GLFW_KEY_RIGHT_SHIFT, false, 0);
+            t.sendKey(InputConstants.KEY_RSHIFT, true, KeyCombo.SHIFT);
+            t.sendKey(InputConstants.KEY_RSHIFT, false, 0);
             t.check("keys: Right Shift alone -> " + KeyCombos.valueOf(SelfTestRunner.binding(id)),
                     KeyCombos.valueOf(SelfTestRunner.binding(id)).equals("key.keyboard.right.shift") && keys.waitingFor() == null);
         });
@@ -130,20 +130,20 @@ final class ScreenChecks {
                     KeyCombos.valueOf(SelfTestRunner.binding(id)).equals("key.mouse.left") && keys.waitingFor() == null);
         });
         t.step("keys: the reset button", 2, () -> {
-            KeyBinding binding = SelfTestRunner.binding(id);
+            KeyMapping binding = SelfTestRunner.binding(id);
             t.click(translated("controls.reset"));
             t.check("keys: Reset puts the default key back", binding.isDefault() && !t.widget(translated("controls.reset")).active);
-            t.bind(id, "alt+" + binding.getDefaultKey().getTranslationKey());
+            t.bind(id, "alt+" + binding.getDefaultKey().getName());
             t.check("keys: a combination on the default key is not 'default'", !binding.isDefault());
             t.screen(KeyOverviewScreen.class).reset(id);
             t.check("keys: resetting drops the modifiers", binding.isDefault() && KeyCombos.modifiersOf(binding) == 0);
         });
         t.step("keys: escape unbinds", 2, () -> {
-            KeyBinding binding = SelfTestRunner.binding(id);
+            KeyMapping binding = SelfTestRunner.binding(id);
             KeyOverviewScreen keys = t.screen(KeyOverviewScreen.class);
             t.mouseClick(keys.keyButtonPoint(id), 0);
-            t.sendKey(InputUtil.GLFW_KEY_ESCAPE, true, 0);
-            t.sendKey(InputUtil.GLFW_KEY_ESCAPE, false, 0);
+            t.sendKey(InputConstants.KEY_ESCAPE, true, 0);
+            t.sendKey(InputConstants.KEY_ESCAPE, false, 0);
             t.check("keys: Escape while waiting leaves the binding without a key and keeps the screen open",
                     binding.isUnbound() && KeyCombos.modifiersOf(binding) == 0 && t.isScreen(KeyOverviewScreen.class));
             t.bind(id, original[0]);
@@ -152,7 +152,7 @@ final class ScreenChecks {
         t.step("keys: reset all asks first", SCREEN_SETTLE_TICKS, () -> {
             layout.putAll(SelfTestRunner.currentKeyValues());
             t.bind("key.jump", "key.keyboard.f18");
-            client().setScreen(new KeybindsScreen(t.homeScreen, client().options));
+            client().setScreen(new KeyBindsScreen(t.homeScreen, client().options));
         });
         t.step("keys: reset all asks first (2)", SCREEN_SETTLE_TICKS, () -> {
             t.click(translated("controls.resetAll"));
@@ -161,13 +161,13 @@ final class ScreenChecks {
         t.step("keys: reset all, no", SCREEN_SETTLE_TICKS, () -> {
             t.click(translated("gui.no"));
             t.check("keys: answering No changes nothing", t.isScreen(KeyOverviewScreen.class)
-                    && "key.keyboard.f18".equals(SelfTestRunner.binding("key.jump").getBoundKeyTranslationKey()));
+                    && "key.keyboard.f18".equals(SelfTestRunner.binding("key.jump").saveString()));
             t.click(translated("controls.resetAll"));
         });
         t.step("keys: reset all, yes", SCREEN_SETTLE_TICKS, () -> {
             t.click(translated("gui.yes"));
             boolean allDefault = true;
-            for (KeyBinding binding : client().options.allKeys) {
+            for (KeyMapping binding : client().options.keyMappings) {
                 allDefault &= binding.isDefault();
             }
             t.check("keys: answering Yes puts every binding back on its default key", t.isScreen(KeyOverviewScreen.class) && allDefault
@@ -176,7 +176,7 @@ final class ScreenChecks {
         });
         t.step("keys: done", SCREEN_SETTLE_TICKS, () -> {
             t.click(translated("gui.done"));
-            t.check("keys: Done leads back to where the vanilla screen would have", client().currentScreen == t.homeScreen);
+            t.check("keys: Done leads back to where the vanilla screen would have", client().screen == t.homeScreen);
         });
     }
 
@@ -187,57 +187,57 @@ final class ScreenChecks {
     void recordCombinationsOnVanillaScreen() {
         String[] original = new String[1];
         t.step("vanilla mode: switch the replacement off", () -> KeyBindProfilesPlus.settings().setReplaceKeyBinds(false));
-        t.open("vanilla key binds screen (recording)", () -> new KeybindsScreen(t.homeScreen, client().options));
+        t.open("vanilla key binds screen (recording)", () -> new KeyBindsScreen(t.homeScreen, client().options));
         t.step("record: start waiting for a key", 2, () -> {
-            KeyBinding binding = SelfTestRunner.binding("key.socialInteractions");
+            KeyMapping binding = SelfTestRunner.binding("key.socialInteractions");
             original[0] = KeyCombos.valueOf(binding);
-            t.check("vanilla mode: with the replacement off the vanilla Key Binds screen is kept", t.isScreen(KeybindsScreen.class));
-            KeybindsScreen screen = t.screen(KeybindsScreen.class);
-            screen.selectedKeyBinding = binding;
-            screen.controlsList.update();
+            t.check("vanilla mode: with the replacement off the vanilla Key Binds screen is kept", t.isScreen(KeyBindsScreen.class));
+            KeyBindsScreen screen = t.screen(KeyBindsScreen.class);
+            screen.selectedKey = binding;
+            screen.keyBindsList.resetMappingAndUpdateButtons();
         });
         t.step("record: Ctrl goes down", 2, () -> {
-            t.sendKey(InputUtil.GLFW_KEY_LEFT_CONTROL, true, KeyCombo.CTRL);
-            KeybindsScreen screen = t.screen(KeybindsScreen.class);
-            t.check("record: holding Ctrl does not bind Left Control yet", screen.selectedKeyBinding != null
-                    && KeyCombos.valueOf(screen.selectedKeyBinding).equals(original[0]));
+            t.sendKey(InputConstants.KEY_LCONTROL, true, KeyCombo.CTRL);
+            KeyBindsScreen screen = t.screen(KeyBindsScreen.class);
+            t.check("record: holding Ctrl does not bind Left Control yet", screen.selectedKey != null
+                    && KeyCombos.valueOf(screen.selectedKey).equals(original[0]));
             t.check("record: the button shows the modifier being held", t.hasWidget("> Ctrl + ... <"));
         });
         t.step("record: F15 goes down with Ctrl held", 2, () -> {
-            t.sendKey(InputUtil.GLFW_KEY_F15, true, KeyCombo.CTRL);
-            KeyBinding binding = SelfTestRunner.binding("key.socialInteractions");
+            t.sendKey(InputConstants.KEY_F15, true, KeyCombo.CTRL);
+            KeyMapping binding = SelfTestRunner.binding("key.socialInteractions");
             t.check("record: Ctrl + F15 was recorded", KeyCombos.valueOf(binding).equals("ctrl+key.keyboard.f15")
-                    && t.screen(KeybindsScreen.class).selectedKeyBinding == null);
+                    && t.screen(KeyBindsScreen.class).selectedKey == null);
             t.check("record: the list shows Ctrl + F15", t.hasWidget("Ctrl + F15"));
-            t.sendKey(InputUtil.GLFW_KEY_F15, false, KeyCombo.CTRL);
-            t.sendKey(InputUtil.GLFW_KEY_LEFT_CONTROL, false, 0);
+            t.sendKey(InputConstants.KEY_F15, false, KeyCombo.CTRL);
+            t.sendKey(InputConstants.KEY_LCONTROL, false, 0);
             t.check("record: releasing the keys afterwards changes nothing", KeyCombos.valueOf(binding).equals("ctrl+key.keyboard.f15"));
         });
         t.step("record: a modifier pressed and released alone is bound as a plain key", 2, () -> {
-            KeyBinding binding = SelfTestRunner.binding("key.socialInteractions");
-            KeybindsScreen screen = t.screen(KeybindsScreen.class);
-            screen.selectedKeyBinding = binding;
-            screen.controlsList.update();
-            t.sendKey(InputUtil.GLFW_KEY_RIGHT_SHIFT, true, KeyCombo.SHIFT);
-            t.sendKey(InputUtil.GLFW_KEY_RIGHT_SHIFT, false, 0);
+            KeyMapping binding = SelfTestRunner.binding("key.socialInteractions");
+            KeyBindsScreen screen = t.screen(KeyBindsScreen.class);
+            screen.selectedKey = binding;
+            screen.keyBindsList.resetMappingAndUpdateButtons();
+            t.sendKey(InputConstants.KEY_RSHIFT, true, KeyCombo.SHIFT);
+            t.sendKey(InputConstants.KEY_RSHIFT, false, 0);
             t.check("record: Right Shift alone -> " + KeyCombos.valueOf(binding),
-                    KeyCombos.valueOf(binding).equals("key.keyboard.right.shift") && screen.selectedKeyBinding == null);
+                    KeyCombos.valueOf(binding).equals("key.keyboard.right.shift") && screen.selectedKey == null);
         });
         t.step("record: the reset button clears a combination", 2, () -> {
-            KeyBinding binding = SelfTestRunner.binding("key.socialInteractions");
-            t.bind("key.socialInteractions", "alt+" + binding.getDefaultKey().getTranslationKey());
+            KeyMapping binding = SelfTestRunner.binding("key.socialInteractions");
+            t.bind("key.socialInteractions", "alt+" + binding.getDefaultKey().getName());
             t.check("record: a combination on the default key is not 'default'", !binding.isDefault());
-            binding.setBoundKey(binding.getDefaultKey());
+            binding.setKey(binding.getDefaultKey());
             t.check("record: resetting drops the modifiers", binding.isDefault() && KeyCombos.modifiersOf(binding) == 0);
         });
         t.step("record: escape unbinds", 2, () -> {
-            KeyBinding binding = SelfTestRunner.binding("key.socialInteractions");
-            KeybindsScreen screen = t.screen(KeybindsScreen.class);
+            KeyMapping binding = SelfTestRunner.binding("key.socialInteractions");
+            KeyBindsScreen screen = t.screen(KeyBindsScreen.class);
             t.bind("key.socialInteractions", "alt+key.keyboard.f15");
-            screen.selectedKeyBinding = binding;
-            screen.controlsList.update();
-            t.sendKey(InputUtil.GLFW_KEY_ESCAPE, true, 0);
-            t.sendKey(InputUtil.GLFW_KEY_ESCAPE, false, 0);
+            screen.selectedKey = binding;
+            screen.keyBindsList.resetMappingAndUpdateButtons();
+            t.sendKey(InputConstants.KEY_ESCAPE, true, 0);
+            t.sendKey(InputConstants.KEY_ESCAPE, false, 0);
             t.check("record: Escape leaves it unbound without modifiers", binding.isUnbound() && KeyCombos.modifiersOf(binding) == 0);
             t.bind("key.socialInteractions", original[0]);
         });
@@ -263,23 +263,23 @@ final class ScreenChecks {
         t.bind("key.sprint", "key.keyboard.f14");
         t.bind("key.playerlist", "ctrl+key.keyboard.f16");
         t.bind("key.smoothCamera", "key.keyboard.z");
-        for (KeyBinding debug : client().options.allKeys) {
+        for (KeyMapping debug : client().options.keyMappings) {
             if (KeyConflicts.scopeOf(debug, sources) != KeyConflicts.Scope.DEBUG_COMBO || debug.isUnbound()) {
                 continue;
             }
             boolean usedElsewhere = false;
-            for (KeyBinding other : client().options.allKeys) {
-                if (other != debug && other.equals(debug) && KeyConflicts.scopeOf(other, sources) != KeyConflicts.Scope.DEBUG_COMBO) {
+            for (KeyMapping other : client().options.keyMappings) {
+                if (other != debug && other.same(debug) && KeyConflicts.scopeOf(other, sources) != KeyConflicts.Scope.DEBUG_COMBO) {
                     usedElsewhere = true;
                     break;
                 }
             }
             for (io.github.autyism.keybindprofilesplus.external.ExternalBinding external : io.github.autyism.keybindprofilesplus.external.ExternalKeys.active()) {
-                usedElsewhere |= external.key() != null && external.key().getTranslationKey().equals(debug.getBoundKeyTranslationKey());
+                usedElsewhere |= external.key() != null && external.key().getName().equals(debug.saveString());
             }
             if (!usedElsewhere) {
-                t.bind("key.advancements", debug.getBoundKeyTranslationKey());
-                SelfTestRunner.log("examples: advancements now shares " + SelfTestRunner.keyLabel("key.advancements") + " with F3 combination " + debug.getId());
+                t.bind("key.advancements", debug.saveString());
+                SelfTestRunner.log("examples: advancements now shares " + SelfTestRunner.keyLabel("key.advancements") + " with F3 combination " + debug.getName());
                 break;
             }
         }
@@ -488,7 +488,7 @@ final class ScreenChecks {
         t.step("confirm: cancel", SCREEN_SETTLE_TICKS, () -> {
             t.click(translated("gui.cancel"));
             t.check("confirm: cancel returns to the main screen and applies nothing",
-                    t.isScreen(KeyBindProfileScreen.class) && TEST_KEY.equals(SelfTestRunner.binding(TEST_BINDING_ID).getBoundKeyTranslationKey()));
+                    t.isScreen(KeyBindProfileScreen.class) && TEST_KEY.equals(SelfTestRunner.binding(TEST_BINDING_ID).saveString()));
         });
 
         // --- edit screen and the contents tree
@@ -600,7 +600,7 @@ final class ScreenChecks {
     }
 
     private void keyBindsFromOptions(String tag) {
-        t.open("key binds screen from the options", () -> new KeybindsScreen(t.homeScreen, client().options));
+        t.open("key binds screen from the options", () -> new KeyBindsScreen(t.homeScreen, client().options));
         t.step("keys: buttons", () -> {
             t.check("keys: the options menu's Key Binds button leads to the mod's screen", t.isScreen(KeyOverviewScreen.class));
             t.check("keys: it has Manage Profiles, Compare Profiles, Reset Keys and Done",
@@ -618,7 +618,7 @@ final class ScreenChecks {
         });
         t.step("keys: done", SCREEN_SETTLE_TICKS, () -> {
             t.click(translated("gui.done"));
-            t.check("keys: Done leads back to where the options menu's screen would have", client().currentScreen == t.homeScreen);
+            t.check("keys: Done leads back to where the options menu's screen would have", client().screen == t.homeScreen);
         });
     }
 
@@ -649,10 +649,10 @@ final class ScreenChecks {
         });
         t.step("mod menu: and back", SCREEN_SETTLE_TICKS, () -> {
             t.click(translated("gui.done"));
-            t.check("mod menu: Done returns to the settings screen", client().currentScreen == settingsScreen[0]);
+            t.check("mod menu: Done returns to the settings screen", client().screen == settingsScreen[0]);
             t.click(translated("gui.done"));
         });
-        t.step("mod menu: done", 2, () -> t.check("mod menu: Done on the settings screen returns to the mod list", client().currentScreen == t.homeScreen));
+        t.step("mod menu: done", 2, () -> t.check("mod menu: Done on the settings screen returns to the mod list", client().screen == t.homeScreen));
     }
 
     private void editFlow() {
@@ -678,11 +678,11 @@ final class ScreenChecks {
         });
         t.step("edit: record a hotkey", 3, () -> {
             t.click(translated("keybindprofilesplus.hotkey.none"));
-            t.sendKey(InputUtil.GLFW_KEY_F7, true, 0);
-            t.sendKey(InputUtil.GLFW_KEY_F7, false, 0);
+            t.sendKey(InputConstants.KEY_F7, true, 0);
+            t.sendKey(InputConstants.KEY_F7, false, 0);
             t.check("edit: the button shows the key being recorded", t.hasWidget("F7 ..."));
-            t.sendKey(InputUtil.GLFW_KEY_ENTER, true, 0);
-            t.sendKey(InputUtil.GLFW_KEY_ENTER, false, 0);
+            t.sendKey(InputConstants.KEY_RETURN, true, 0);
+            t.sendKey(InputConstants.KEY_RETURN, false, 0);
             t.check("edit: Enter saves the hotkey", List.of("key.keyboard.f7").equals(service.getProfileHotkey(PROFILE_A)) && t.hasWidget("F7"));
         });
         t.step("edit: clear the hotkey", 3, () -> {
@@ -796,7 +796,7 @@ final class ScreenChecks {
         t.step("new profile: a name is required", 3, () -> {
             ProfileContentsScreen contents = t.screen(ProfileContentsScreen.class);
             t.check("new profile: every key binding is ticked to begin with, no other setting",
-                    contents.checkedCount(true) == client().options.allKeys.length && contents.checkedCount(false) == 0);
+                    contents.checkedCount(true) == client().options.keyMappings.length && contents.checkedCount(false) == 0);
             contents.save();
             t.check("new profile: Done without a name is refused with a message", t.isScreen(ProfileContentsScreen.class) && contents.errorText() != null);
             contents.setProfileName(PROFILE_C.toUpperCase(java.util.Locale.ROOT));
@@ -838,7 +838,7 @@ final class ScreenChecks {
             t.check("acceptance: mouse sensitivity, which the profile does not save, stayed as it was",
                     sensitivityNow.equals(SelfTestRunner.liveOption("mouseSensitivity")) && !sensitivityNow.equals(sensitivityBefore[0]));
             t.check("acceptance: key bindings, which the profile does not save, stayed as they were",
-                    PROFILE_A_KEY.equals(SelfTestRunner.binding(TEST_BINDING_ID).getBoundKeyTranslationKey()));
+                    PROFILE_A_KEY.equals(SelfTestRunner.binding(TEST_BINDING_ID).saveString()));
             GameOptionsBridge.apply(client().options, Map.of("mouseSensitivity", sensitivityBefore[0]));
             t.bind(TEST_BINDING_ID, TEST_KEY);
         });
@@ -916,7 +916,7 @@ final class ScreenChecks {
             settings.setReturnToDefault(returnBefore);
         });
         t.step("settings: replace-the-vanilla-screen switch", 3, () -> {
-            KeybindsScreen vanilla = new KeybindsScreen(t.homeScreen, client().options);
+            KeyBindsScreen vanilla = new KeyBindsScreen(t.homeScreen, client().options);
             t.check("settings: the vanilla Key Binds screen is replaced to begin with", settings.replaceKeyBinds()
                     && KeyOverviewScreen.replacementFor(vanilla) instanceof KeyOverviewScreen);
             t.check("settings: opened from the main screen there is no extra 'Manage Profiles' row", !t.hasWidget(translated("keybindprofilesplus.open")));
@@ -958,7 +958,7 @@ final class ScreenChecks {
     }
 
     private void vanillaKeyBinds(String tag, boolean english) {
-        t.open("vanilla key binds screen", () -> new KeybindsScreen(t.homeScreen, client().options));
+        t.open("vanilla key binds screen", () -> new KeyBindsScreen(t.homeScreen, client().options));
         t.step("vanilla: buttons and conflict markers", () -> {
             t.check("vanilla Key Binds screen has the manage button", t.hasWidget(translated("keybindprofilesplus.open")));
             t.check("vanilla Key Binds screen has the compare button", t.hasWidget(translated("keybindprofilesplus.compare.open_short")));
@@ -983,7 +983,7 @@ final class ScreenChecks {
         });
         t.step("vanilla: compare done", SCREEN_SETTLE_TICKS, () -> {
             t.click(translated("gui.done"));
-            t.check("vanilla: compare returns to the Key Binds screen", t.isScreen(KeybindsScreen.class));
+            t.check("vanilla: compare returns to the Key Binds screen", t.isScreen(KeyBindsScreen.class));
         });
         t.step("vanilla: manage button", SCREEN_SETTLE_TICKS, () -> {
             t.click(translated("keybindprofilesplus.open"));
@@ -992,7 +992,7 @@ final class ScreenChecks {
         t.step("vanilla: back", SCREEN_SETTLE_TICKS, () -> {
             t.click(translated("gui.done"));
             t.check("vanilla: Done returns to the Key Binds screen, which still leads back to where it came from",
-                    t.isScreen(KeybindsScreen.class) && t.screen(KeybindsScreen.class).parent == t.homeScreen);
+                    t.isScreen(KeyBindsScreen.class) && t.screen(KeyBindsScreen.class).lastScreen == t.homeScreen);
         });
     }
 
@@ -1001,7 +1001,7 @@ final class ScreenChecks {
     /** Clicks through Apply with and without the confirm screen. */
     void applyFlow() {
         ModSettings settings = KeyBindProfilesPlus.settings();
-        KeyBinding drop = SelfTestRunner.binding("key.drop");
+        KeyMapping drop = SelfTestRunner.binding("key.drop");
         String[] dropBefore = new String[1];
 
         t.open("main screen", () -> new KeyBindProfileScreen(null));
@@ -1020,11 +1020,11 @@ final class ScreenChecks {
         t.step("apply: confirm", SCREEN_SETTLE_TICKS, () -> {
             t.click(translated("keybindprofilesplus.confirm.apply"));
             t.check("apply: back on the main screen", t.isScreen(KeyBindProfileScreen.class));
-            t.check("apply: saved key applied", PROFILE_A_KEY.equals(SelfTestRunner.binding(TEST_BINDING_ID).getBoundKeyTranslationKey()));
+            t.check("apply: saved key applied", PROFILE_A_KEY.equals(SelfTestRunner.binding(TEST_BINDING_ID).saveString()));
             t.check("apply: saved auto-jump applied", logic.profileAutoJump.equals(SelfTestRunner.liveOption("autoJump")));
             t.check("apply: saved fov applied", PROFILE_FOV.equals(SelfTestRunner.liveOption("fov")));
-            t.check("apply: fov really changed in the game", Math.abs(client().options.getFov().getValue() - 90) <= 1);
-            t.check("apply: a key the profile does not save is left alone", "key.keyboard.f17".equals(drop.getBoundKeyTranslationKey()));
+            t.check("apply: fov really changed in the game", Math.abs(client().options.fov().get() - 90) <= 1);
+            t.check("apply: a key the profile does not save is left alone", "key.keyboard.f17".equals(drop.saveString()));
             t.check("apply: profile became current", PROFILE_A.equals(service.getCurrentProfile()));
             t.check("apply: nothing left to change", service.previewApply(PROFILE_A).isEmpty());
             t.check("apply: confirm setting untouched", settings.confirmApply());
@@ -1038,7 +1038,7 @@ final class ScreenChecks {
             logic.makeGameDifferFromProfileA();
             KeyBindProfileScreen main = t.screen(KeyBindProfileScreen.class);
             int[] point = main.hitPoint(PROFILE_A);
-            client().currentScreen.mouseClicked(new net.minecraft.client.gui.Click(point[0], point[1], new net.minecraft.client.input.MouseInput(0, 0)), true);
+            client().screen.mouseClicked(new net.minecraft.client.input.MouseButtonEvent(point[0], point[1], new net.minecraft.client.input.MouseButtonInfo(0, 0)), true);
             t.check("apply: double click asks like the button does", t.isScreen(ApplyConfirmScreen.class));
         });
         t.step("apply: with do-not-ask-again", SCREEN_SETTLE_TICKS, () -> {
@@ -1052,12 +1052,12 @@ final class ScreenChecks {
             logic.makeGameDifferFromProfileA();
             t.click(translated("keybindprofilesplus.apply"));
             t.check("apply: applied directly, no confirm screen", t.isScreen(KeyBindProfileScreen.class)
-                    && PROFILE_A_KEY.equals(SelfTestRunner.binding(TEST_BINDING_ID).getBoundKeyTranslationKey()));
+                    && PROFILE_A_KEY.equals(SelfTestRunner.binding(TEST_BINDING_ID).saveString()));
             settings.reload();
             t.check("apply: the choice is stored on disk", !settings.confirmApply());
         });
         t.step("apply: switch asking back on in the settings screen", SCREEN_SETTLE_TICKS, () -> {
-            client().setScreen(new SettingsScreen(client().currentScreen, service));
+            client().setScreen(new SettingsScreen(client().screen, service));
         });
         t.step("apply: switch asking back on (2)", SCREEN_SETTLE_TICKS, () -> {
             t.click(translated("keybindprofilesplus.confirm.toggle") + ": " + translated("options.off"));

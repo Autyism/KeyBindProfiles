@@ -1,6 +1,6 @@
 package io.github.autyism.keybindprofilesplus.gui;
 
-import net.minecraft.text.Text;
+import net.minecraft.network.chat.Component;
 
 final class ScreenStatusMessage {
     private static final long DURATION_MS = 3000;
@@ -15,10 +15,10 @@ final class ScreenStatusMessage {
         this.expiresAt = System.currentTimeMillis() + DURATION_MS;
     }
 
-    Text getVisibleText() {
+    Component getVisibleText() {
         if (translationKey == null || System.currentTimeMillis() >= expiresAt) {
             return null;
         }
-        return Text.translatable(translationKey, args);
+        return Component.translatable(translationKey, args);
     }
 }

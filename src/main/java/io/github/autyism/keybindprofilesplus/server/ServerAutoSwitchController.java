@@ -2,9 +2,8 @@ package io.github.autyism.keybindprofilesplus.server;
 
 import io.github.autyism.keybindprofilesplus.notification.ProfileNotification;
 import io.github.autyism.keybindprofilesplus.profile.ProfileService;
-import net.minecraft.client.MinecraftClient;
-
 import io.github.autyism.keybindprofilesplus.storage.ModSettings;
+import net.minecraft.client.Minecraft;
 
 /** Applies the profile whose rule matches the world or server the player has just joined. */
 public final class ServerAutoSwitchController {
@@ -40,7 +39,7 @@ public final class ServerAutoSwitchController {
         lastLocationKey = null;
     }
 
-    public void tick(MinecraftClient client) {
+    public void tick(Minecraft client) {
         if (client == null || !settings.autoSwitch()) {
             return;
         }

@@ -5,17 +5,6 @@ import io.github.autyism.keybindprofilesplus.configs.ConfigArchive;
 import io.github.autyism.keybindprofilesplus.configs.ConfigImport;
 import io.github.autyism.keybindprofilesplus.configs.ModConfigs;
 import io.github.autyism.keybindprofilesplus.configs.ModInfo;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.tooltip.Tooltip;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.client.gui.widget.DirectionalLayoutWidget;
-import net.minecraft.client.gui.widget.EmptyWidget;
-import net.minecraft.client.gui.widget.TextFieldWidget;
-import net.minecraft.client.gui.widget.TextWidget;
-import net.minecraft.client.gui.widget.ThreePartsLayoutWidget;
-import net.minecraft.screen.ScreenTexts;
-import net.minecraft.text.Text;
-
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -24,6 +13,16 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.components.StringWidget;
+import net.minecraft.client.gui.components.Tooltip;
+import net.minecraft.client.gui.layouts.HeaderAndFooterLayout;
+import net.minecraft.client.gui.layouts.LinearLayout;
+import net.minecraft.client.gui.layouts.SpacerElement;
+import net.minecraft.network.chat.CommonComponents;
+import net.minecraft.network.chat.Component;
 
 /**
  * "What would importing this file do?" - every file of an export (or of a backup made before an
@@ -40,15 +39,15 @@ public class ConfigImportScreen extends ResizingScreen {
     private ConfigImport.Plan plan;
     private volatile Map<String, ModInfo> mods = Map.of();
     private final ConfigTree tree = new ConfigTree();
-    private ThreePartsLayoutWidget layout;
+    private HeaderAndFooterLayout layout;
     private ConfigTree.ListWidget list;
-    private TextFieldWidget searchField;
-    private ButtonWidget importButton;
+    private EditBox searchField;
+    private Button importButton;
     private String query = "";
-    private Text error;
+    private Component error;
 
     public ConfigImportScreen(ModConfigsScreen parent, Path archive) {
-        super(Text.translatable("keybindprofilesplus.configs.import.title", archive.getFileName().toString()));
+        super(Component.translatable("keybindprofilesplus.configs.import.title", archive.getFileName().toString()));
         this.parent = parent;
         this.archive = archive;
         this.planning = ModConfigs.scan().thenApply(context -> {
@@ -60,42 +59,42 @@ public class ConfigImportScreen extends ResizingScreen {
     @Override
     protected void init() {
         layout = startLayout(HEADER_HEIGHT, 33);
-        DirectionalLayoutWidget header = layout.addHeader(DirectionalLayoutWidget.vertical().spacing(4));
-        header.getMainPositioner().alignHorizontalCenter();
-        header.add(new TextWidget(title, textRenderer));
-        searchField = header.add(new TextFieldWidget(textRenderer, Math.max(100, Math.min(260, width - 40)), 20,
-                Text.translatable("keybindprofilesplus.configs.search")));
+        LinearLayout header = layout.addToHeader(LinearLayout.vertical().spacing(4));
+        header.defaultCellSetting().alignHorizontallyCenter();
+        header.addChild(new StringWidget(title, font));
+        searchField = header.addChild(new EditBox(font, Math.max(100, Math.min(260, width - 40)), 20,
+                Component.translatable("keybindprofilesplus.configs.search")));
         searchField.setMaxLength(64);
-        searchField.setText(query);
-        searchField.setPlaceholder(Text.translatable("keybindprofilesplus.configs.search").setStyle(TextFieldWidget.SEARCH_STYLE));
-        searchField.setChangedListener(value -> {
+        searchField.setValue(query);
+        searchField.setHint(Component.translatable("keybindprofilesplus.configs.search").setStyle(EditBox.SEARCH_HINT_STYLE));
+        searchField.setResponder(value -> {
             query = value;
             list.refresh(query, false);
         });
-        header.add(new EmptyWidget(1, textRenderer.fontHeight));
+        header.addChild(new SpacerElement(1, font.lineHeight));
 
-        list = layout.addBody(new ConfigTree.ListWidget(client, width, layout, tree, () -> error = null));
+        list = layout.addToContents(new ConfigTree.ListWidget(minecraft, width, layout, tree, () -> error = null));
 
-        DirectionalLayoutWidget footer = layout.addFooter(DirectionalLayoutWidget.horizontal().spacing(8));
+        LinearLayout footer = layout.addToFooter(LinearLayout.horizontal().spacing(8));
         int buttonWidth = Math.max(70, Math.min(150, (width - 40) / 2));
-        importButton = footer.add(ButtonWidget.builder(Text.translatable("keybindprofilesplus.configs.import.do"), button -> confirm())
+        importButton = footer.addChild(Button.builder(Component.translatable("keybindprofilesplus.configs.import.do"), button -> confirm())
                 .width(buttonWidth)
-                .tooltip(Tooltip.of(Text.translatable("keybindprofilesplus.configs.import.do.tooltip")))
+                .tooltip(Tooltip.create(Component.translatable("keybindprofilesplus.configs.import.do.tooltip")))
                 .build());
-        footer.add(ButtonWidget.builder(ScreenTexts.CANCEL, button -> close()).width(buttonWidth).build());
-        layout.forEachChild(this::addDrawableChild);
+        footer.addChild(Button.builder(CommonComponents.GUI_CANCEL, button -> onClose()).width(buttonWidth).build());
+        layout.visitWidgets(this::addRenderableWidget);
         list.refresh(query, false);
-        refreshWidgetPositions();
+        repositionElements();
     }
 
     @Override
-    protected void refreshWidgetPositions() {
+    protected void repositionElements() {
         if (rebuiltAfterResize()) {
             return;
         }
-        layout.refreshPositions();
+        layout.arrangeElements();
         if (list != null) {
-            list.position(width, layout);
+            list.updateSize(width, layout);
         }
     }
 
@@ -104,7 +103,7 @@ public class ConfigImportScreen extends ResizingScreen {
         if (plan == null && planning.isDone()) {
             plan = planning.exceptionally(e -> null).getNow(null);
             if (plan == null || plan.archive().problem() != null) {
-                error = Text.translatable("keybindprofilesplus.configs.import.unreadable");
+                error = Component.translatable("keybindprofilesplus.configs.import.unreadable");
             } else {
                 buildTree();
                 list.refresh(query, false);
@@ -114,28 +113,28 @@ public class ConfigImportScreen extends ResizingScreen {
     }
 
     @Override
-    public void close() {
-        client.setScreen(parent);
+    public void onClose() {
+        minecraft.setScreen(parent);
     }
 
     @Override
-    public void render(DrawContext context, int mouseX, int mouseY, float deltaTicks) {
+    public void render(GuiGraphics context, int mouseX, int mouseY, float deltaTicks) {
         super.render(context, mouseX, mouseY, deltaTicks);
-        Text line;
+        Component line;
         int color = GuiUtil.GRAY;
         if (error != null) {
             line = error;
             color = GuiUtil.RED;
         } else if (plan == null) {
             int[] progress = ModConfigs.progress();
-            line = Text.translatable("keybindprofilesplus.configs.scanning", progress[0], progress[1]);
+            line = Component.translatable("keybindprofilesplus.configs.scanning", progress[0], progress[1]);
         } else if (plan.otherMinecraft()) {
-            line = Text.translatable("keybindprofilesplus.configs.import.other_minecraft", plan.archive().minecraft(), ModConfigs.minecraftVersion());
+            line = Component.translatable("keybindprofilesplus.configs.import.other_minecraft", plan.archive().minecraft(), ModConfigs.minecraftVersion());
             color = GuiUtil.YELLOW;
         } else {
-            line = Text.translatable("keybindprofilesplus.configs.import.summary", tree.checkedLeaves().size(), plan.items().size());
+            line = Component.translatable("keybindprofilesplus.configs.import.summary", tree.checkedLeaves().size(), plan.items().size());
         }
-        context.drawCenteredTextWithShadow(textRenderer, line, width / 2, searchField.getY() + 24, color);
+        context.drawCenteredString(font, line, width / 2, searchField.getY() + 24, color);
     }
 
     // ------------------------------------------------------------------ actions (also used by the self-test)
@@ -179,17 +178,17 @@ public class ConfigImportScreen extends ResizingScreen {
         }
         List<ConfigImport.Item> chosen = tree.checkedLeaves().stream().map(leaf -> (ConfigImport.Item) leaf.payload).toList();
         if (chosen.isEmpty()) {
-            error = Text.translatable("keybindprofilesplus.configs.import.nothing");
+            error = Component.translatable("keybindprofilesplus.configs.import.nothing");
             return false;
         }
         try {
             ModConfigs.stage(plan, chosen);
         } catch (Exception e) {
             KeyBindProfilesPlus.LOGGER.error("Staging the mod config import failed", e);
-            error = Text.translatable("keybindprofilesplus.configs.status.stage_failed");
+            error = Component.translatable("keybindprofilesplus.configs.status.stage_failed");
             return false;
         }
-        client.setScreen(parent);
+        minecraft.setScreen(parent);
         parent.showStatus("keybindprofilesplus.configs.status.staged", chosen.size());
         return true;
     }
@@ -211,10 +210,10 @@ public class ConfigImportScreen extends ResizingScreen {
         List<String> order = new ArrayList<>(byMod.keySet());
         order.sort(Comparator.comparing(id -> modName(id).toLowerCase(Locale.ROOT)));
         for (String mod : order) {
-            Text label = Text.literal(modName(mod));
+            Component label = Component.literal(modName(mod));
             String note = plan.versionNotes().get(mod);
             if (note != null) {
-                label = Text.translatable("keybindprofilesplus.configs.import.version_note", modName(mod), note);
+                label = Component.translatable("keybindprofilesplus.configs.import.version_note", modName(mod), note);
             }
             ConfigTree.Group group = tree.group(tree.root, "mod:" + mod, label);
             ConfigTree.Group perWorld = null;
@@ -222,7 +221,7 @@ public class ConfigImportScreen extends ResizingScreen {
                 ConfigTree.Group target = group;
                 if (item.perWorld()) {
                     if (perWorld == null) {
-                        perWorld = tree.group(group, "mod:" + mod + "/world", Text.translatable("keybindprofilesplus.configs.group.world"));
+                        perWorld = tree.group(group, "mod:" + mod + "/world", Component.translatable("keybindprofilesplus.configs.group.world"));
                     }
                     target = perWorld;
                 }
@@ -233,25 +232,25 @@ public class ConfigImportScreen extends ResizingScreen {
                     case DELETE -> GuiUtil.RED;
                     default -> GuiUtil.DARK_GRAY;
                 };
-                tree.leaf(target, "file:" + item.path(), Text.literal(item.path()), Text.translatable("keybindprofilesplus.configs.status." + status),
+                tree.leaf(target, "file:" + item.path(), Component.literal(item.path()), Component.translatable("keybindprofilesplus.configs.status." + status),
                         color, item.status() != ConfigImport.Status.SAME, item.suggested(), item);
             }
         }
         if (!missing.isEmpty()) {
-            ConfigTree.Group group = tree.group(tree.root, "missing", Text.translatable("keybindprofilesplus.configs.import.group.missing"));
+            ConfigTree.Group group = tree.group(tree.root, "missing", Component.translatable("keybindprofilesplus.configs.import.group.missing"));
             for (ConfigImport.Item item : missing) {
                 String owner = item.owners().isEmpty() ? "" : item.owners().get(0);
                 ConfigArchive.ModRef ref = plan.archive().mods().get(owner);
-                Text label = owner.isEmpty() ? Text.translatable("keybindprofilesplus.configs.group.orphans.unknown") : Text.literal(ref != null ? ref.name() : owner);
+                Component label = owner.isEmpty() ? Component.translatable("keybindprofilesplus.configs.group.orphans.unknown") : Component.literal(ref != null ? ref.name() : owner);
                 ConfigTree.Group byOwner = tree.group(group, "missing/" + owner, label);
-                tree.leaf(byOwner, "file:" + item.path(), Text.literal(item.path()), Text.translatable("keybindprofilesplus.configs.status.mod_missing"),
+                tree.leaf(byOwner, "file:" + item.path(), Component.literal(item.path()), Component.translatable("keybindprofilesplus.configs.status.mod_missing"),
                         GuiUtil.DARK_GRAY, true, false, item);
             }
         }
         if (!rejected.isEmpty()) {
-            ConfigTree.Group group = tree.group(tree.root, "rejected", Text.translatable("keybindprofilesplus.configs.import.group.rejected"));
+            ConfigTree.Group group = tree.group(tree.root, "rejected", Component.translatable("keybindprofilesplus.configs.import.group.rejected"));
             for (ConfigImport.Item item : rejected) {
-                tree.leaf(group, "file:" + item.path(), Text.literal(item.path()), Text.translatable("keybindprofilesplus.configs.reject." + item.detail()),
+                tree.leaf(group, "file:" + item.path(), Component.literal(item.path()), Component.translatable("keybindprofilesplus.configs.reject." + item.detail()),
                         GuiUtil.RED, false, false, item);
             }
         }

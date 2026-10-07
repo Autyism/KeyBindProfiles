@@ -3,17 +3,16 @@ package io.github.autyism.keybindprofilesplus.gui;
 import io.github.autyism.keybindprofilesplus.KeyBindProfilesPlus;
 import io.github.autyism.keybindprofilesplus.profile.ProfileService;
 import io.github.autyism.keybindprofilesplus.storage.ModSettings;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.tooltip.Tooltip;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.client.gui.widget.CyclingButtonWidget;
-import net.minecraft.client.gui.widget.ThreePartsLayoutWidget;
-import net.minecraft.screen.ScreenTexts;
-import net.minecraft.text.Text;
-
 import java.util.ArrayList;
 import java.util.List;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.CycleButton;
+import net.minecraft.client.gui.components.Tooltip;
+import net.minecraft.client.gui.layouts.HeaderAndFooterLayout;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.CommonComponents;
+import net.minecraft.network.chat.Component;
 
 /** The mod's own preferences. */
 public class SettingsScreen extends ResizingScreen {
@@ -22,12 +21,12 @@ public class SettingsScreen extends ResizingScreen {
 
     private final Screen parent;
     private final ProfileService service;
-    private ThreePartsLayoutWidget layout;
+    private HeaderAndFooterLayout layout;
     private final ScreenStatusMessage statusMessage = new ScreenStatusMessage();
     private WidgetRowList rows;
 
     public SettingsScreen(Screen parent, ProfileService service) {
-        super(Text.translatable("keybindprofilesplus.settings.title"));
+        super(Component.translatable("keybindprofilesplus.settings.title"));
         this.parent = parent;
         this.service = service;
     }
@@ -35,66 +34,66 @@ public class SettingsScreen extends ResizingScreen {
     @Override
     protected void init() {
         layout = startLayout(33, 33);
-        layout.addHeader(title, textRenderer);
-        rows = layout.addBody(new WidgetRowList(client, width, layout));
-        layout.addFooter(ButtonWidget.builder(ScreenTexts.DONE, button -> close()).width(200).build());
-        layout.forEachChild(this::addDrawableChild);
-        refreshWidgetPositions();
+        layout.addTitleHeader(title, font);
+        rows = layout.addToContents(new WidgetRowList(minecraft, width, layout));
+        layout.addToFooter(Button.builder(CommonComponents.GUI_DONE, button -> onClose()).width(200).build());
+        layout.visitWidgets(this::addRenderableWidget);
+        repositionElements();
     }
 
     @Override
-    protected void refreshWidgetPositions() {
+    protected void repositionElements() {
         if (rebuiltAfterResize()) {
             return;
         }
-        layout.refreshPositions();
+        layout.arrangeElements();
         if (rows != null) {
-            rows.position(width, layout);
+            rows.updateSize(width, layout);
             rebuild();
         }
     }
 
     @Override
-    public void close() {
-        client.setScreen(parent);
+    public void onClose() {
+        minecraft.setScreen(parent);
     }
 
     @Override
-    public void render(DrawContext context, int mouseX, int mouseY, float deltaTicks) {
+    public void render(GuiGraphics context, int mouseX, int mouseY, float deltaTicks) {
         super.render(context, mouseX, mouseY, deltaTicks);
-        Text status = statusMessage.getVisibleText();
+        Component status = statusMessage.getVisibleText();
         if (status != null) {
-            context.drawCenteredTextWithShadow(textRenderer, status, width / 2, layout.getHeaderHeight() - 11, GuiUtil.YELLOW);
+            context.drawCenteredString(font, status, width / 2, layout.getHeaderHeight() - 11, GuiUtil.YELLOW);
         }
     }
 
     private void rebuild() {
         ModSettings settings = KeyBindProfilesPlus.settings();
-        double scroll = rows.getScrollY();
+        double scroll = rows.scrollAmount();
         rows.clear();
 
         if (!(parent instanceof KeyBindProfileScreen)) {
             // Opened from outside the mod's own screens (the mod list): offer the way in.
-            rows.addHeading(Text.translatable("keybindprofilesplus.title"));
+            rows.addHeading(Component.translatable("keybindprofilesplus.title"));
             rows.addWidgets(
-                    ButtonWidget.builder(Text.translatable("keybindprofilesplus.open"), button -> client.setScreen(new KeyBindProfileScreen(this))).build(),
-                    ButtonWidget.builder(Text.translatable("keybindprofilesplus.overview.open"), button -> client.setScreen(new KeyOverviewScreen(this))).build());
+                    Button.builder(Component.translatable("keybindprofilesplus.open"), button -> minecraft.setScreen(new KeyBindProfileScreen(this))).build(),
+                    Button.builder(Component.translatable("keybindprofilesplus.overview.open"), button -> minecraft.setScreen(new KeyOverviewScreen(this))).build());
         }
 
-        rows.addHeading(Text.translatable("keybindprofilesplus.settings.section.keys"));
-        rows.addWidgets(CyclingButtonWidget.onOffBuilder(settings.replaceKeyBinds())
-                .tooltip(value -> Tooltip.of(Text.translatable("keybindprofilesplus.settings.replace_key_binds.tooltip")))
-                .build(0, 0, 100, 20, Text.translatable("keybindprofilesplus.settings.replace_key_binds"), (button, value) -> settings.setReplaceKeyBinds(value)));
+        rows.addHeading(Component.translatable("keybindprofilesplus.settings.section.keys"));
+        rows.addWidgets(CycleButton.onOffBuilder(settings.replaceKeyBinds())
+                .withTooltip(value -> Tooltip.create(Component.translatable("keybindprofilesplus.settings.replace_key_binds.tooltip")))
+                .create(0, 0, 100, 20, Component.translatable("keybindprofilesplus.settings.replace_key_binds"), (button, value) -> settings.setReplaceKeyBinds(value)));
 
-        rows.addHeading(Text.translatable("keybindprofilesplus.settings.section.apply"));
-        rows.addWidgets(CyclingButtonWidget.onOffBuilder(settings.confirmApply())
-                .tooltip(value -> Tooltip.of(Text.translatable("keybindprofilesplus.confirm.toggle.tooltip")))
-                .build(0, 0, 100, 20, Text.translatable("keybindprofilesplus.confirm.toggle"), (button, value) -> settings.setConfirmApply(value)));
+        rows.addHeading(Component.translatable("keybindprofilesplus.settings.section.apply"));
+        rows.addWidgets(CycleButton.onOffBuilder(settings.confirmApply())
+                .withTooltip(value -> Tooltip.create(Component.translatable("keybindprofilesplus.confirm.toggle.tooltip")))
+                .create(0, 0, 100, 20, Component.translatable("keybindprofilesplus.confirm.toggle"), (button, value) -> settings.setConfirmApply(value)));
 
-        rows.addHeading(Text.translatable("keybindprofilesplus.settings.section.auto_switch"));
-        rows.addWidgets(CyclingButtonWidget.onOffBuilder(settings.autoSwitch())
-                .tooltip(value -> Tooltip.of(Text.translatable("keybindprofilesplus.server.auto_switch_toggle.tooltip")))
-                .build(0, 0, 100, 20, Text.translatable("keybindprofilesplus.server.auto_switch_toggle"), (button, value) -> {
+        rows.addHeading(Component.translatable("keybindprofilesplus.settings.section.auto_switch"));
+        rows.addWidgets(CycleButton.onOffBuilder(settings.autoSwitch())
+                .withTooltip(value -> Tooltip.create(Component.translatable("keybindprofilesplus.server.auto_switch_toggle.tooltip")))
+                .create(0, 0, 100, 20, Component.translatable("keybindprofilesplus.server.auto_switch_toggle"), (button, value) -> {
                     settings.setAutoSwitch(value);
                     KeyBindProfilesPlus.autoSwitchController().reset();
                 }));
@@ -105,28 +104,28 @@ public class SettingsScreen extends ResizingScreen {
         names.sort(String.CASE_INSENSITIVE_ORDER);
         choices.addAll(names);
         String current = settings.defaultProfile() != null && names.contains(settings.defaultProfile()) ? settings.defaultProfile() : NONE;
-        rows.addWidgets(CyclingButtonWidget.<String>builder(SettingsScreen::profileLabel, current)
-                .values(choices)
-                .tooltip(value -> Tooltip.of(Text.translatable("keybindprofilesplus.settings.default_profile.tooltip")))
-                .build(0, 0, 100, 20, Text.translatable("keybindprofilesplus.settings.default_profile"),
+        rows.addWidgets(CycleButton.<String>builder(SettingsScreen::profileLabel, current)
+                .withValues(choices)
+                .withTooltip(value -> Tooltip.create(Component.translatable("keybindprofilesplus.settings.default_profile.tooltip")))
+                .create(0, 0, 100, 20, Component.translatable("keybindprofilesplus.settings.default_profile"),
                         (button, value) -> settings.setDefaultProfile(value.equals(NONE) ? null : value)));
-        rows.addWidgets(CyclingButtonWidget.onOffBuilder(settings.returnToDefault())
-                .tooltip(value -> Tooltip.of(Text.translatable("keybindprofilesplus.settings.return_to_default.tooltip")))
-                .build(0, 0, 100, 20, Text.translatable("keybindprofilesplus.settings.return_to_default"), (button, value) -> settings.setReturnToDefault(value)));
+        rows.addWidgets(CycleButton.onOffBuilder(settings.returnToDefault())
+                .withTooltip(value -> Tooltip.create(Component.translatable("keybindprofilesplus.settings.return_to_default.tooltip")))
+                .create(0, 0, 100, 20, Component.translatable("keybindprofilesplus.settings.return_to_default"), (button, value) -> settings.setReturnToDefault(value)));
 
-        rows.addHeading(Text.translatable("keybindprofilesplus.configs.section"));
-        rows.addWidgets(ButtonWidget.builder(Text.translatable("keybindprofilesplus.configs.open"), button -> client.setScreen(new ModConfigsScreen(this)))
-                .tooltip(Tooltip.of(Text.translatable("keybindprofilesplus.configs.open.tooltip")))
+        rows.addHeading(Component.translatable("keybindprofilesplus.configs.section"));
+        rows.addWidgets(Button.builder(Component.translatable("keybindprofilesplus.configs.open"), button -> minecraft.setScreen(new ModConfigsScreen(this)))
+                .tooltip(Tooltip.create(Component.translatable("keybindprofilesplus.configs.open.tooltip")))
                 .build());
 
-        rows.addHeading(Text.translatable("keybindprofilesplus.settings.section.files"));
-        rows.addWidgets(ButtonWidget.builder(Text.translatable("keybindprofilesplus.open_folder"), button ->
+        rows.addHeading(Component.translatable("keybindprofilesplus.settings.section.files"));
+        rows.addWidgets(Button.builder(Component.translatable("keybindprofilesplus.open_folder"), button ->
                 statusMessage.show(service.openProfilesFolder() ? "keybindprofilesplus.status.folder_opened" : "keybindprofilesplus.status.folder_open_failed")).build());
 
-        rows.setScrollY(scroll);
+        rows.setScrollAmount(scroll);
     }
 
-    private static Text profileLabel(String name) {
-        return name.equals(NONE) ? Text.translatable("keybindprofilesplus.settings.default_profile.none") : Text.literal(name);
+    private static Component profileLabel(String name) {
+        return name.equals(NONE) ? Component.translatable("keybindprofilesplus.settings.default_profile.none") : Component.literal(name);
     }
 }

@@ -1,12 +1,11 @@
 package io.github.autyism.keybindprofilesplus.external;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import io.github.autyism.keybindprofilesplus.KeyBindProfilesPlus;
 import io.github.autyism.keybindprofilesplus.keys.KeyCombo;
 import net.fabricmc.loader.api.FabricLoader;
-import net.minecraft.client.resource.language.I18n;
-import net.minecraft.client.util.InputUtil;
-import net.minecraft.text.Text;
-
+import net.minecraft.client.resources.language.I18n;
+import net.minecraft.network.chat.Component;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
@@ -76,7 +75,7 @@ final class IpnLive implements LiveSource {
             return out;
         }
         keybinds.clear();
-        Text group = Text.literal(FabricLoader.getInstance().getModContainer(MOD_ID).map(mod -> mod.getMetadata().getName()).orElse("Inventory Profiles Next"));
+        Component group = Component.literal(FabricLoader.getInstance().getModContainer(MOD_ID).map(mod -> mod.getMetadata().getName()).orElse("Inventory Profiles Next"));
         try {
             for (Object declaration : (Collection<?>) declarations.invoke(screenSettings)) {
                 Object inner = builderInnerConfig.invoke(declarationBuilder.invoke(declaration));
@@ -94,7 +93,7 @@ final class IpnLive implements LiveSource {
         return out;
     }
 
-    private void add(Object hotkey, Text group, List<ExternalBinding> out) throws ReflectiveOperationException {
+    private void add(Object hotkey, Component group, List<ExternalBinding> out) throws ReflectiveOperationException {
         String key = String.valueOf(optionKey.invoke(hotkey));
         Object keybind = mainKeybind.invoke(hotkey);
         String id = PREFIX + key;
@@ -118,33 +117,33 @@ final class IpnLive implements LiveSource {
         }
         String name = MalilibKeys.readableName(key);
         String translationKey = optionsPrefix + "name." + key;
-        Text title = I18n.hasTranslation(translationKey) ? Text.translatable(translationKey) : Text.literal(name);
-        Text keyText = trigger == null ? Text.translatable("key.keyboard.unknown") : trigger.text();
+        Component title = I18n.exists(translationKey) ? Component.translatable(translationKey) : Component.literal(name);
+        Component keyText = trigger == null ? Component.translatable("key.keyboard.unknown") : trigger.text();
         out.add(new ExternalBinding(MOD_ID, group, name, title, trigger == null ? 0 : trigger.modifiers(), trigger == null ? null : trigger.key(),
                 keyText, when, true, FILE, id, value, defaultValue));
     }
 
     @Override
-    public boolean bind(String hotkeyId, InputUtil.Key key, int modifiers) {
+    public boolean bind(String hotkeyId, InputConstants.Key key, int modifiers) {
         Object keybind = keybinds.get(hotkeyId);
         if (keybind == null || !available()) {
             return false;
         }
         List<Integer> codes = new ArrayList<>();
-        if (key != null && !key.equals(InputUtil.UNKNOWN_KEY)) {
-            boolean isModifierKey = key.getCategory() == InputUtil.Type.KEYSYM && KeyCombo.modifierOfKeyCode(key.getCode()) != 0;
+        if (key != null && !key.equals(InputConstants.UNKNOWN)) {
+            boolean isModifierKey = key.getType() == InputConstants.Type.KEYSYM && KeyCombo.modifierOfKeyCode(key.getValue()) != 0;
             if (!isModifierKey) {
                 if ((modifiers & KeyCombo.CTRL) != 0) {
-                    codes.add(InputUtil.GLFW_KEY_LEFT_CONTROL);
+                    codes.add(InputConstants.KEY_LCONTROL);
                 }
                 if ((modifiers & KeyCombo.SHIFT) != 0) {
-                    codes.add(InputUtil.GLFW_KEY_LEFT_SHIFT);
+                    codes.add(InputConstants.KEY_LSHIFT);
                 }
                 if ((modifiers & KeyCombo.ALT) != 0) {
-                    codes.add(InputUtil.GLFW_KEY_LEFT_ALT);
+                    codes.add(InputConstants.KEY_LALT);
                 }
             }
-            codes.add(key.getCategory() == InputUtil.Type.MOUSE ? key.getCode() + LIBIPN_MOUSE_OFFSET : key.getCode());
+            codes.add(key.getType() == InputConstants.Type.MOUSE ? key.getValue() + LIBIPN_MOUSE_OFFSET : key.getValue());
         }
         return setCodes(keybind, codes);
     }

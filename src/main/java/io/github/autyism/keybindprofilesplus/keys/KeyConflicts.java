@@ -3,15 +3,14 @@ package io.github.autyism.keybindprofilesplus.keys;
 import io.github.autyism.keybindprofilesplus.KeyBindProfilesPlus;
 import io.github.autyism.keybindprofilesplus.external.ExternalBinding;
 import io.github.autyism.keybindprofilesplus.external.ExternalKeys;
-import net.minecraft.client.option.GameOptions;
-import net.minecraft.client.option.KeyBinding;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Options;
+import net.minecraft.network.chat.Component;
 
 /**
  * Decides whether two key bindings on the same key really get in each other's way.
@@ -51,7 +50,7 @@ public final class KeyConflicts {
     private static final List<String> SCREEN_WORDS = List.of("inventory", "container", "screen", "gui", "recipe", "tooltip", "slot", "crafting");
 
     private static KeySourceResolver resolver;
-    private static GameOptions resolverOptions;
+    private static Options resolverOptions;
 
     private KeyConflicts() {
     }
@@ -69,11 +68,11 @@ public final class KeyConflicts {
             };
         }
 
-        public Formatting formatting() {
+        public ChatFormatting formatting() {
             return switch (this) {
-                case HARD -> Formatting.RED;
-                case SOFT -> Formatting.YELLOW;
-                case NONE -> Formatting.WHITE;
+                case HARD -> ChatFormatting.RED;
+                case SOFT -> ChatFormatting.YELLOW;
+                case NONE -> ChatFormatting.WHITE;
             };
         }
     }
@@ -100,8 +99,8 @@ public final class KeyConflicts {
         /** Only does something while F3 is held (F3+G and friends). */
         DEBUG_COMBO;
 
-        public Text label() {
-            return Text.translatable("keybindprofilesplus.scope." + name().toLowerCase(Locale.ROOT));
+        public Component label() {
+            return Component.translatable("keybindprofilesplus.scope." + name().toLowerCase(Locale.ROOT));
         }
     }
 
@@ -111,19 +110,19 @@ public final class KeyConflicts {
      *
      * @param reason translation key suffix explaining the verdict (keybindprofilesplus.conflict.reason.*)
      */
-    public record Conflict(KeyBinding other, ExternalBinding external, Level level, String reason) {
-        public Text otherName() {
+    public record Conflict(KeyMapping other, ExternalBinding external, Level level, String reason) {
+        public Component otherName() {
             return other != null ? KeyLabels.name(other) : external.label();
         }
 
         /** Stable id of the other side, for logs and tests. */
         public String otherId() {
-            return other != null ? other.getId() : external.sourceId() + ":" + external.name();
+            return other != null ? other.getName() : external.sourceId() + ":" + external.name();
         }
 
-        public Text describe() {
-            return Text.translatable("keybindprofilesplus.conflict.line", otherName(),
-                    Text.translatable("keybindprofilesplus.conflict.reason." + reason));
+        public Component describe() {
+            return Component.translatable("keybindprofilesplus.conflict.line", otherName(),
+                    Component.translatable("keybindprofilesplus.conflict.reason." + reason));
         }
     }
 
@@ -136,14 +135,14 @@ public final class KeyConflicts {
 
     // ------------------------------------------------------------------ scopes
 
-    public static Scope scopeOf(KeyBinding binding, KeySourceResolver sources) {
-        String id = binding.getId();
+    public static Scope scopeOf(KeyMapping binding, KeySourceResolver sources) {
+        String id = binding.getName();
         // The debug keys first, by the game's own category: an F3 combination stays one whoever
         // registered it. Mods add their own (Language Reload's F3+J), and those are not "vanilla".
         if (DEBUG_BASE_IDS.contains(id)) {
             return Scope.DEBUG_BASE;
         }
-        if (KeyBinding.Category.DEBUG.equals(binding.getCategory())) {
+        if (KeyMapping.Category.DEBUG.equals(binding.getCategory())) {
             return Scope.DEBUG_COMBO;
         }
         if (!sources.isVanilla(id)) {
@@ -167,12 +166,12 @@ public final class KeyConflicts {
      * bindings of mods known to live in inventory screens, or whose name mentions a screen, count
      * as screen-only; everything else as active during play. The player can overrule it.
      */
-    public static Scope guessedScope(KeyBinding binding, KeySourceResolver sources) {
+    public static Scope guessedScope(KeyMapping binding, KeySourceResolver sources) {
         KeySource source = sources.resolve(binding);
         if (source.modId() != null && SCREEN_ONLY_MODS.contains(source.modId().toLowerCase(Locale.ROOT))) {
             return Scope.SCREEN_ONLY;
         }
-        String text = (binding.getId() + " " + binding.getCategory().id().getPath()).toLowerCase(Locale.ROOT);
+        String text = (binding.getName() + " " + binding.getCategory().id().getPath()).toLowerCase(Locale.ROOT);
         for (String word : SCREEN_WORDS) {
             if (text.contains(word)) {
                 return Scope.SCREEN_ONLY;
@@ -182,8 +181,8 @@ public final class KeyConflicts {
     }
 
     /** Whether this is a mod binding whose scope the player may set by hand. */
-    public static boolean canOverrideScope(KeyBinding binding, KeySourceResolver sources) {
-        return !sources.isVanilla(binding.getId()) && !KeyBinding.Category.DEBUG.equals(binding.getCategory());
+    public static boolean canOverrideScope(KeyMapping binding, KeySourceResolver sources) {
+        return !sources.isVanilla(binding.getName()) && !KeyMapping.Category.DEBUG.equals(binding.getCategory());
     }
 
     /** When a hotkey of another mod is in effect: the player's own choice if there is one, else what its reader worked out. */
@@ -235,13 +234,13 @@ public final class KeyConflicts {
     // ------------------------------------------------------------------ pairs
 
     /** The verdict for one pair, or null when they do not conflict at all. */
-    public static Conflict between(KeyBinding binding, KeyBinding other, KeySourceResolver sources) {
+    public static Conflict between(KeyMapping binding, KeyMapping other, KeySourceResolver sources) {
         if (binding == other || binding.isUnbound() || other.isUnbound()) {
             return null;
         }
         // Holding Ctrl for "Ctrl + X" also presses whatever is bound to Ctrl itself (sprint by default).
         // That is true of every combination and harmless in practice, so it is not reported.
-        if (!binding.equals(other)) {
+        if (!binding.same(other)) {
             return null;
         }
         // Same key but different modifiers ("X" and "Ctrl + X"): only one of them reacts to any given press.
@@ -249,7 +248,7 @@ public final class KeyConflicts {
             return null;
         }
         // Pairs the game ships on the same key (F3+C for both "copy location" and "crash") are intended.
-        if (binding.isDefault() && other.isDefault() && sources.isVanilla(binding.getId()) && sources.isVanilla(other.getId())) {
+        if (binding.isDefault() && other.isDefault() && sources.isVanilla(binding.getName()) && sources.isVanilla(other.getName())) {
             return null;
         }
 
@@ -295,7 +294,7 @@ public final class KeyConflicts {
     }
 
     /** A hotkey another mod manages itself, on the same key (and modifiers) as a game binding. */
-    private static Conflict withExternal(KeyBinding binding, ExternalBinding external, KeySourceResolver sources) {
+    private static Conflict withExternal(KeyMapping binding, ExternalBinding external, KeySourceResolver sources) {
         if (!sameTrigger(binding, external)) {
             return null;
         }
@@ -319,12 +318,12 @@ public final class KeyConflicts {
         return new Conflict(null, external, verdict.level(), reason);
     }
 
-    private static boolean sameTrigger(KeyBinding binding, ExternalBinding external) {
-        return external.key() != null && external.key().equals(binding.boundKey) && external.modifiers() == KeyCombos.modifiersOf(binding);
+    private static boolean sameTrigger(KeyMapping binding, ExternalBinding external) {
+        return external.key() != null && external.key().equals(binding.key) && external.modifiers() == KeyCombos.modifiersOf(binding);
     }
 
-    private static boolean isContainerKey(KeyBinding binding, KeySourceResolver sources) {
-        String id = binding.getId();
+    private static boolean isContainerKey(KeyMapping binding, KeySourceResolver sources) {
+        String id = binding.getName();
         return sources.isVanilla(id) && (CONTAINER_IDS.contains(id) || id.startsWith(HOTBAR_PREFIX));
     }
 
@@ -335,14 +334,14 @@ public final class KeyConflicts {
     // ------------------------------------------------------------------ whole layout
 
     /** Everything this binding conflicts with, hard conflicts first. */
-    public static List<Conflict> conflictsOf(KeyBinding binding, GameOptions options) {
+    public static List<Conflict> conflictsOf(KeyMapping binding, Options options) {
         List<Conflict> conflicts = new ArrayList<>();
         if (binding.isUnbound()) {
             return conflicts;
         }
 
         KeySourceResolver sources = sources(options);
-        for (KeyBinding other : options.allKeys) {
+        for (KeyMapping other : options.keyMappings) {
             Conflict conflict = between(binding, other, sources);
             if (conflict != null) {
                 conflicts.add(conflict);
@@ -359,13 +358,13 @@ public final class KeyConflicts {
     }
 
     /** Game key bindings on the same key as a hotkey another mod manages. */
-    public static List<Conflict> conflictsOf(ExternalBinding external, GameOptions options) {
+    public static List<Conflict> conflictsOf(ExternalBinding external, Options options) {
         List<Conflict> conflicts = new ArrayList<>();
         if (!external.active() || external.key() == null) {
             return conflicts;
         }
         KeySourceResolver sources = sources(options);
-        for (KeyBinding binding : options.allKeys) {
+        for (KeyMapping binding : options.keyMappings) {
             if (binding.isUnbound()) {
                 continue;
             }
@@ -408,8 +407,8 @@ public final class KeyConflicts {
      * What sits on the same key as this binding without counting as a conflict because it only acts
      * in a special situation - so a tooltip can say why nothing is marked.
      */
-    public static List<Text> sharedWithoutConflict(KeyBinding binding, GameOptions options) {
-        List<Text> names = new ArrayList<>();
+    public static List<Component> sharedWithoutConflict(KeyMapping binding, Options options) {
+        List<Component> names = new ArrayList<>();
         if (binding.isUnbound()) {
             return names;
         }
@@ -418,7 +417,7 @@ public final class KeyConflicts {
         if (own == Scope.DEBUG_COMBO) {
             return names;
         }
-        for (KeyBinding other : options.allKeys) {
+        for (KeyMapping other : options.keyMappings) {
             if (other != binding && !other.isUnbound() && KeyCombos.sameTrigger(binding, other)
                     && (own == Scope.SITUATIONAL || scopeOf(other, sources) == Scope.SITUATIONAL)) {
                 names.add(KeyLabels.name(other));
@@ -433,14 +432,14 @@ public final class KeyConflicts {
     }
 
     /** The same for a hotkey of another mod: the game bindings on its key that are not counted. */
-    public static List<Text> sharedWithoutConflict(ExternalBinding external, GameOptions options) {
-        List<Text> names = new ArrayList<>();
+    public static List<Component> sharedWithoutConflict(ExternalBinding external, Options options) {
+        List<Component> names = new ArrayList<>();
         if (!external.active() || external.key() == null) {
             return names;
         }
         KeySourceResolver sources = sources(options);
         boolean situational = scopeOf(external) == Scope.SITUATIONAL;
-        for (KeyBinding binding : options.allKeys) {
+        for (KeyMapping binding : options.keyMappings) {
             if (binding.isUnbound() || !sameTrigger(binding, external)) {
                 continue;
             }
@@ -453,12 +452,12 @@ public final class KeyConflicts {
     }
 
     /** Tooltip lines for {@link #sharedWithoutConflict}; empty when there is nothing to say. */
-    public static List<Text> describeShared(List<Text> names) {
-        List<Text> lines = new ArrayList<>();
+    public static List<Component> describeShared(List<Component> names) {
+        List<Component> lines = new ArrayList<>();
         if (!names.isEmpty()) {
-            lines.add(Text.translatable("keybindprofilesplus.conflict.shared").formatted(Formatting.GRAY));
-            for (Text name : names) {
-                lines.add(Text.translatable("keybindprofilesplus.conflict.shared_line", name).formatted(Formatting.GRAY));
+            lines.add(Component.translatable("keybindprofilesplus.conflict.shared").withStyle(ChatFormatting.GRAY));
+            for (Component name : names) {
+                lines.add(Component.translatable("keybindprofilesplus.conflict.shared_line", name).withStyle(ChatFormatting.GRAY));
             }
         }
         return lines;
@@ -474,10 +473,10 @@ public final class KeyConflicts {
         return worst;
     }
 
-    public static Summary summarize(GameOptions options) {
+    public static Summary summarize(Options options) {
         int hard = 0;
         int soft = 0;
-        for (KeyBinding binding : options.allKeys) {
+        for (KeyMapping binding : options.keyMappings) {
             Level level = worst(conflictsOf(binding, options));
             if (level == Level.HARD) {
                 hard++;
@@ -489,14 +488,14 @@ public final class KeyConflicts {
     }
 
     /** Tooltip lines: a heading per level followed by what it conflicts with and why. */
-    public static List<Text> describe(List<Conflict> conflicts) {
-        List<Text> lines = new ArrayList<>();
+    public static List<Component> describe(List<Conflict> conflicts) {
+        List<Component> lines = new ArrayList<>();
         Level heading = null;
         for (Conflict conflict : conflicts) {
             if (conflict.level() != heading) {
                 heading = conflict.level();
-                lines.add(Text.translatable(heading == Level.HARD ? "keybindprofilesplus.conflict.hard" : "keybindprofilesplus.conflict.soft")
-                        .formatted(heading.formatting()));
+                lines.add(Component.translatable(heading == Level.HARD ? "keybindprofilesplus.conflict.hard" : "keybindprofilesplus.conflict.soft")
+                        .withStyle(heading.formatting()));
             }
             lines.add(conflict.describe());
         }
@@ -504,7 +503,7 @@ public final class KeyConflicts {
     }
 
     /** The source resolver is only needed to tell vanilla bindings from mod ones; one instance is enough. */
-    public static synchronized KeySourceResolver sources(GameOptions options) {
+    public static synchronized KeySourceResolver sources(Options options) {
         if (resolver == null || resolverOptions != options) {
             resolver = new KeySourceResolver(options);
             resolverOptions = options;

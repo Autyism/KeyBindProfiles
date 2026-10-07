@@ -1,8 +1,7 @@
 package io.github.autyism.keybindprofilesplus.input;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.util.InputUtil;
 import org.lwjgl.glfw.GLFW;
+import com.mojang.blaze3d.platform.InputConstants;
 import io.github.autyism.keybindprofilesplus.notification.ProfileNotification;
 import io.github.autyism.keybindprofilesplus.profile.ProfileService;
 
@@ -11,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Predicate;
+import net.minecraft.client.Minecraft;
 
 /**
  * Switches to a profile when its hotkey (one or two keys held together) goes down during play.
@@ -20,18 +20,18 @@ public final class ProfileHotkeyController {
     private final ProfileService profileService;
     private final ProfileNotification notification;
     private final Set<String> pressedHotkeys = new HashSet<>();
-    private Predicate<InputUtil.Key> keyDown = ProfileHotkeyController::isPhysicallyDown;
+    private Predicate<InputConstants.Key> keyDown = ProfileHotkeyController::isPhysicallyDown;
 
     public ProfileHotkeyController(ProfileService profileService, ProfileNotification notification) {
         this.profileService = profileService;
         this.notification = notification;
     }
 
-    public void tick(MinecraftClient client) {
+    public void tick(Minecraft client) {
         if (client == null || client.player == null) {
             return;
         }
-        if (client.currentScreen != null) {
+        if (client.screen != null) {
             return;
         }
 
@@ -41,7 +41,7 @@ public final class ProfileHotkeyController {
     }
 
     /** For the self-test only: pretend these keys are held (null restores the real keyboard and mouse). */
-    public void setKeyStateForTesting(Predicate<InputUtil.Key> keyState) {
+    public void setKeyStateForTesting(Predicate<InputConstants.Key> keyState) {
         keyDown = keyState == null ? ProfileHotkeyController::isPhysicallyDown : keyState;
         pressedHotkeys.clear();
     }
@@ -83,21 +83,21 @@ public final class ProfileHotkeyController {
             return false;
         }
 
-        InputUtil.Key key = parseInputKey(translationKey);
+        InputConstants.Key key = parseInputKey(translationKey);
         return key != null && keyDown.test(key);
     }
 
-    private static boolean isPhysicallyDown(InputUtil.Key key) {
-        MinecraftClient client = MinecraftClient.getInstance();
-        if (key.getCategory() == InputUtil.Type.MOUSE) {
-            return GLFW.glfwGetMouseButton(client.getWindow().getHandle(), key.getCode()) == GLFW.GLFW_PRESS;
+    private static boolean isPhysicallyDown(InputConstants.Key key) {
+        Minecraft client = Minecraft.getInstance();
+        if (key.getType() == InputConstants.Type.MOUSE) {
+            return GLFW.glfwGetMouseButton(client.getWindow().handle(), key.getValue()) == GLFW.GLFW_PRESS;
         }
-        return InputUtil.isKeyPressed(client.getWindow(), key.getCode());
+        return InputConstants.isKeyDown(client.getWindow(), key.getValue());
     }
 
-    private InputUtil.Key parseInputKey(String translationKey) {
+    private InputConstants.Key parseInputKey(String translationKey) {
         try {
-            return InputUtil.fromTranslationKey(translationKey);
+            return InputConstants.getKey(translationKey);
         } catch (IllegalArgumentException e) {
             return null;
         }

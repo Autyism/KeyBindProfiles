@@ -1,14 +1,13 @@
 package io.github.autyism.keybindprofilesplus.server;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.ServerInfo;
-import net.minecraft.text.Text;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ServerData;
+import net.minecraft.network.chat.Component;
 
 /**
  * Decides which profile belongs to the place the player has just joined.
@@ -56,12 +55,12 @@ public final class ServerProfileMatcher {
             return kind + "|" + (address == null ? "" : normalizeAddress(address));
         }
 
-        public Text describe() {
+        public Component describe() {
             return switch (kind) {
-                case SINGLEPLAYER -> Text.translatable("keybindprofilesplus.server.kind.singleplayer");
-                case LAN -> Text.translatable("keybindprofilesplus.server.kind.lan", address);
-                case REALMS -> Text.translatable("keybindprofilesplus.server.kind.realms");
-                case SERVER -> Text.literal(address);
+                case SINGLEPLAYER -> Component.translatable("keybindprofilesplus.server.kind.singleplayer");
+                case LAN -> Component.translatable("keybindprofilesplus.server.kind.lan", address);
+                case REALMS -> Component.translatable("keybindprofilesplus.server.kind.realms");
+                case SERVER -> Component.literal(address);
             };
         }
     }
@@ -71,20 +70,20 @@ public final class ServerProfileMatcher {
     }
 
     /** Where the client currently is, or null when it is not in a world. */
-    public static Location currentLocation(MinecraftClient client) {
-        if (client.player == null || client.world == null) {
+    public static Location currentLocation(Minecraft client) {
+        if (client.player == null || client.level == null) {
             return null;
         }
-        if (client.isInSingleplayer()) {
+        if (client.isLocalServer()) {
             return Location.singleplayer();
         }
 
-        ServerInfo serverInfo = client.getCurrentServerEntry();
-        if (serverInfo == null || serverInfo.address == null || serverInfo.address.isBlank()) {
+        ServerData serverInfo = client.getCurrentServer();
+        if (serverInfo == null || serverInfo.ip == null || serverInfo.ip.isBlank()) {
             return null;
         }
-        Kind kind = serverInfo.isRealm() ? Kind.REALMS : serverInfo.isLocal() ? Kind.LAN : Kind.SERVER;
-        return new Location(kind, serverInfo.address);
+        Kind kind = serverInfo.isRealm() ? Kind.REALMS : serverInfo.isLan() ? Kind.LAN : Kind.SERVER;
+        return new Location(kind, serverInfo.ip);
     }
 
     public static Match findBestMatch(Location location, Map<String, List<String>> rulesByProfile, Set<String> existingProfiles) {

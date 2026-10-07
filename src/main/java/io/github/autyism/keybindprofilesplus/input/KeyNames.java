@@ -1,7 +1,7 @@
 package io.github.autyism.keybindprofilesplus.input;
 
-import net.minecraft.client.util.InputUtil;
-import net.minecraft.text.Text;
+import com.mojang.blaze3d.platform.InputConstants;
+import net.minecraft.network.chat.Component;
 import org.lwjgl.glfw.GLFW;
 
 /**
@@ -15,19 +15,19 @@ public final class KeyNames {
     }
 
     /** Returns "Num 5", "Num +", "Num Enter"... for numpad keys, or null for every other key. */
-    public static Text keypadName(int keyCode) {
-        if (keyCode >= InputUtil.GLFW_KEY_KP_0 && keyCode <= InputUtil.GLFW_KEY_KP_9) {
-            return Text.translatable(KEYPAD_KEY, String.valueOf(keyCode - InputUtil.GLFW_KEY_KP_0));
+    public static Component keypadName(int keyCode) {
+        if (keyCode >= InputConstants.KEY_NUMPAD0 && keyCode <= InputConstants.KEY_NUMPAD9) {
+            return Component.translatable(KEYPAD_KEY, String.valueOf(keyCode - InputConstants.KEY_NUMPAD0));
         }
 
         return switch (keyCode) {
-            case InputUtil.GLFW_KEY_KP_DECIMAL -> Text.translatable(KEYPAD_KEY, ".");
-            case GLFW.GLFW_KEY_KP_DIVIDE -> Text.translatable(KEYPAD_KEY, "/");
-            case InputUtil.GLFW_KEY_KP_MULTIPLY -> Text.translatable(KEYPAD_KEY, "*");
-            case GLFW.GLFW_KEY_KP_SUBTRACT -> Text.translatable(KEYPAD_KEY, "-");
-            case InputUtil.GLFW_KEY_KP_ADD -> Text.translatable(KEYPAD_KEY, "+");
-            case InputUtil.GLFW_KEY_KP_EQUAL -> Text.translatable(KEYPAD_KEY, "=");
-            case InputUtil.GLFW_KEY_KP_ENTER -> Text.translatable(KEYPAD_KEY, Text.translatable("key.keyboard.enter"));
+            case InputConstants.KEY_NUMPADCOMMA -> Component.translatable(KEYPAD_KEY, ".");
+            case GLFW.GLFW_KEY_KP_DIVIDE -> Component.translatable(KEYPAD_KEY, "/");
+            case InputConstants.KEY_MULTIPLY -> Component.translatable(KEYPAD_KEY, "*");
+            case GLFW.GLFW_KEY_KP_SUBTRACT -> Component.translatable(KEYPAD_KEY, "-");
+            case InputConstants.KEY_ADD -> Component.translatable(KEYPAD_KEY, "+");
+            case InputConstants.KEY_NUMPADEQUALS -> Component.translatable(KEYPAD_KEY, "=");
+            case InputConstants.KEY_NUMPADENTER -> Component.translatable(KEYPAD_KEY, Component.translatable("key.keyboard.enter"));
             default -> null;
         };
     }

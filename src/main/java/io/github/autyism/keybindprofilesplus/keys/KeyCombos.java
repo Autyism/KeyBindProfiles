@@ -6,12 +6,9 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
 import com.google.gson.JsonParser;
+import com.mojang.blaze3d.platform.InputConstants;
+import com.mojang.blaze3d.platform.Window;
 import io.github.autyism.keybindprofilesplus.KeyBindProfilesPlus;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.option.KeyBinding;
-import net.minecraft.client.util.InputUtil;
-import net.minecraft.client.util.Window;
-
 import java.io.File;
 import java.io.IOException;
 import java.io.Reader;
@@ -24,6 +21,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.function.IntSupplier;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
 
 /**
  * Modifier combinations (Ctrl / Shift / Alt + key) for the game's own key bindings.
@@ -51,8 +50,8 @@ public final class KeyCombos {
 
     // ------------------------------------------------------------------ queries
 
-    public static int modifiersOf(KeyBinding keyBinding) {
-        return MODIFIERS.getOrDefault(keyBinding.getId(), 0);
+    public static int modifiersOf(KeyMapping keyBinding) {
+        return MODIFIERS.getOrDefault(keyBinding.getName(), 0);
     }
 
     public static boolean hasAny() {
@@ -60,13 +59,13 @@ public final class KeyCombos {
     }
 
     /** The binding's trigger in text form: "ctrl+key.keyboard.x", or just the key when it has no modifiers. */
-    public static String valueOf(KeyBinding keyBinding) {
-        return KeyCombo.encode(modifiersOf(keyBinding), keyBinding.getBoundKeyTranslationKey());
+    public static String valueOf(KeyMapping keyBinding) {
+        return KeyCombo.encode(modifiersOf(keyBinding), keyBinding.saveString());
     }
 
     /** Whether two bindings react to exactly the same key press. */
-    public static boolean sameTrigger(KeyBinding first, KeyBinding second) {
-        return first.equals(second) && modifiersOf(first) == modifiersOf(second);
+    public static boolean sameTrigger(KeyMapping first, KeyMapping second) {
+        return first.same(second) && modifiersOf(first) == modifiersOf(second);
     }
 
     /** Modifier keys held right now, as a {@link KeyCombo} bit mask. */
@@ -77,29 +76,29 @@ public final class KeyCombos {
     // ------------------------------------------------------------------ changes
 
     /** Binds a key together with modifiers (0 for none) and remembers it. */
-    public static void bind(KeyBinding keyBinding, InputUtil.Key key, int modifiers) {
+    public static void bind(KeyMapping keyBinding, InputConstants.Key key, int modifiers) {
         binding = true;
         try {
-            keyBinding.setBoundKey(key);
+            keyBinding.setKey(key);
         } finally {
             binding = false;
         }
 
         int mask = modifiers & KeyCombo.ALL;
         // A modifier cannot require itself: "Ctrl + Left Control" is just Left Control.
-        if (key.getCategory() == InputUtil.Type.KEYSYM) {
-            mask &= ~KeyCombo.modifierOfKeyCode(key.getCode());
+        if (key.getType() == InputConstants.Type.KEYSYM) {
+            mask &= ~KeyCombo.modifierOfKeyCode(key.getValue());
         }
-        Integer previous = mask == 0 ? MODIFIERS.remove(keyBinding.getId()) : MODIFIERS.put(keyBinding.getId(), mask);
+        Integer previous = mask == 0 ? MODIFIERS.remove(keyBinding.getName()) : MODIFIERS.put(keyBinding.getName(), mask);
         if ((previous == null ? 0 : previous) != mask) {
             markDirty();
         }
     }
 
     /** Applies a text value ("ctrl+key.keyboard.x"). Returns false when the key name is unknown. */
-    public static boolean applyValue(KeyBinding keyBinding, String encoded) {
+    public static boolean applyValue(KeyMapping keyBinding, String encoded) {
         KeyCombo combo = KeyCombo.parse(encoded);
-        InputUtil.Key key = combo.inputKey();
+        InputConstants.Key key = combo.inputKey();
         if (key == null) {
             return false;
         }
@@ -108,8 +107,8 @@ public final class KeyCombos {
     }
 
     /** Called whenever the game changes a binding's key: its old modifiers no longer apply. */
-    public static void onBoundKeyChanged(KeyBinding keyBinding) {
-        if (live && !binding && MODIFIERS.remove(keyBinding.getId()) != null) {
+    public static void onBoundKeyChanged(KeyMapping keyBinding) {
+        if (live && !binding && MODIFIERS.remove(keyBinding.getName()) != null) {
             markDirty();
         }
     }
@@ -134,17 +133,17 @@ public final class KeyCombos {
      * modifiers are all held, and of those only the ones asking for the most modifiers. So with
      * "X" and "Ctrl + X" on the same key, Ctrl+X reaches only the second and a bare X only the first.
      */
-    public static List<KeyBinding> eligible(List<KeyBinding> onSameKey, int held) {
+    public static List<KeyMapping> eligible(List<KeyMapping> onSameKey, int held) {
         int most = -1;
-        for (KeyBinding candidate : onSameKey) {
+        for (KeyMapping candidate : onSameKey) {
             int needed = modifiersOf(candidate);
             if ((needed & held) == needed) {
                 most = Math.max(most, Integer.bitCount(needed));
             }
         }
 
-        List<KeyBinding> result = new ArrayList<>();
-        for (KeyBinding candidate : onSameKey) {
+        List<KeyMapping> result = new ArrayList<>();
+        for (KeyMapping candidate : onSameKey) {
             int needed = modifiersOf(candidate);
             if ((needed & held) == needed && Integer.bitCount(needed) == most) {
                 result.add(candidate);
@@ -153,11 +152,11 @@ public final class KeyCombos {
         return result;
     }
 
-    public static boolean anyCombination(List<KeyBinding> bindings) {
+    public static boolean anyCombination(List<KeyMapping> bindings) {
         if (MODIFIERS.isEmpty() || bindings == null) {
             return false;
         }
-        for (KeyBinding candidate : bindings) {
+        for (KeyMapping candidate : bindings) {
             if (modifiersOf(candidate) != 0) {
                 return true;
             }
@@ -166,8 +165,8 @@ public final class KeyCombos {
     }
 
     /** Whether this binding is among the ones that react to its key with the given modifiers held. */
-    public static boolean reactsWith(KeyBinding keyBinding, int held) {
-        List<KeyBinding> onSameKey = KeyBinding.KEY_TO_BINDINGS.get(keyBinding.boundKey);
+    public static boolean reactsWith(KeyMapping keyBinding, int held) {
+        List<KeyMapping> onSameKey = KeyMapping.MAP.get(keyBinding.key);
         if (!anyCombination(onSameKey)) {
             return true;
         }
@@ -196,12 +195,12 @@ public final class KeyCombos {
     }
 
     private static void readEntry(String bindingId, JsonElement value) {
-        KeyBinding keyBinding = KeyBinding.byId(bindingId);
+        KeyMapping keyBinding = KeyMapping.get(bindingId);
         if (keyBinding == null || !value.isJsonPrimitive()) {
             return;
         }
         KeyCombo combo = KeyCombo.parse(value.getAsString());
-        if (combo.modifiers() != 0 && combo.key().equals(keyBinding.getBoundKeyTranslationKey())) {
+        if (combo.modifiers() != 0 && combo.key().equals(keyBinding.saveString())) {
             MODIFIERS.put(bindingId, combo.modifiers());
         }
     }
@@ -221,9 +220,9 @@ public final class KeyCombos {
 
         Map<String, String> entries = new TreeMap<>();
         for (Map.Entry<String, Integer> entry : MODIFIERS.entrySet()) {
-            KeyBinding keyBinding = KeyBinding.byId(entry.getKey());
+            KeyMapping keyBinding = KeyMapping.get(entry.getKey());
             if (keyBinding != null) {
-                entries.put(entry.getKey(), KeyCombo.encode(entry.getValue(), keyBinding.getBoundKeyTranslationKey()));
+                entries.put(entry.getKey(), KeyCombo.encode(entry.getValue(), keyBinding.saveString()));
             }
         }
         JsonObject json = new JsonObject();
@@ -243,19 +242,19 @@ public final class KeyCombos {
     // ------------------------------------------------------------------ modifier state
 
     private static int readHeldModifiers() {
-        MinecraftClient client = MinecraftClient.getInstance();
+        Minecraft client = Minecraft.getInstance();
         if (client == null || client.getWindow() == null) {
             return 0;
         }
         Window window = client.getWindow();
         int held = 0;
-        if (InputUtil.isKeyPressed(window, InputUtil.GLFW_KEY_LEFT_CONTROL) || InputUtil.isKeyPressed(window, InputUtil.GLFW_KEY_RIGHT_CONTROL)) {
+        if (InputConstants.isKeyDown(window, InputConstants.KEY_LCONTROL) || InputConstants.isKeyDown(window, InputConstants.KEY_RCONTROL)) {
             held |= KeyCombo.CTRL;
         }
-        if (InputUtil.isKeyPressed(window, InputUtil.GLFW_KEY_LEFT_SHIFT) || InputUtil.isKeyPressed(window, InputUtil.GLFW_KEY_RIGHT_SHIFT)) {
+        if (InputConstants.isKeyDown(window, InputConstants.KEY_LSHIFT) || InputConstants.isKeyDown(window, InputConstants.KEY_RSHIFT)) {
             held |= KeyCombo.SHIFT;
         }
-        if (InputUtil.isKeyPressed(window, InputUtil.GLFW_KEY_LEFT_ALT) || InputUtil.isKeyPressed(window, InputUtil.GLFW_KEY_RIGHT_ALT)) {
+        if (InputConstants.isKeyDown(window, InputConstants.KEY_LALT) || InputConstants.isKeyDown(window, InputConstants.KEY_RALT)) {
             held |= KeyCombo.ALT;
         }
         return held;

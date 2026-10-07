@@ -1,21 +1,20 @@
 package io.github.autyism.keybindprofilesplus.gui;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.Click;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.Element;
-import net.minecraft.client.gui.Selectable;
-import net.minecraft.client.gui.widget.ElementListWidget;
-import net.minecraft.client.gui.widget.ThreePartsLayoutWidget;
-import net.minecraft.text.Text;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.function.Consumer;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.ContainerObjectSelectionList;
+import net.minecraft.client.gui.components.events.GuiEventListener;
+import net.minecraft.client.gui.layouts.HeaderAndFooterLayout;
+import net.minecraft.client.gui.narration.NarratableEntry;
+import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.network.chat.Component;
 
 /**
  * The tick tree of the config export and import screens: groups (a mod, a reason...) that open and
@@ -29,10 +28,10 @@ final class ConfigTree {
 
     abstract static class Node {
         final String id;
-        final Text label;
+        final Component label;
         int depth;
 
-        Node(String id, Text label) {
+        Node(String id, Component label) {
             this.id = id;
             this.label = label;
         }
@@ -42,19 +41,19 @@ final class ConfigTree {
         final List<Node> children = new ArrayList<>();
         boolean expanded;
 
-        Group(String id, Text label) {
+        Group(String id, Component label) {
             super(id, label);
         }
     }
 
     static final class Leaf extends Node {
         final boolean enabled;
-        final Text right;
+        final Component right;
         final int rightColor;
         final Object payload;
         boolean checked;
 
-        Leaf(String id, Text label, Text right, int rightColor, boolean enabled, boolean checked, Object payload) {
+        Leaf(String id, Component label, Component right, int rightColor, boolean enabled, boolean checked, Object payload) {
             super(id, label);
             this.right = right;
             this.rightColor = rightColor;
@@ -64,10 +63,10 @@ final class ConfigTree {
         }
     }
 
-    final Group root = new Group("root", Text.empty());
+    final Group root = new Group("root", Component.empty());
     private final Map<String, Node> byId = new HashMap<>();
 
-    Group group(Group parent, String id, Text label) {
+    Group group(Group parent, String id, Component label) {
         if (byId.get(id) instanceof Group existing) {
             return existing;
         }
@@ -76,7 +75,7 @@ final class ConfigTree {
         return group;
     }
 
-    Leaf leaf(Group parent, String id, Text label, Text right, int rightColor, boolean enabled, boolean checked, Object payload) {
+    Leaf leaf(Group parent, String id, Component label, Component right, int rightColor, boolean enabled, boolean checked, Object payload) {
         Leaf leaf = new Leaf(id, label, right, rightColor, enabled, checked, payload);
         attach(parent, leaf);
         return leaf;
@@ -203,27 +202,27 @@ final class ConfigTree {
     }
 
     /** The scrolling list that shows a {@link ConfigTree}. */
-    static final class ListWidget extends ElementListWidget<ListWidget.Entry> {
+    static final class ListWidget extends ContainerObjectSelectionList<ListWidget.Entry> {
         private final ConfigTree tree;
-        private final TextRenderer font;
+        private final Font font;
         private final Runnable onChange;
         private String query = "";
 
-        ListWidget(MinecraftClient client, int width, ThreePartsLayoutWidget layout, ConfigTree tree, Runnable onChange) {
+        ListWidget(Minecraft client, int width, HeaderAndFooterLayout layout, ConfigTree tree, Runnable onChange) {
             super(client, width, layout.getContentHeight(), layout.getHeaderHeight(), ROW_HEIGHT);
             this.tree = tree;
-            this.font = client.textRenderer;
+            this.font = client.font;
             this.onChange = onChange;
         }
 
         void refresh(String newQuery, boolean keepScroll) {
             query = newQuery;
-            double scroll = keepScroll ? getScrollY() : 0;
+            double scroll = keepScroll ? scrollAmount() : 0;
             clearEntries();
             for (Node node : tree.rows(query)) {
                 addEntry(new Entry(node));
             }
-            setScrollY(scroll);
+            setScrollAmount(scroll);
         }
 
         @Override
@@ -239,15 +238,15 @@ final class ConfigTree {
         int[] hitPoint(String id, boolean onCheckbox) {
             for (Entry entry : children()) {
                 if (entry.node.id.equals(id)) {
-                    scrollTo(entry);
+                    scrollToEntry(entry);
                     int x = onCheckbox ? entry.checkboxX() + GuiUtil.CHECKBOX_SIZE / 2 : entry.checkboxX() + GuiUtil.CHECKBOX_SIZE + 30;
-                    return new int[]{x, entry.getContentMiddleY()};
+                    return new int[]{x, entry.getContentYMiddle()};
                 }
             }
             return null;
         }
 
-        final class Entry extends ElementListWidget.Entry<Entry> {
+        final class Entry extends ContainerObjectSelectionList.Entry<Entry> {
             private final Node node;
 
             Entry(Node node) {
@@ -255,12 +254,12 @@ final class ConfigTree {
             }
 
             @Override
-            public List<? extends Element> children() {
+            public List<? extends GuiEventListener> children() {
                 return List.of();
             }
 
             @Override
-            public List<? extends Selectable> selectableChildren() {
+            public List<? extends NarratableEntry> narratables() {
                 return List.of();
             }
 
@@ -269,7 +268,7 @@ final class ConfigTree {
             }
 
             @Override
-            public boolean mouseClicked(Click click, boolean doubled) {
+            public boolean mouseClicked(MouseButtonEvent click, boolean doubled) {
                 if (click.button() != 0) {
                     return false;
                 }
@@ -286,38 +285,38 @@ final class ConfigTree {
             }
 
             @Override
-            public void render(DrawContext context, int mouseX, int mouseY, boolean hovered, float deltaTicks) {
+            public void renderContent(GuiGraphics context, int mouseX, int mouseY, boolean hovered, float deltaTicks) {
                 int left = getContentX();
-                int right = getContentRightEnd();
-                int textY = getContentMiddleY() - font.fontHeight / 2;
+                int right = getContentRight();
+                int textY = getContentYMiddle() - font.lineHeight / 2;
                 boolean tickable = !(node instanceof Leaf leaf) || leaf.enabled;
                 if (hovered && tickable) {
-                    context.fill(left - 2, getContentY() - 1, right + 2, getContentBottomEnd() + 1, GuiUtil.ROW_HOVER);
+                    context.fill(left - 2, getContentY() - 1, right + 2, getContentBottom() + 1, GuiUtil.ROW_HOVER);
                 }
                 int boxLeft = checkboxX();
                 int labelLeft = boxLeft + GuiUtil.CHECKBOX_SIZE + 5;
                 if (node instanceof Group group) {
                     int[] counts = tree.counts(group);
                     if (counts[1] > 0) {
-                        GuiUtil.drawCheckbox(context, boxLeft, getContentMiddleY() - GuiUtil.CHECKBOX_SIZE / 2, tree.state(group), hovered);
+                        GuiUtil.drawCheckbox(context, boxLeft, getContentYMiddle() - GuiUtil.CHECKBOX_SIZE / 2, tree.state(group), hovered);
                     }
                     boolean open = group.expanded || !query.isBlank();
-                    context.drawTextWithShadow(font, open ? "v" : ">", boxLeft - ARROW_WIDTH + 1, textY, GuiUtil.GRAY);
+                    context.drawString(font, open ? "v" : ">", boxLeft - ARROW_WIDTH + 1, textY, GuiUtil.GRAY);
                     String count = counts[1] > 0 ? counts[0] + "/" + counts[1] : String.valueOf(counts[2]);
-                    int countWidth = font.getWidth(count);
-                    context.drawTextWithShadow(font, count, right - countWidth, textY, counts[0] == 0 ? GuiUtil.DARK_GRAY : GuiUtil.GRAY);
+                    int countWidth = font.width(count);
+                    context.drawString(font, count, right - countWidth, textY, counts[0] == 0 ? GuiUtil.DARK_GRAY : GuiUtil.GRAY);
                     String label = GuiUtil.ellipsize(font, group.label.getString(), right - countWidth - 8 - labelLeft);
-                    context.drawTextWithShadow(font, label, labelLeft, textY, counts[1] > 0 ? GuiUtil.WHITE : GuiUtil.GRAY);
+                    context.drawString(font, label, labelLeft, textY, counts[1] > 0 ? GuiUtil.WHITE : GuiUtil.GRAY);
                 } else if (node instanceof Leaf leaf) {
                     if (leaf.enabled) {
-                        GuiUtil.drawCheckbox(context, boxLeft, getContentMiddleY() - GuiUtil.CHECKBOX_SIZE / 2, tree.state(leaf), hovered);
+                        GuiUtil.drawCheckbox(context, boxLeft, getContentYMiddle() - GuiUtil.CHECKBOX_SIZE / 2, tree.state(leaf), hovered);
                     }
                     String rightText = leaf.right == null ? "" : GuiUtil.ellipsize(font, leaf.right.getString(), (right - labelLeft) / 2);
-                    int rightWidth = font.getWidth(rightText);
-                    context.drawTextWithShadow(font, rightText, right - rightWidth, textY, leaf.rightColor);
+                    int rightWidth = font.width(rightText);
+                    context.drawString(font, rightText, right - rightWidth, textY, leaf.rightColor);
                     String label = GuiUtil.ellipsize(font, leaf.label.getString(), right - rightWidth - 8 - labelLeft);
                     int color = !leaf.enabled ? GuiUtil.DARK_GRAY : leaf.checked ? GuiUtil.WHITE : GuiUtil.GRAY;
-                    context.drawTextWithShadow(font, label, labelLeft, textY, color);
+                    context.drawString(font, label, labelLeft, textY, color);
                 }
             }
         }

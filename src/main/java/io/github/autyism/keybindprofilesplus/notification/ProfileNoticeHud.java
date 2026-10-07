@@ -1,10 +1,10 @@
 package io.github.autyism.keybindprofilesplus.notification;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.render.RenderTickCounter;
-import net.minecraft.text.Text;
+import net.minecraft.client.DeltaTracker;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.network.chat.Component;
 
 /**
  * Draws the short "profile applied" notice above the hotbar. Registered as a Fabric HUD element,
@@ -20,21 +20,21 @@ public final class ProfileNoticeHud {
         this.notification = notification;
     }
 
-    public static Text messageFor(String profileName) {
-        return Text.translatable("keybindprofilesplus.hud.profile_applied", profileName);
+    public static Component messageFor(String profileName) {
+        return Component.translatable("keybindprofilesplus.hud.profile_applied", profileName);
     }
 
-    public void render(DrawContext context, RenderTickCounter tickCounter) {
+    public void render(GuiGraphics context, DeltaTracker tickCounter) {
         String profileName = notification.getVisibleProfileName();
-        MinecraftClient client = MinecraftClient.getInstance();
-        if (profileName == null || client.player == null || client.options.hudHidden) {
+        Minecraft client = Minecraft.getInstance();
+        if (profileName == null || client.player == null || client.options.hideGui) {
             return;
         }
 
-        TextRenderer textRenderer = client.textRenderer;
-        Text message = messageFor(profileName);
-        int x = (context.getScaledWindowWidth() - textRenderer.getWidth(message)) / 2;
-        int y = context.getScaledWindowHeight() - OFFSET_FROM_BOTTOM;
-        context.drawTextWithShadow(textRenderer, message, x, y, TEXT_COLOR);
+        Font textRenderer = client.font;
+        Component message = messageFor(profileName);
+        int x = (context.guiWidth() - textRenderer.width(message)) / 2;
+        int y = context.guiHeight() - OFFSET_FROM_BOTTOM;
+        context.drawString(textRenderer, message, x, y, TEXT_COLOR);
     }
 }

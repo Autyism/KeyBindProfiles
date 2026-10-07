@@ -4,11 +4,9 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
 import com.google.gson.JsonParser;
+import com.mojang.blaze3d.platform.InputConstants;
 import io.github.autyism.keybindprofilesplus.KeyBindProfilesPlus;
 import io.github.autyism.keybindprofilesplus.keys.KeyCombo;
-import net.minecraft.client.util.InputUtil;
-import net.minecraft.text.MutableText;
-import net.minecraft.text.Text;
 import org.lwjgl.glfw.GLFW;
 
 import java.io.IOException;
@@ -24,6 +22,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 
 /**
  * Reads the hotkeys of malilib-based mods (Litematica, MiniHUD, Tweakeroo, Item Scroller...) from
@@ -56,14 +56,14 @@ final class MalilibKeys {
         }
 
         try (Reader reader = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
-            walk(JsonParser.parseReader(reader), "", modId, Text.literal(modName), relativePath, bindings);
+            walk(JsonParser.parseReader(reader), "", modId, Component.literal(modName), relativePath, bindings);
         } catch (IOException | JsonParseException | IllegalStateException e) {
             KeyBindProfilesPlus.LOGGER.warn("Could not read malilib hotkeys from '{}': {}", file, e.toString());
         }
         return bindings;
     }
 
-    private static void walk(JsonElement element, String name, String modId, Text group, String file, List<ExternalBinding> out) {
+    private static void walk(JsonElement element, String name, String modId, Component group, String file, List<ExternalBinding> out) {
         if (element == null || !element.isJsonObject()) {
             return;
         }
@@ -80,7 +80,7 @@ final class MalilibKeys {
         }
     }
 
-    private static void add(String name, String keysText, JsonObject hotkey, String modId, Text group, String file, List<ExternalBinding> out) {
+    private static void add(String name, String keysText, JsonObject hotkey, String modId, Component group, String file, List<ExternalBinding> out) {
         Trigger trigger = parse(keysText);
         if (trigger == null) {
             return;
@@ -102,7 +102,7 @@ final class MalilibKeys {
      * @param bareModifier   it is a single Ctrl / Shift / Alt key
      * @param bareMouseClick it is the bare left or right mouse button
      */
-    record Trigger(InputUtil.Key key, int modifiers, Text text, boolean bareModifier, boolean bareMouseClick) {
+    record Trigger(InputConstants.Key key, int modifiers, Component text, boolean bareModifier, boolean bareMouseClick) {
     }
 
     /** Reads a malilib key text; null when it holds no key at all. */
@@ -118,12 +118,12 @@ final class MalilibKeys {
         }
 
         int modifiers = 0;
-        List<InputUtil.Key> ordinary = new ArrayList<>();
-        List<InputUtil.Key> modifierKeys = new ArrayList<>();
-        MutableText chord = Text.empty();
+        List<InputConstants.Key> ordinary = new ArrayList<>();
+        List<InputConstants.Key> modifierKeys = new ArrayList<>();
+        MutableComponent chord = Component.empty();
         boolean allKnown = true;
         for (int i = 0; i < names.size(); i++) {
-            InputUtil.Key key = toKey(names.get(i));
+            InputConstants.Key key = toKey(names.get(i));
             if (i > 0) {
                 chord.append(" + ");
             }
@@ -132,8 +132,8 @@ final class MalilibKeys {
                 chord.append(names.get(i));
                 continue;
             }
-            chord.append(key.getLocalizedText());
-            int modifier = key.getCategory() == InputUtil.Type.KEYSYM ? KeyCombo.modifierOfKeyCode(key.getCode()) : 0;
+            chord.append(key.getDisplayName());
+            int modifier = key.getType() == InputConstants.Type.KEYSYM ? KeyCombo.modifierOfKeyCode(key.getValue()) : 0;
             if (modifier != 0) {
                 modifiers |= modifier;
                 modifierKeys.add(key);
@@ -143,11 +143,11 @@ final class MalilibKeys {
         }
 
         // Comparable with a game key binding only when it is one key plus (optionally) Ctrl / Shift / Alt.
-        InputUtil.Key mainKey = null;
-        Text keyText = chord;
+        InputConstants.Key mainKey = null;
+        Component keyText = chord;
         if (allKnown && ordinary.size() == 1) {
             mainKey = ordinary.get(0);
-            keyText = KeyCombo.withModifiers(modifiers, mainKey.getLocalizedText());
+            keyText = KeyCombo.withModifiers(modifiers, mainKey.getDisplayName());
         } else if (allKnown && ordinary.isEmpty() && modifierKeys.size() == 1) {
             mainKey = modifierKeys.get(0);
             modifiers = 0;
@@ -156,8 +156,8 @@ final class MalilibKeys {
         }
 
         boolean bareModifier = allKnown && ordinary.isEmpty() && modifierKeys.size() == 1;
-        boolean bareMouseClick = allKnown && modifiers == 0 && ordinary.size() == 1 && ordinary.get(0).getCategory() == InputUtil.Type.MOUSE
-                && ordinary.get(0).getCode() <= 1;
+        boolean bareMouseClick = allKnown && modifiers == 0 && ordinary.size() == 1 && ordinary.get(0).getType() == InputConstants.Type.MOUSE
+                && ordinary.get(0).getValue() <= 1;
         return new Trigger(mainKey, modifiers, keyText, bareModifier, bareMouseClick);
     }
 
@@ -189,18 +189,18 @@ final class MalilibKeys {
     }
 
     /** "LEFT_CONTROL" / "BUTTON_3" -> the game's key object; null for names that are not keys (scroll wheel...). */
-    static InputUtil.Key toKey(String malilibName) {
+    static InputConstants.Key toKey(String malilibName) {
         String name = malilibName.trim().toUpperCase(Locale.ROOT);
         if (name.startsWith("BUTTON_")) {
             try {
                 int button = Integer.parseInt(name.substring("BUTTON_".length()));
-                return button >= 1 && button <= 8 ? InputUtil.Type.MOUSE.createFromCode(button - 1) : null;
+                return button >= 1 && button <= 8 ? InputConstants.Type.MOUSE.getOrCreate(button - 1) : null;
             } catch (NumberFormatException e) {
                 return null;
             }
         }
         Integer code = KEY_CODES.get(name);
-        return code == null ? null : InputUtil.Type.KEYSYM.createFromCode(code);
+        return code == null ? null : InputConstants.Type.KEYSYM.getOrCreate(code);
     }
 
     /** "toggleAllRendering" -> "Toggle All Rendering", "toolPlaceCorner1" -> "Tool Place Corner 1". */

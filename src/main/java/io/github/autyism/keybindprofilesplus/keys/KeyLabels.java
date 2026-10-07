@@ -1,13 +1,12 @@
 package io.github.autyism.keybindprofilesplus.keys;
 
-import net.minecraft.client.option.KeyBinding;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.Language;
-
 import java.util.Arrays;
 import java.util.Locale;
 import java.util.Set;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.locale.Language;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 
 /**
  * Names of key bindings and their categories for the mod's own screens.
@@ -22,14 +21,14 @@ public final class KeyLabels {
     private KeyLabels() {
     }
 
-    public static Text name(KeyBinding binding) {
-        return name(binding.getId());
+    public static Component name(KeyMapping binding) {
+        return name(binding.getName());
     }
 
     /** The name of the binding with this id; also works for bindings of mods that are not installed. */
-    public static Text name(String bindingId) {
-        if (Language.getInstance().hasTranslation(bindingId)) {
-            return Text.translatable(bindingId);
+    public static Component name(String bindingId) {
+        if (Language.getInstance().has(bindingId)) {
+            return Component.translatable(bindingId);
         }
 
         String[] parts = bindingId.split("\\.");
@@ -42,16 +41,16 @@ public final class KeyLabels {
             from++;
         }
         String readable = humanize(String.join(" ", Arrays.copyOfRange(parts, from, parts.length)));
-        return Text.literal(readable.isEmpty() ? bindingId : readable);
+        return Component.literal(readable.isEmpty() ? bindingId : readable);
     }
 
-    public static Text category(KeyBinding.Category category) {
+    public static Component category(KeyMapping.Category category) {
         Identifier id = category.id();
-        if (Language.getInstance().hasTranslation(id.toTranslationKey("key.category"))) {
-            return category.getLabel();
+        if (Language.getInstance().has(id.toLanguageKey("key.category"))) {
+            return category.label();
         }
         String readable = humanize("minecraft".equals(id.getNamespace()) ? id.getPath() : id.getNamespace() + " " + id.getPath());
-        return readable.isEmpty() ? category.getLabel() : Text.literal(readable);
+        return readable.isEmpty() ? category.label() : Component.literal(readable);
     }
 
     /** "toggle_freeCam-mode" becomes "Toggle Free Cam Mode". */

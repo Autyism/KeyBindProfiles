@@ -1,12 +1,11 @@
 package io.github.autyism.keybindprofilesplus.external;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import io.github.autyism.keybindprofilesplus.keys.KeyCombo;
 import net.fabricmc.loader.api.FabricLoader;
 import net.fabricmc.loader.api.ModContainer;
 import net.fabricmc.loader.api.metadata.ModDependency;
-import net.minecraft.client.util.InputUtil;
-import net.minecraft.text.Text;
-
+import net.minecraft.network.chat.Component;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -108,11 +107,11 @@ public final class ExternalKeys {
     // ------------------------------------------------------------------ changes
 
     /**
-     * Binds an editable hotkey to a key plus Ctrl / Shift / Alt ({@link InputUtil#UNKNOWN_KEY} = no
+     * Binds an editable hotkey to a key plus Ctrl / Shift / Alt ({@link InputConstants#UNKNOWN} = no
      * key) and lets its mod save. False when that mod does not take that key for it (Meteor modules
      * on the left / right mouse button) or the hotkey is not editable.
      */
-    public static boolean bind(ExternalBinding binding, InputUtil.Key key, int modifiers) {
+    public static boolean bind(ExternalBinding binding, InputConstants.Key key, int modifiers) {
         LiveSource source = sourceOf(binding.hotkeyId());
         if (source == null || !source.bind(binding.hotkeyId(), key, modifiers & KeyCombo.ALL)) {
             return false;
@@ -180,24 +179,24 @@ public final class ExternalKeys {
 
     /** Whether a stored value means "no key". */
     public static boolean isUnboundValue(String value) {
-        return value == null || value.isBlank() || value.equals(InputUtil.UNKNOWN_KEY.getTranslationKey());
+        return value == null || value.isBlank() || value.equals(InputConstants.UNKNOWN.getName());
     }
 
     /** A stored value of the hotkey with this id, formatted for display. Works without the mod running. */
-    public static Text describeValue(String hotkeyId, String value) {
+    public static Component describeValue(String hotkeyId, String value) {
         if (isUnboundValue(value)) {
-            return Text.translatable("key.keyboard.unknown");
+            return Component.translatable("key.keyboard.unknown");
         }
         if (hotkeyId.startsWith(MalilibLive.PREFIX) || hotkeyId.startsWith(IpnLive.PREFIX)) {
             // libIPN writes keys with the same names as malilib.
             MalilibKeys.Trigger trigger = MalilibKeys.parse(value);
-            return trigger == null ? Text.translatable("key.keyboard.unknown") : trigger.text();
+            return trigger == null ? Component.translatable("key.keyboard.unknown") : trigger.text();
         }
         return KeyCombo.describe(value);
     }
 
     /** What the hotkey with this id is called: its mod's name for it when running, else worked out from the id. */
-    public static Text nameOf(String hotkeyId) {
+    public static Component nameOf(String hotkeyId) {
         ExternalBinding binding = find(hotkeyId);
         if (binding != null) {
             return binding.title();
@@ -215,31 +214,31 @@ public final class ExternalKeys {
             name.append(hotkeyId.startsWith(MeteorLive.PREFIX) || hotkeyId.startsWith(MeteorLive.MACRO_PREFIX)
                     ? MeteorKeys.title(part) : MalilibKeys.readableName(part));
         }
-        return Text.literal(name.toString());
+        return Component.literal(name.toString());
     }
 
     /** The heading the hotkey with this id is listed under ("Meteor", "Litematica"), also when its mod is not running. */
-    public static Text groupOf(String hotkeyId) {
+    public static Component groupOf(String hotkeyId) {
         ExternalBinding binding = find(hotkeyId);
         if (binding != null) {
             return binding.group();
         }
         if (hotkeyId.startsWith(MeteorLive.MACRO_PREFIX)) {
-            return Text.translatable("keybindprofilesplus.external.meteor_macros");
+            return Component.translatable("keybindprofilesplus.external.meteor_macros");
         }
         if (hotkeyId.startsWith(MeteorLive.PREFIX)) {
-            return Text.translatable("keybindprofilesplus.external.meteor");
+            return Component.translatable("keybindprofilesplus.external.meteor");
         }
         if (hotkeyId.startsWith(IpnLive.PREFIX)) {
-            return Text.literal(FabricLoader.getInstance().getModContainer(IpnLive.MOD_ID).map(mod -> mod.getMetadata().getName()).orElse("Inventory Profiles Next"));
+            return Component.literal(FabricLoader.getInstance().getModContainer(IpnLive.MOD_ID).map(mod -> mod.getMetadata().getName()).orElse("Inventory Profiles Next"));
         }
         if (hotkeyId.startsWith(MalilibLive.PREFIX)) {
             String rest = hotkeyId.substring(MalilibLive.PREFIX.length());
             int slash = rest.indexOf('/');
             String modId = slash < 0 ? rest : rest.substring(0, slash);
-            return Text.literal(FabricLoader.getInstance().getModContainer(modId).map(mod -> mod.getMetadata().getName()).orElse(modId));
+            return Component.literal(FabricLoader.getInstance().getModContainer(modId).map(mod -> mod.getMetadata().getName()).orElse(modId));
         }
-        return Text.literal(hotkeyId);
+        return Component.literal(hotkeyId);
     }
 
     // ------------------------------------------------------------------ self-test hooks
