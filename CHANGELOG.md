@@ -1,5 +1,37 @@
 # Changelog
 
+## 0.2.0+26.3 — 2026-10-07
+
+KeyBind Profiles+ for Minecraft 26.3, with the same features as 0.2.0 for 1.21.11.
+
+- Needs Java 25 and Fabric Loader 0.19.3 or newer.
+- 26.3 numbers keys in a new way. Profiles, share codes and key combinations still store the key names of the older versions, so a profile made on another version binds the same physical keys here, and the other way round.
+- The profile manager opens with `I` by default, as on 26.2.
+- Meteor Client has no 26.3 build yet, so its module keys could not be tested on 26.3.
+
+### 中文
+
+适用于 Minecraft 26.3 的 KeyBind Profiles+，功能与 1.21.11 的 0.2.0 相同。
+
+- 需要 Java 25 和 Fabric Loader 0.19.3 或更高。
+- 26.3 换了一套按键编号。档案、分享码和组合键仍然按旧版本的键名保存，所以在其他版本做的档案在这里绑的是同一批物理按键，反过来也一样。
+- 和 26.2 一样，档案管理界面默认用 `I` 打开。
+- Meteor Client 还没有 26.3 版，所以它的模块按键没法在 26.3 上测试。
+
+## 0.2.0+26.2 — 2026-10-07
+
+KeyBind Profiles+ for Minecraft 26.2, with the same features as 0.2.0 for 1.21.11.
+
+- Needs Java 25 and Fabric Loader 0.19.3 or newer.
+- The profile manager opens with `I` by default, because vanilla 26.2 uses `O`. If you already bound it to `O`, that binding is kept and shows as a conflict.
+
+### 中文
+
+适用于 Minecraft 26.2 的 KeyBind Profiles+，功能与 1.21.11 的 0.2.0 相同。
+
+- 需要 Java 25 和 Fabric Loader 0.19.3 或更高。
+- 档案管理界面默认改用 `I` 打开，因为原版 26.2 占用了 `O`。如果你已经把它绑在 `O` 上，会保留原来的绑定，并标成冲突。
+
 ## 0.2.0+26.1.2 — 2026-10-07
 
 KeyBind Profiles+ for Minecraft 26.1, 26.1.1 and 26.1.2, with the same features as 0.2.0 for 1.21.11.

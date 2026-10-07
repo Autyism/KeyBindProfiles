@@ -5,11 +5,11 @@
 
 <p align="center"><a href="#english">English</a> · <a href="#简体中文">简体中文</a></p>
 
-![Minecraft 1.21.11 | 26.1–26.1.2](https://img.shields.io/badge/Minecraft-1.21.11_%7C_26.1--26.1.2-62B47A) ![Fabric](https://img.shields.io/badge/Loader-Fabric-DBD0B4) ![License: GPL-3.0-only](https://img.shields.io/badge/License-GPL--3.0--only-blue)
+![Minecraft 1.21.11 | 26.1–26.3](https://img.shields.io/badge/Minecraft-1.21.11_%7C_26.1--26.3-62B47A) ![Fabric](https://img.shields.io/badge/Loader-Fabric-DBD0B4) ![License: GPL-3.0-only](https://img.shields.io/badge/License-GPL--3.0--only-blue)
 
 # English
 
-KeyBind Profiles+ is a client-side Fabric mod for Minecraft 1.21.11 and 26.1–26.1.2 that keeps your key bindings in named profiles. Keep one profile for PvP, one for building and one for redstone, and switch with a click, with a hotkey of your own, or automatically when you join a server. A profile can also carry the game settings you pick, such as FOV or mouse sensitivity.
+KeyBind Profiles+ is a client-side Fabric mod for Minecraft 1.21.11 and 26.1–26.3 that keeps your key bindings in named profiles. Keep one profile for PvP, one for building and one for redstone, and switch with a click, with a hotkey of your own, or automatically when you join a server. A profile can also carry the game settings you pick, such as FOV or mouse sensitivity.
 
 Its Key Binds screen puts every key in one list: the game's keys, the keys your other mods register, and the hotkeys that Meteor Client, MaLiLib mods (Litematica, Tweakeroo, MiniHUD, ...) and Inventory Profiles Next normally keep in their own menus. Every key shows the mod it comes from, conflicts are marked while you rebind, and keys can be put on Ctrl / Shift / Alt combinations.
 
@@ -114,7 +114,7 @@ KeyBind Profiles+ is a fork of [KeyBindProfiles](https://github.com/imsawiq/KeyB
 
 | Action | Default key | Where to change it |
 |---|---|---|
-| Open the profile manager ("Open KeyBind Profiles+") | `O` | Key Binds screen, category "Miscellaneous" |
+| Open the profile manager ("Open KeyBind Profiles+") | `O` (`I` on 26.2 and newer) | Key Binds screen, category "Miscellaneous" |
 | Switch to a particular profile | not set | Profile manager → select the profile → Edit → Hotkey |
 
 Both work during play, when no screen is open. KeyBind Profiles+ has no commands.
@@ -135,14 +135,14 @@ Inside the mod's screens:
 
 ### Where things are
 
-- **Profile manager:** press `O` in game, or click "Manage Profiles" at the bottom of the Key Binds screen.
+- **Profile manager:** press `O` in game (`I` on 26.2 and newer, where vanilla uses `O`), or click "Manage Profiles" at the bottom of the Key Binds screen.
 - **Key Binds screen:** Options → Controls → Key Binds, or "Key Binds" in the profile manager.
 - **Settings:** "Settings" in the profile manager, or the configure button in Mod Menu.
 - **Auto-switch rules:** "Rules" in the profile manager for all profiles, or Edit → "Applied automatically in" for one profile.
 
 ### Your first profile
 
-1. Press `O` and click **New Profile...**.
+1. Press `O` (`I` on 26.2 and newer) and click **New Profile...**.
 2. Type a name. Every key binding and every hotkey of a supported mod is ticked; game settings are not.
 3. Untick what this profile should leave alone. To include a game setting such as FOV, open **Other game settings** and tick it; the search box above the tree finds entries quickly.
 4. Click **Create Profile**.
@@ -215,6 +215,8 @@ There is a separate jar for each Minecraft version:
 |---|---|---|---|
 | 1.21.11 | `keybindprofilesplus-0.2.0.jar` | 21 or newer | 0.17.3 or newer |
 | 26.1, 26.1.1, 26.1.2 | `keybindprofilesplus-0.2.0+26.1.2.jar` | 25 or newer | 0.19.3 or newer |
+| 26.2 | `keybindprofilesplus-0.2.0+26.2.jar` | 25 or newer | 0.19.3 or newer |
+| 26.3 | `keybindprofilesplus-0.2.0+26.3.jar` | 25 or newer | 0.19.3 or newer |
 
 - [Fabric API](https://modrinth.com/mod/fabric-api) for the same Minecraft version
 - Client-side only: install it in your game. Servers do not need it, and it works on any server.
@@ -228,7 +230,7 @@ Optional, each one only adds its own part:
 | [MaLiLib](https://modrinth.com/mod/malilib) and the mods built on it ([Litematica](https://modrinth.com/mod/litematica), Tweakeroo, MiniHUD, Item Scroller, ...) | Their hotkeys in the Key Binds screen and in profiles |
 | [Inventory Profiles Next](https://modrinth.com/mod/inventory-profiles-next) (with libIPN) | Its hotkeys in the Key Binds screen and in profiles |
 
-Tested with Mod Menu 17.0.1, Meteor Client for 1.21.11 (build 86), MaLiLib 0.27.20 with Litematica 0.26.16, and Inventory Profiles Next 2.2.6 with libIPN 6.6.3. On 26.1.2: Meteor Client build 42, MaLiLib 0.28.12 with Litematica 0.27.14, and Inventory Profiles Next 2.3.8.
+Tested with Mod Menu 17.0.1, Meteor Client for 1.21.11 (build 86), MaLiLib 0.27.20 with Litematica 0.26.16, and Inventory Profiles Next 2.2.6 with libIPN 6.6.3. On 26.1.2: Meteor Client build 42, MaLiLib 0.28.12 with Litematica 0.27.14, and Inventory Profiles Next 2.3.8. On 26.2: Meteor Client build 33, MaLiLib 0.29.6 with Litematica 0.28.8, and Inventory Profiles Next. On 26.3: MaLiLib 0.30.2 with Litematica 0.29.1, and Inventory Profiles Next (Meteor Client has no 26.3 build yet).
 
 ## Compatibility
 
@@ -244,7 +246,7 @@ Tested with Mod Menu 17.0.1, Meteor Client for 1.21.11 (build 86), MaLiLib 0.27.
 1. Install Fabric Loader for your Minecraft version (see the table above).
 2. Download Fabric API for that Minecraft version and the KeyBind Profiles+ jar for it, and put both jar files into the `mods` folder of your game.
 3. Optional: add Mod Menu and any of the mods listed under Requirements.
-4. Start the game and press `O` to open the profile manager.
+4. Start the game and press `O` (`I` on 26.2 and newer) to open the profile manager.
 
 Switching from the original KeyBindProfiles: remove its jar (the two cannot run together). Your profiles are copied over on the first start.
 
@@ -298,7 +300,7 @@ On the first start they are copied to `config/keybindprofilesplus/` (the old fol
 
 # 简体中文
 
-KeyBind Profiles+ 是 Minecraft 1.21.11 和 26.1–26.1.2 的纯客户端 Fabric 模组，把你的键位存成有名字的档案。PvP 一套、建筑一套、红石一套，点一下、按一个自己设的热键，或者进服务器时自动切换。档案还可以顺带保存你选中的游戏设置，比如视场角或鼠标灵敏度。
+KeyBind Profiles+ 是 Minecraft 1.21.11 和 26.1–26.3 的纯客户端 Fabric 模组，把你的键位存成有名字的档案。PvP 一套、建筑一套、红石一套，点一下、按一个自己设的热键，或者进服务器时自动切换。档案还可以顺带保存你选中的游戏设置，比如视场角或鼠标灵敏度。
 
 它自带的按键绑定界面把所有按键放进同一个列表：原版的按键、其他模组注册的按键，还有 Meteor Client、MaLiLib 系模组（Litematica 投影、Tweakeroo、MiniHUD……）和 Inventory Profiles Next 平时只能在各自菜单里改的热键。每个键都标着来自哪个模组，改键时实时标出冲突，还能绑 Ctrl / Shift / Alt 组合键。
 
@@ -403,7 +405,7 @@ KeyBind Profiles+ 是 sawiq_ 的 [KeyBindProfiles](https://github.com/imsawiq/Ke
 
 | 功能 | 默认按键 | 在哪里改 |
 |---|---|---|
-| 打开档案管理界面（“打开 KeyBind Profiles+”） | `O` | 按键绑定界面，“杂项”分类 |
+| 打开档案管理界面（“打开 KeyBind Profiles+”） | `O`（26.2 起是 `I`） | 按键绑定界面，“杂项”分类 |
 | 切换到某个档案 | 未设置 | 档案管理界面 → 选中档案 → 编辑 → 热键 |
 
 这两个都在游戏中（没打开任何界面时）生效。KeyBind Profiles+ 没有命令。
@@ -424,14 +426,14 @@ KeyBind Profiles+ 是 sawiq_ 的 [KeyBindProfiles](https://github.com/imsawiq/Ke
 
 ### 各个界面在哪
 
-- **档案管理界面：** 游戏中按 `O`，或点按键绑定界面底部的“管理档案”。
+- **档案管理界面：** 游戏中按 `O`（26.2 起是 `I`，因为原版占用了 `O`），或点按键绑定界面底部的“管理档案”。
 - **按键绑定界面：** 选项 → 控制 → 按键绑定，或档案管理界面里的“按键绑定”。
 - **设置：** 档案管理界面里的“设置”，或 Mod Menu 里的配置按钮。
 - **自动切换规则：** 档案管理界面里的“服务器规则”（所有档案），或“编辑”里的“在这些地方自动应用”（单个档案）。
 
 ### 创建第一个档案
 
-1. 按 `O`，点 **新建档案…**。
+1. 按 `O`（26.2 起是 `I`），点 **新建档案…**。
 2. 输入名称。所有键位和支持的模组的热键默认都勾上，游戏设置默认不勾。
 3. 取消勾选这个档案不该改动的项目。想带上视场角之类的游戏设置，就展开 **其他游戏设置** 把它勾上；树上方的搜索框能快速找到项目。
 4. 点 **创建档案**。
@@ -504,6 +506,8 @@ KeyBind Profiles+ 是 sawiq_ 的 [KeyBindProfiles](https://github.com/imsawiq/Ke
 |---|---|---|---|
 | 1.21.11 | `keybindprofilesplus-0.2.0.jar` | 21 及以上 | 0.17.3 及以上 |
 | 26.1、26.1.1、26.1.2 | `keybindprofilesplus-0.2.0+26.1.2.jar` | 25 及以上 | 0.19.3 及以上 |
+| 26.2 | `keybindprofilesplus-0.2.0+26.2.jar` | 25 及以上 | 0.19.3 及以上 |
+| 26.3 | `keybindprofilesplus-0.2.0+26.3.jar` | 25 及以上 | 0.19.3 及以上 |
 
 - [Fabric API](https://modrinth.com/mod/fabric-api)（前置），要对应同一个 Minecraft 版本
 - 纯客户端：装在自己的游戏里就行，服务器不用装，任何服务器都能用。
@@ -517,7 +521,7 @@ KeyBind Profiles+ 是 sawiq_ 的 [KeyBindProfiles](https://github.com/imsawiq/Ke
 | [MaLiLib](https://modrinth.com/mod/malilib) 及基于它的模组（[Litematica](https://modrinth.com/mod/litematica) 投影、Tweakeroo、MiniHUD、Item Scroller……） | 它们的热键，出现在按键绑定界面和档案里 |
 | [Inventory Profiles Next](https://modrinth.com/mod/inventory-profiles-next)（需要 libIPN） | 它的热键，出现在按键绑定界面和档案里 |
 
-测试过的版本：Mod Menu 17.0.1、Meteor Client 1.21.11（build 86）、MaLiLib 0.27.20 加 Litematica 0.26.16、Inventory Profiles Next 2.2.6 加 libIPN 6.6.3。26.1.2 上：Meteor Client build 42、MaLiLib 0.28.12 加 Litematica 0.27.14、Inventory Profiles Next 2.3.8。
+测试过的版本：Mod Menu 17.0.1、Meteor Client 1.21.11（build 86）、MaLiLib 0.27.20 加 Litematica 0.26.16、Inventory Profiles Next 2.2.6 加 libIPN 6.6.3。26.1.2 上：Meteor Client build 42、MaLiLib 0.28.12 加 Litematica 0.27.14、Inventory Profiles Next 2.3.8。26.2 上：Meteor Client build 33、MaLiLib 0.29.6 加 Litematica 0.28.8、Inventory Profiles Next。26.3 上：MaLiLib 0.30.2 加 Litematica 0.29.1、Inventory Profiles Next（Meteor Client 还没有 26.3 版）。
 
 ## 兼容性
 
@@ -533,7 +537,7 @@ KeyBind Profiles+ 是 sawiq_ 的 [KeyBindProfiles](https://github.com/imsawiq/Ke
 1. 为你的 Minecraft 版本安装 Fabric Loader（版本要求见上表）。
 2. 下载这个 Minecraft 版本对应的 Fabric API 和 KeyBind Profiles+ 的 jar，把两个 jar 文件放进游戏的 `mods` 文件夹。
 3. 可选：再装上 Mod Menu，以及“运行要求”里列出的任意模组。
-4. 启动游戏，按 `O` 打开档案管理界面。
+4. 启动游戏，按 `O`（26.2 起是 `I`）打开档案管理界面。
 
 从原版 KeyBindProfiles 换过来：把它的 jar 删掉（两个不能同时运行），第一次启动时档案会复制过来。
 
