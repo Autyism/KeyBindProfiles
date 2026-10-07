@@ -19,6 +19,7 @@ stonecutter parameters {
             replace("import io.github.autyism.keybindprofilesplus.legacy.MouseButtonInfo;", "import net.minecraft.client.input.MouseButtonInfo;")
             replace("import io.github.autyism.keybindprofilesplus.legacy.CharacterEvent;", "import net.minecraft.client.input.CharacterEvent;")
             replace("extends io.github.autyism.keybindprofilesplus.legacy.ListEntry<", "extends ContainerObjectSelectionList.Entry<")
+            replace("extends io.github.autyism.keybindprofilesplus.legacy.SelectionList<", "extends ContainerObjectSelectionList<")
             replace("ensureVisible(", "scrollToEntry(")
             replace("net.minecraft.network.chat.Style.EMPTY.applyFormats(net.minecraft.ChatFormatting.GRAY, net.minecraft.ChatFormatting.ITALIC)", "EditBox.SEARCH_HINT_STYLE")
             replace("InputConstants.getKey(input.key(), input.scancode())", "InputConstants.getKey(input)")
