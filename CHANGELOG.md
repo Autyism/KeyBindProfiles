@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.2.0+26.1.2 — 2026-10-07
+
+KeyBind Profiles+ for Minecraft 26.1, 26.1.1 and 26.1.2, with the same features as 0.2.0 for 1.21.11.
+
+- Needs Java 25 and Fabric Loader 0.19.3 or newer.
+- 1.21.11 players keep using `keybindprofilesplus-0.2.0.jar`.
+
+### 中文
+
+适用于 Minecraft 26.1、26.1.1 和 26.1.2 的 KeyBind Profiles+，功能与 1.21.11 的 0.2.0 相同。
+
+- 需要 Java 25 和 Fabric Loader 0.19.3 或更高。
+- 1.21.11 玩家继续用 `keybindprofilesplus-0.2.0.jar`。
+
 ## 0.2.0 — 2026-10-05
 
 - New: **Export / Import Mod Configs** (Settings). Saves the settings files of all mods into one file and imports such files; profiles and share codes are unchanged.
