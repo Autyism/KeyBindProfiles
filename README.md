@@ -5,11 +5,11 @@
 
 <p align="center"><a href="#english">English</a> · <a href="#简体中文">简体中文</a></p>
 
-![Minecraft 1.21.11 | 26.1–26.3](https://img.shields.io/badge/Minecraft-1.21.11_%7C_26.1--26.3-62B47A) ![Fabric](https://img.shields.io/badge/Loader-Fabric-DBD0B4) ![License: GPL-3.0-only](https://img.shields.io/badge/License-GPL--3.0--only-blue)
+![Minecraft 1.21.5–26.3](https://img.shields.io/badge/Minecraft-1.21.5--26.3-62B47A) ![Fabric](https://img.shields.io/badge/Loader-Fabric-DBD0B4) ![License: GPL-3.0-only](https://img.shields.io/badge/License-GPL--3.0--only-blue)
 
 # English
 
-KeyBind Profiles+ is a client-side Fabric mod for Minecraft 1.21.11 and 26.1–26.3 that keeps your key bindings in named profiles. Keep one profile for PvP, one for building and one for redstone, and switch with a click, with a hotkey of your own, or automatically when you join a server. A profile can also carry the game settings you pick, such as FOV or mouse sensitivity.
+KeyBind Profiles+ is a client-side Fabric mod for Minecraft 1.21.5 to 26.3 that keeps your key bindings in named profiles. Keep one profile for PvP, one for building and one for redstone, and switch with a click, with a hotkey of your own, or automatically when you join a server. A profile can also carry the game settings you pick, such as FOV or mouse sensitivity.
 
 Its Key Binds screen puts every key in one list: the game's keys, the keys your other mods register, and the hotkeys that Meteor Client, MaLiLib mods (Litematica, Tweakeroo, MiniHUD, ...) and Inventory Profiles Next normally keep in their own menus. Every key shows the mod it comes from, conflicts are marked while you rebind, and keys can be put on Ctrl / Shift / Alt combinations.
 
@@ -213,6 +213,9 @@ There is a separate jar for each Minecraft version:
 
 | Minecraft | Jar | Java | Fabric Loader |
 |---|---|---|---|
+| 1.21.5 | `keybindprofilesplus-0.2.0+1.21.5.jar` | 21 or newer | 0.17.3 or newer |
+| 1.21.6, 1.21.7, 1.21.8 | `keybindprofilesplus-0.2.0+1.21.8.jar` | 21 or newer | 0.17.3 or newer |
+| 1.21.9, 1.21.10 | `keybindprofilesplus-0.2.0+1.21.10.jar` | 21 or newer | 0.17.3 or newer |
 | 1.21.11 | `keybindprofilesplus-0.2.0.jar` | 21 or newer | 0.17.3 or newer |
 | 26.1, 26.1.1, 26.1.2 | `keybindprofilesplus-0.2.0+26.1.2.jar` | 25 or newer | 0.19.3 or newer |
 | 26.2 | `keybindprofilesplus-0.2.0+26.2.jar` | 25 or newer | 0.19.3 or newer |
@@ -230,7 +233,7 @@ Optional, each one only adds its own part:
 | [MaLiLib](https://modrinth.com/mod/malilib) and the mods built on it ([Litematica](https://modrinth.com/mod/litematica), Tweakeroo, MiniHUD, Item Scroller, ...) | Their hotkeys in the Key Binds screen and in profiles |
 | [Inventory Profiles Next](https://modrinth.com/mod/inventory-profiles-next) (with libIPN) | Its hotkeys in the Key Binds screen and in profiles |
 
-Tested with Mod Menu 17.0.1, Meteor Client for 1.21.11 (build 86), MaLiLib 0.27.20 with Litematica 0.26.16, and Inventory Profiles Next 2.2.6 with libIPN 6.6.3. On 26.1.2: Meteor Client build 42, MaLiLib 0.28.12 with Litematica 0.27.14, and Inventory Profiles Next 2.3.8. On 26.2: Meteor Client build 33, MaLiLib 0.29.6 with Litematica 0.28.8, and Inventory Profiles Next. On 26.3: MaLiLib 0.30.2 with Litematica 0.29.1, and Inventory Profiles Next (Meteor Client has no 26.3 build yet).
+Tested with Mod Menu 17.0.1, Meteor Client for 1.21.11 (build 86), MaLiLib 0.27.20 with Litematica 0.26.16, and Inventory Profiles Next 2.2.6 with libIPN 6.6.3. On 26.1.2: Meteor Client build 42, MaLiLib 0.28.12 with Litematica 0.27.14, and Inventory Profiles Next 2.3.8. On 26.2: Meteor Client build 33, MaLiLib 0.29.6 with Litematica 0.28.8, and Inventory Profiles Next. On 26.3: MaLiLib 0.30.2 with Litematica 0.29.1, and Inventory Profiles Next (Meteor Client has no 26.3 build yet). The 1.21.5, 1.21.8 and 1.21.10 builds were tested with the Meteor Client, MaLiLib with Litematica, and Inventory Profiles Next builds for those versions.
 
 ## Compatibility
 
@@ -300,7 +303,7 @@ On the first start they are copied to `config/keybindprofilesplus/` (the old fol
 
 # 简体中文
 
-KeyBind Profiles+ 是 Minecraft 1.21.11 和 26.1–26.3 的纯客户端 Fabric 模组，把你的键位存成有名字的档案。PvP 一套、建筑一套、红石一套，点一下、按一个自己设的热键，或者进服务器时自动切换。档案还可以顺带保存你选中的游戏设置，比如视场角或鼠标灵敏度。
+KeyBind Profiles+ 是 Minecraft 1.21.5 到 26.3 的纯客户端 Fabric 模组，把你的键位存成有名字的档案。PvP 一套、建筑一套、红石一套，点一下、按一个自己设的热键，或者进服务器时自动切换。档案还可以顺带保存你选中的游戏设置，比如视场角或鼠标灵敏度。
 
 它自带的按键绑定界面把所有按键放进同一个列表：原版的按键、其他模组注册的按键，还有 Meteor Client、MaLiLib 系模组（Litematica 投影、Tweakeroo、MiniHUD……）和 Inventory Profiles Next 平时只能在各自菜单里改的热键。每个键都标着来自哪个模组，改键时实时标出冲突，还能绑 Ctrl / Shift / Alt 组合键。
 
@@ -504,6 +507,9 @@ KeyBind Profiles+ 是 sawiq_ 的 [KeyBindProfiles](https://github.com/imsawiq/Ke
 
 | Minecraft | jar 文件 | Java | Fabric Loader |
 |---|---|---|---|
+| 1.21.5 | `keybindprofilesplus-0.2.0+1.21.5.jar` | 21 及以上 | 0.17.3 及以上 |
+| 1.21.6、1.21.7、1.21.8 | `keybindprofilesplus-0.2.0+1.21.8.jar` | 21 及以上 | 0.17.3 及以上 |
+| 1.21.9、1.21.10 | `keybindprofilesplus-0.2.0+1.21.10.jar` | 21 及以上 | 0.17.3 及以上 |
 | 1.21.11 | `keybindprofilesplus-0.2.0.jar` | 21 及以上 | 0.17.3 及以上 |
 | 26.1、26.1.1、26.1.2 | `keybindprofilesplus-0.2.0+26.1.2.jar` | 25 及以上 | 0.19.3 及以上 |
 | 26.2 | `keybindprofilesplus-0.2.0+26.2.jar` | 25 及以上 | 0.19.3 及以上 |
@@ -521,7 +527,7 @@ KeyBind Profiles+ 是 sawiq_ 的 [KeyBindProfiles](https://github.com/imsawiq/Ke
 | [MaLiLib](https://modrinth.com/mod/malilib) 及基于它的模组（[Litematica](https://modrinth.com/mod/litematica) 投影、Tweakeroo、MiniHUD、Item Scroller……） | 它们的热键，出现在按键绑定界面和档案里 |
 | [Inventory Profiles Next](https://modrinth.com/mod/inventory-profiles-next)（需要 libIPN） | 它的热键，出现在按键绑定界面和档案里 |
 
-测试过的版本：Mod Menu 17.0.1、Meteor Client 1.21.11（build 86）、MaLiLib 0.27.20 加 Litematica 0.26.16、Inventory Profiles Next 2.2.6 加 libIPN 6.6.3。26.1.2 上：Meteor Client build 42、MaLiLib 0.28.12 加 Litematica 0.27.14、Inventory Profiles Next 2.3.8。26.2 上：Meteor Client build 33、MaLiLib 0.29.6 加 Litematica 0.28.8、Inventory Profiles Next。26.3 上：MaLiLib 0.30.2 加 Litematica 0.29.1、Inventory Profiles Next（Meteor Client 还没有 26.3 版）。
+测试过的版本：Mod Menu 17.0.1、Meteor Client 1.21.11（build 86）、MaLiLib 0.27.20 加 Litematica 0.26.16、Inventory Profiles Next 2.2.6 加 libIPN 6.6.3。26.1.2 上：Meteor Client build 42、MaLiLib 0.28.12 加 Litematica 0.27.14、Inventory Profiles Next 2.3.8。26.2 上：Meteor Client build 33、MaLiLib 0.29.6 加 Litematica 0.28.8、Inventory Profiles Next。26.3 上：MaLiLib 0.30.2 加 Litematica 0.29.1、Inventory Profiles Next（Meteor Client 还没有 26.3 版）。1.21.5、1.21.8、1.21.10 版用这些版本对应的 Meteor Client、MaLiLib 加 Litematica、Inventory Profiles Next 测试过。
 
 ## 兼容性
 
