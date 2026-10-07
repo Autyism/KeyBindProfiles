@@ -27,6 +27,9 @@ public final class ProfileNoticeHud {
     public void render(GuiGraphics context, DeltaTracker tickCounter) {
         String profileName = notification.getVisibleProfileName();
         Minecraft client = Minecraft.getInstance();
+        //? if >=26.2 {
+        /*if (profileName == null || client.player == null || client.gui.hud.isHidden()) {
+        *///?} else
         if (profileName == null || client.player == null || client.options.hideGui) {
             return;
         }

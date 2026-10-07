@@ -456,8 +456,14 @@ public final class SelfTest extends SelfTestRunner {
         LevelSettings levelInfo = new LevelSettings(WORLD_NAME, GameType.CREATIVE, false, Difficulty.PEACEFUL, true,
                 new GameRules(FeatureFlags.DEFAULT_FLAGS), WorldDataConfiguration.DEFAULT);
         //?}
+        //? if >=26.2 {
+        /*client.createWorldOpenFlows().createFreshLevel(WORLD_NAME, levelInfo, WorldOptions.testWorldWithRandomSeed(),
+                registries -> registries.lookupOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET).getOrThrow(WorldPresets.FLAT).value().createWorldDimensions(),
+                homeScreen);
+        *///?} else {
         client.createWorldOpenFlows().createFreshLevel(WORLD_NAME, levelInfo, WorldOptions.testWorldWithRandomSeed(),
                 WorldPresets::createFlatWorldDimensions, homeScreen);
+        //?}
     }
 
     // ------------------------------------------------------------------ cleanup

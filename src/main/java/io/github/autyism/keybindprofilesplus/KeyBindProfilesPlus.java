@@ -165,6 +165,10 @@ public class KeyBindProfilesPlus implements ClientModInitializer {
         openProfileScreenKey = KeyBindingHelper.registerKeyBinding(new KeyMapping(
                 "key.keybindprofilesplus.open",
                 InputConstants.Type.KEYSYM,
+                //? if >=26.2 {
+                /*// 26.2 put the game's own Friends key on O
+                InputConstants.KEY_I,
+                *///?} else
                 InputConstants.KEY_O,
                 KeyMapping.Category.MISC
         ));

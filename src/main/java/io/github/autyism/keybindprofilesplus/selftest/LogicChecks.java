@@ -107,6 +107,9 @@ final class LogicChecks {
                 service.profilesDirectory().getPath().replace('\\', '/').endsWith("config/keybindprofilesplus"));
         t.check("title is translated", "KeyBind Profiles+".equals(SelfTestRunner.translated("keybindprofilesplus.title")));
         KeyMapping open = KeyMapping.get("key.keybindprofilesplus.open");
+        //? if >=26.2 {
+        /*t.check("the open key exists and defaults to I (O is the game's Friends key)", open != null && open.getDefaultKey().getName().equals("key.keyboard.i"));
+        *///?} else
         t.check("the open key exists and defaults to O", open != null && open.getDefaultKey().getName().equals("key.keyboard.o"));
     }
 
