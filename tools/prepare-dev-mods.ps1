@@ -69,6 +69,13 @@ Copy-Mod '*litematica-fabric-*.jar' $malilibDir | Out-Null
 
 # The libraries a mod carries inside its jar (malilib: conditional-mixin; Meteor: orbit, starscript...) are
 # unpacked next to it. Fabric API's own modules are left out: the dev client has Fabric API already.
+# So is Gson: the game ships its own, and on 26.x a second copy ahead of it on the dev class path stops
+# Fabric Loader from finding any mod.
+function Test-HasEntry([string]$jar, [string]$name) {
+    $zip = [System.IO.Compression.ZipFile]::OpenRead($jar)
+    try { return $null -ne $zip.GetEntry($name) } finally { $zip.Dispose() }
+}
+
 function Expand-Bundled([string]$jar, [string]$target) {
     $zip = [System.IO.Compression.ZipFile]::OpenRead($jar)
     try {
@@ -76,6 +83,11 @@ function Expand-Bundled([string]$jar, [string]$target) {
             if ($entry.FullName -like 'META-INF/jars/*.jar' -and $entry.Name -notlike 'fabric-*') {
                 $out = Join-Path $target $entry.Name
                 [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, $out, $true)
+                if (Test-HasEntry $out 'com/google/gson/Gson.class') {
+                    Remove-Item $out -Force
+                    Write-Host "[prepare]   skipped $($entry.Name) (the game has Gson)"
+                    continue
+                }
                 Set-LoomVersion $out
                 Write-Host "[prepare]   bundled $($entry.Name)"
             }

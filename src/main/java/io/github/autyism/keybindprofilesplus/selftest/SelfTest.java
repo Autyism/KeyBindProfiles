@@ -98,6 +98,8 @@ public final class SelfTest extends SelfTestRunner {
 
     public static void install(ProfileService service) {
         SelfTest selfTest = new SelfTest(service);
+        //? if >=26.1
+        /*countFrames();*/
         registerDemoBindings();
         ClientTickEvents.END_CLIENT_TICK.register(selfTest::tick);
         log("installed, waiting for the main menu");
