@@ -76,7 +76,10 @@ final class LogicChecks {
     static final String MOD_MENU_BINDING = "key.modmenu.open_menu";
     /** Stands for an F3 combination added by a mod, like Language Reload's F3+J: a mod key in the game's Debug category. */
     static final String DEMO_DEBUG_BINDING = "key.debug.selftestReloadLanguages";
+    //? if >=1.21.11 {
     static final int DEMO_BINDINGS = 4;
+    //?} else
+    /*static final int DEMO_BINDINGS = 3;*/
     private static final String LANG_PATH = "assets/" + KeyBindProfilesPlus.MOD_ID + "/lang/";
 
     private final SelfTestRunner t;
@@ -234,6 +237,7 @@ final class LogicChecks {
         KeySourceResolver resolver = new KeySourceResolver(client().options);
         source(resolver, "key.jump", KeySource.Kind.VANILLA, "minecraft");
         source(resolver, "key.hotbar.1", KeySource.Kind.VANILLA, "minecraft");
+        //? if >=1.21.11
         source(resolver, "key.debug.reloadChunk", KeySource.Kind.VANILLA, "minecraft");
 
         KeyMapping own = SelfTestRunner.binding("key.keybindprofilesplus.open");
@@ -324,6 +328,7 @@ final class LogicChecks {
             conflict("a Spectator-only key and jump is a possible conflict", "key.spectatorOutlines", KeyConflicts.Level.SOFT, 1, "spectator");
             t.bind("key.spectatorOutlines", "key.keyboard.unknown");
 
+            //? if >=1.21.11 {
             t.bind("key.debug.reloadChunk", "key.keyboard.b");
             conflict("two F3 combinations on the same key conflict", "key.debug.reloadChunk", KeyConflicts.Level.HARD, 1, "debug");
             t.bind("key.debug.reloadChunk", "key.keyboard.a");
@@ -331,6 +336,7 @@ final class LogicChecks {
             t.bind("key.jump", "key.keyboard.f3");
             conflict("a normal key on F3 itself conflicts with the debug keys", "key.jump", KeyConflicts.Level.HARD, 2, "general");
             t.bind("key.jump", "key.keyboard.space");
+            //?}
 
             t.bind(DEMO_MOD_BINDING, "key.keyboard.q");
             conflict("a mod key used during play on the same key as a vanilla one conflicts", DEMO_MOD_BINDING, KeyConflicts.Level.HARD, 1, "general");
@@ -830,12 +836,15 @@ final class LogicChecks {
 
             // The case from real play: Language Reload adds F3+J as a key binding of its own in the Debug
             // category, and a Meteor module sits on J. An F3 combination stays one whoever registered it.
+            // (Before 1.21.11 the debug keys were no key bindings, so a mod could not add one.)
+            //? if >=1.21.11 {
             KeyMapping modDebugKey = SelfTestRunner.binding(DEMO_DEBUG_BINDING);
             KeySourceResolver sources = KeyConflicts.sources(client().options);
             t.check("external: a mod's key binding in the Debug category counts as an F3 combination, and cannot be re-labelled by hand",
                     !sources.isVanilla(DEMO_DEBUG_BINDING) && KeyConflicts.scopeOf(modDebugKey, sources) == KeyConflicts.Scope.DEBUG_COMBO
                             && !KeyConflicts.canOverrideScope(modDebugKey, sources));
             conflict("a mod's F3+J and a Meteor module on J do not conflict", DEMO_DEBUG_BINDING, KeyConflicts.Level.NONE, 0, null);
+            //?}
             ExternalBinding autoEat = all.stream().filter(binding -> binding.name().equals("Auto Eat")).findFirst().orElseThrow();
             t.check("external: ... seen from the Meteor module's side neither", KeyConflicts.conflictsOf(autoEat, client().options).isEmpty());
             t.bind("key.jump", "key.keyboard.j");
@@ -844,6 +853,7 @@ final class LogicChecks {
 
             // F3 combinations against keys of other mods.
             ExternalBinding lightOverlay = all.stream().filter(binding -> binding.name().equals("Light Overlay")).findFirst().orElseThrow();
+            //? if >=1.21.11
             conflict("an F3 combination (F3+B) and a Meteor module on B do not conflict", "key.debug.showHitboxes", KeyConflicts.Level.NONE, 0, null);
             t.check("external: ... seen from the Meteor module's side neither",
                     KeyConflicts.conflictsOf(lightOverlay, client().options).isEmpty());

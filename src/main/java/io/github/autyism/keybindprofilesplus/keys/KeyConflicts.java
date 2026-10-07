@@ -142,9 +142,11 @@ public final class KeyConflicts {
         if (DEBUG_BASE_IDS.contains(id)) {
             return Scope.DEBUG_BASE;
         }
+        //? if >=1.21.11 {
         if (KeyMapping.Category.DEBUG.equals(binding.getCategory())) {
             return Scope.DEBUG_COMBO;
         }
+        //?}
         if (!sources.isVanilla(id)) {
             Scope chosen = fromOverride(KeyBindProfilesPlus.settings().scopeOverride(id));
             return chosen != null ? chosen : guessedScope(binding, sources);
@@ -182,7 +184,10 @@ public final class KeyConflicts {
 
     /** Whether this is a mod binding whose scope the player may set by hand. */
     public static boolean canOverrideScope(KeyMapping binding, KeySourceResolver sources) {
+        //? if >=1.21.11 {
         return !sources.isVanilla(binding.getName()) && !KeyMapping.Category.DEBUG.equals(binding.getCategory());
+        //?} else
+        /*return !sources.isVanilla(binding.getName());*/
     }
 
     /** When a hotkey of another mod is in effect: the player's own choice if there is one, else what its reader worked out. */

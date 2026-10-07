@@ -36,6 +36,11 @@ public final class OptionCatalog {
                 "cloudRange", "vignette", "weatherRadius", "bobView", "attackIndicator", "screenEffectScale",
                 "darknessEffectScale", "damageTiltStrength", "glintSpeed", "glintStrength", "menuBackgroundBlurriness",
                 "showAutosaveIndicator", "hideLightningFlashes");
+        // Before 1.21.11: one graphics mode instead of the preset, and the music toast was a plain switch
+        //? if <1.21.11 {
+        /*assign(Category.VIDEO, "graphicsMode");
+        assign(Category.SOUND, "showNowPlayingToast");
+        *///?}
         //? if >=26.1
         /*assign(Category.VIDEO, "exclusiveFullscreen");*/
         //? if >=26.3 {

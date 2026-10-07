@@ -8,6 +8,15 @@ stonecutter parameters {
     replacements {
         string(current.parsed >= "1.21.11") {
             replace("ResourceLocation", "Identifier")
+            replace("import net.minecraft.Util;", "import net.minecraft.util.Util;")
+            replace("import net.minecraft.world.level.GameRules;", "import net.minecraft.world.level.gamerules.GameRules;")
+        }
+        // 1.21.11 takes a cycle button's first value in builder(); before, it was set with withInitialValue()
+        regex(current.parsed >= "1.21.11") {
+            replace(
+                "(CycleButton\\.<\\w+>builder\\()([\\w:]+)\\)\\.withInitialValue\\((\\w+)\\)", "$1$2, $3)",
+                "(CycleButton\\.<\\w+>builder\\()([\\w:]+), (\\w+)\\)", "$1$2).withInitialValue($3)"
+            )
         }
 
         // 26.1+ is not obfuscated: the access widener is read in the game's own names
