@@ -1,24 +1,31 @@
 # Puts copies of malilib, Litematica, Meteor Client and Inventory Profiles Next (with libIPN and
-# Fabric Language Kotlin, which it needs) into libs\ so the dev client (and the self-test) runs with them and editing their hotkeys can be exercised for real.
+# Fabric Language Kotlin, which it needs) into libs\<version>\ so the dev client of that Minecraft version
+# (and the self-test) runs with them and editing their hotkeys can be exercised for real.
 #
-#   powershell -NoProfile -ExecutionPolicy Bypass -File tools\prepare-dev-mods.ps1 [-ModsDir <folder with the jars>]
+#   powershell -NoProfile -ExecutionPolicy Bypass -File tools\prepare-dev-mods.ps1 [-Version 1.21.11] [-ModsDir <folder with the jars>]
 #
-# The jars are only read from -ModsDir (by default the PCL2 instance's mods folder); nothing there is
+# The jars are only read from -ModsDir (for 1.21.11 by default the PCL2 instance's mods folder; for the
+# other versions a folder with the jars made for that version); nothing there is
 # changed. In the copies the "Fabric-Loom-Version" line of the manifest is lowered to this project's
 # Loom: those mods are built with a newer Loom, which this project's Loom otherwise refuses to load
 # in the dev client. Meteor's bundled libraries are unpacked next to it, because the dev client does
 # not unpack a mod's bundled jars by itself. libs\ is not committed.
 
 param(
-    [string]$ModsDir = 'D:\Games\PCL2\.minecraft\versions\1.21.11-Fabric 0.19.5 Main\mods'
+    [string]$Version = '1.21.11',
+    [string]$ModsDir = ''
 )
+if (-not $ModsDir) {
+    if ($Version -ne '1.21.11') { throw "-ModsDir is needed for Minecraft $Version" }
+    $ModsDir = 'D:\Games\PCL2\.minecraft\versions\1.21.11-Fabric 0.19.5 Main\mods'
+}
 
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.IO.Compression
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 
 $root = Split-Path -Parent $PSScriptRoot
-$loomVersion = (Select-String -Path (Join-Path $root 'gradle.properties') -Pattern '^loom_version=(.+)$').Matches[0].Groups[1].Value
+$loomVersion = (Select-String -Path (Join-Path $root 'gradle.properties') -Pattern '^loomx\.loom_version=(.+)$').Matches[0].Groups[1].Value
 # The dev Loom compares against its own version number; any version not newer than it is accepted.
 $loweredVersion = ($loomVersion -replace '-SNAPSHOT$', '') + '.0'
 
@@ -50,9 +57,9 @@ function Copy-Mod([string]$pattern, [string]$target) {
     return $copy
 }
 
-$malilibDir = Join-Path $root 'libs\malilib'
-$meteorDir = Join-Path $root 'libs\meteor'
-$ipnDir = Join-Path $root 'libs\ipn'
+$malilibDir = Join-Path $root "libs\$Version\malilib"
+$meteorDir = Join-Path $root "libs\$Version\meteor"
+$ipnDir = Join-Path $root "libs\$Version\ipn"
 foreach ($dir in @($malilibDir, $meteorDir, $ipnDir)) {
     if (Test-Path $dir) { Remove-Item -Recurse -Force $dir }
 }

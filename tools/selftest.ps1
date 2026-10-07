@@ -1,34 +1,38 @@
 # Runs the dev client in self-test mode and waits for it to finish.
 #
-#   powershell -NoProfile -ExecutionPolicy Bypass -File tools\selftest.ps1
+#   powershell -NoProfile -ExecutionPolicy Bypass -File tools\selftest.ps1 [-Version 1.21.11]
 #
 # What it does:
-#   1. Backs up run\options.txt and the mod's current_profile.txt.
-#   2. Starts `gradlew runSelfTest` (dev client with -Dkbp.selftest=true) hidden in the background.
-#   3. Polls run\logs\latest.log until "[SelfTest] DONE", a crash, or the timeout.
+#   1. Backs up the game folder's options.txt and the mod's current_profile.txt.
+#   2. Starts `gradlew :<version>:runSelfTest` (dev client with -Dkbp.selftest=true) hidden in the background.
+#   3. Polls the game folder's logs\latest.log until "[SelfTest] DONE", a crash, or the timeout.
 #   4. Makes sure the game process is gone (only processes started with -Dkbp.selftest=true are touched).
 #   5. Restores the backups and prints the [SelfTest] log lines and the screenshot list.
 #
+# The game folder is run\ for 1.21.11 and versions\<version>\run for the other Minecraft versions.
 # Exit code 0 = self-test finished with no failed step. Anything else = failure.
 
 param(
+    [string]$Version = '1.21.11',
     [int]$TimeoutSec = 300
 )
 
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
-$runDir = Join-Path $root 'run'
+if ($Version -eq '1.21.11') { $runDir = Join-Path $root 'run' } else { $runDir = Join-Path $root "versions\$Version\run" }
 $logFile = Join-Path $runDir 'logs\latest.log'
 $shotDir = Join-Path $runDir 'screenshots'
-$outDir = Join-Path $root 'build\selftest'
+$outDir = Join-Path $root "build\selftest\$Version"
 $backupDir = Join-Path $outDir 'backup'
 $gradleLog = Join-Path $outDir 'gradle.log'
 $gradleErr = Join-Path $outDir 'gradle.err.log'
 
-# Gradle 8.14 cannot run on Java 25, so point this process (only) at a JDK 21 when one is known.
-$jdk21 = $env:KBP_JDK21
-if (-not $jdk21) { $jdk21 = Join-Path $env:USERPROFILE 'scoop\apps\temurin21-jdk\current' }
-if (Test-Path (Join-Path $jdk21 'bin\java.exe')) { $env:JAVA_HOME = $jdk21 }
+# Gradle (Loom 1.18) runs on Java 25; the game itself gets the JDK of its Minecraft version from the
+# Gradle toolchain. The Gradle home stays off the system drive unless the caller chose another one.
+$jdk25 = $env:KBP_JDK25
+if (-not $jdk25) { $jdk25 = Join-Path $env:USERPROFILE 'scoop\apps\temurin25-jdk\current' }
+if (Test-Path (Join-Path $jdk25 'bin\java.exe')) { $env:JAVA_HOME = $jdk25 }
+if (-not $env:GRADLE_USER_HOME) { $env:GRADLE_USER_HOME = 'D:/Dev/Projects/tools/gradle-home' }
 
 function Get-SelfTestGames {
     Get-CimInstance Win32_Process -Filter "Name='java.exe' OR Name='javaw.exe'" |
@@ -94,7 +98,7 @@ try {
 Remove-Item (Join-Path $runDir 'selftest.pid') -Force -ErrorAction SilentlyContinue
 
 $start = Get-Date
-$proc = Start-Process -FilePath (Join-Path $root 'gradlew.bat') -ArgumentList 'runSelfTest', '--console=plain' `
+$proc = Start-Process -FilePath (Join-Path $root 'gradlew.bat') -ArgumentList ":${Version}:runSelfTest", '--console=plain' `
     -WorkingDirectory $root -WindowStyle Hidden -PassThru `
     -RedirectStandardOutput $gradleLog -RedirectStandardError $gradleErr
 
