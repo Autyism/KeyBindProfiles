@@ -98,7 +98,7 @@ try {
 Remove-Item (Join-Path $runDir 'selftest.pid') -Force -ErrorAction SilentlyContinue
 
 $start = Get-Date
-$proc = Start-Process -FilePath (Join-Path $root 'gradlew.bat') -ArgumentList ":${Version}:runSelfTest", '--console=plain' `
+$proc = Start-Process -FilePath (Join-Path $root 'gradlew.bat') -ArgumentList ":${Version}:runSelfTest", '--console=plain', '--no-daemon' `
     -WorkingDirectory $root -WindowStyle Hidden -PassThru `
     -RedirectStandardOutput $gradleLog -RedirectStandardError $gradleErr
 

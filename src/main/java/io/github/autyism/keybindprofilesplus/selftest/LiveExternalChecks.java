@@ -417,6 +417,12 @@ final class LiveExternalChecks {
             }
             for (CompoundTag tag : root.getListOrEmpty("modules").compoundStream().toList()) {
                 if (module.equals(tag.getStringOr("name", ""))) {
+                    //? if >=26.2 {
+                    /*// Newer Meteor builds save the key by its name: {key: "key.keyboard.f20", modifiers: [...]}
+                    return tag.getCompound("keybind").map(keybind -> keybind.contains("key")
+                            ? InputConstants.getKey(keybind.getStringOr("key", "")).getValue()
+                            : keybind.getIntOr("value", -2)).orElse(-2);
+                    *///?} else
                     return tag.getCompound("keybind").map(keybind -> keybind.getIntOr("value", -2)).orElse(-2);
                 }
             }

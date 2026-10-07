@@ -327,6 +327,9 @@ abstract class SelfTestRunner {
     private void screenshot(String name) {
         Minecraft client = client();
         String fileName = String.format("selftest_%02d_%s.png", ++screenshotIndex, name);
+        //? if >=26.2 {
+        /*RenderTarget framebuffer = client.gameRenderer.mainRenderTarget();
+        *///?} else
         RenderTarget framebuffer = client.getMainRenderTarget();
         // 4K frames are halved so the files stay small; GUI pixels are still at least 2 px wide.
         int downscale = framebuffer.width >= 3000 && framebuffer.width % 2 == 0 && framebuffer.height % 2 == 0 ? 2 : 1;

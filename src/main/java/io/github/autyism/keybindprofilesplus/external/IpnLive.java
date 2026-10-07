@@ -117,6 +117,9 @@ final class IpnLive implements LiveSource {
         }
         String name = MalilibKeys.readableName(key);
         String translationKey = optionsPrefix + "name." + key;
+        //? if >=26.2 {
+        /*Component title = net.minecraft.locale.Language.getInstance().has(translationKey) ? Component.translatable(translationKey) : Component.literal(name);
+        *///?} else
         Component title = I18n.exists(translationKey) ? Component.translatable(translationKey) : Component.literal(name);
         Component keyText = trigger == null ? Component.translatable("key.keyboard.unknown") : trigger.text();
         out.add(new ExternalBinding(MOD_ID, group, name, title, trigger == null ? 0 : trigger.modifiers(), trigger == null ? null : trigger.key(),

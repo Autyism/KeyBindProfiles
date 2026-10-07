@@ -19,6 +19,8 @@ public final class OptionCatalog {
             "skipMultiplayerWarning", "joinedFirstServer", "onboardAccessibility", "startedCleanly",
             "glDebugVerbosity", "telemetryOptInExtra", "overrideWidth", "overrideHeight", "useNativeTransport",
             "syncChunkWrites", "soundDevice", "fullscreenResolution", "realmsNotifications", "allowServerListing"
+            //? if >=26.2
+            /*, "preferredGraphicsBackend", "inGameNotification", "sharePresence"*/
     );
 
     private static final Map<String, Category> CATEGORY_BY_KEY = new HashMap<>();

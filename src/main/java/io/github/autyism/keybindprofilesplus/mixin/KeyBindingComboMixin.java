@@ -104,6 +104,9 @@ public abstract class KeyBindingComboMixin {
     }
 
     /** Key checks made by screens ("is this the inventory key?") respect combinations too. */
+    //? if >=26.2 {
+    /*@Inject(method = "matches(Lnet/minecraft/client/input/KeyEvent;)Z", at = @At("RETURN"), cancellable = true)
+    *///?} else
     @Inject(method = "matches", at = @At("RETURN"), cancellable = true)
     private void keybindprofilesplus$matchesKey(KeyEvent input, CallbackInfoReturnable<Boolean> cir) {
         if (cir.getReturnValueZ() && KeyCombos.hasAny() && !KeyCombos.reactsWith((KeyMapping) (Object) this, input.modifiers())) {
@@ -117,4 +120,14 @@ public abstract class KeyBindingComboMixin {
             cir.setReturnValue(false);
         }
     }
+
+    //? if >=26.2 {
+    /*// Since 26.2 the game checks its global keys (fullscreen, screenshot, friends) by the key alone.
+    @Inject(method = "matches(Lcom/mojang/blaze3d/platform/InputConstants$Key;)Z", at = @At("RETURN"), cancellable = true)
+    private void keybindprofilesplus$matchesBareKey(InputConstants.Key key, CallbackInfoReturnable<Boolean> cir) {
+        if (cir.getReturnValueZ() && KeyCombos.hasAny() && !KeyCombos.reactsWith((KeyMapping) (Object) this, KeyCombos.heldModifiers())) {
+            cir.setReturnValue(false);
+        }
+    }
+    *///?}
 }

@@ -45,5 +45,22 @@ stonecutter parameters {
             replace("ScreenEvents.beforeRender(", "ScreenEvents.beforeExtract(")
             replace("Screens.getButtons(", "Screens.getWidgets(")
         }
+
+        // 26.2 moved the open screen from Minecraft to Gui (only these receivers are a Minecraft in this code)
+        regex(current.parsed >= "26.2") {
+            replace(
+                "((?<![.\\w])minecraft|(?<![.\\w])client|\\bclient\\(\\)|\\bMinecraft\\.getInstance\\(\\))\\.setScreen\\(", "$1.gui.setScreen(",
+                "((?<![.\\w])minecraft|(?<![.\\w])client|\\bclient\\(\\)|\\bMinecraft\\.getInstance\\(\\))\\.gui\\.setScreen\\(", "$1.setScreen("
+            )
+        }
+        regex(current.parsed >= "26.2") {
+            replace(
+                "((?<![.\\w])minecraft|(?<![.\\w])client|\\bclient\\(\\))\\.screen\\b", "$1.gui.screen()",
+                "((?<![.\\w])minecraft|(?<![.\\w])client|\\bclient\\(\\))\\.gui\\.screen\\(\\)", "$1.screen"
+            )
+        }
+        regex(current.parsed >= "26.2") {
+            replace("\\bclient\\.getOverlay\\(\\)", "client.gui.overlay()", "\\bclient\\.gui\\.overlay\\(\\)", "client.getOverlay()")
+        }
     }
 }

@@ -744,8 +744,14 @@ final class ScreenChecks {
         t.step("contents: click a group check box", 3, () -> {
             ProfileContentsScreen contents = t.screen(ProfileContentsScreen.class);
             t.mouseClick(contents.hitPoint("keys/minecraft:multiplayer", true), 0);
+            //? if >=26.2 {
+            /*// 26.2 added the Friends key: the Multiplayer group has 5 keys
+            t.check("contents: clicking a group check box ticks the whole group and does not expand it",
+                    contents.checkedCount(true) == 6 && !contents.isExpanded("keys/minecraft:multiplayer"));
+            *///?} else {
             t.check("contents: clicking a group check box ticks the whole group and does not expand it",
                     contents.checkedCount(true) == 5 && !contents.isExpanded("keys/minecraft:multiplayer"));
+            //?}
         });
         t.step("contents: click the group check box again", 3, () -> {
             ProfileContentsScreen contents = t.screen(ProfileContentsScreen.class);
