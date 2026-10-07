@@ -176,6 +176,8 @@ public final class SelfTest extends SelfTestRunner {
         step("conflicts: layered detection", logic::conflicts);
         step("server rules: matching", logic::serverRules);
         step("combinations: dispatch, display, storage", logic::combos);
+        //? if >=26.3
+        /*step("keys saved on other versions", logic::crossVersionKeys);*/
         step("share codes", logic::shareCodes);
         step("external keys: Meteor and malilib (fixture files)", () -> {
             logic.externalKeys();
@@ -401,6 +403,9 @@ public final class SelfTest extends SelfTestRunner {
                 + " framebuffer=" + window.getWidth() + "x" + window.getHeight()
                 + " scaled=" + window.getGuiScaledWidth() + "x" + window.getGuiScaledHeight()
                 + " guiScale=" + window.getGuiScale()
+                //? if >=26.3 {
+                /*+ " fullscreen=" + client.options.fullscreen().get()
+                *///?} else
                 + " fullscreen=" + window.isFullscreen()
                 + " lang=" + client.getLanguageManager().getSelected()
                 + " keyBindings=" + client.options.keyMappings.length);

@@ -62,5 +62,17 @@ stonecutter parameters {
         regex(current.parsed >= "26.2") {
             replace("\\bclient\\.getOverlay\\(\\)", "client.gui.overlay()", "\\bclient\\.gui\\.overlay\\(\\)", "client.getOverlay()")
         }
+
+        // 26.3 reads the keyboard through SDL: keyboard keys are a key type of their own, and the modifier
+        // bits of input events are SDL's (this mod keeps its own Ctrl / Shift / Alt bits)
+        string(current.parsed >= "26.3") {
+            replace("InputConstants.Type.KEYSYM", "InputConstants.Type.KEYBOARD")
+        }
+        regex(current.parsed >= "26.3") {
+            replace(
+                "\\b(input|click)\\.modifiers\\(\\)", "io.github.autyism.keybindprofilesplus.input.SdlKeys.toKbpModifiers($1.modifiers())",
+                "io\\.github\\.autyism\\.keybindprofilesplus\\.input\\.SdlKeys\\.toKbpModifiers\\((input|click)\\.modifiers\\(\\)\\)", "$1.modifiers()"
+            )
+        }
     }
 }

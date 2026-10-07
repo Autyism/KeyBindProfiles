@@ -232,6 +232,9 @@ final class MeteorLive implements LiveSource {
             // A modifier key as the key itself reports its own bit.
             modifiers &= ~KeyCombo.modifierOfKeyCode(key.getValue());
         }
+        //? if >=26.3 {
+        /*return KeyCombo.encode(modifiers, io.github.autyism.keybindprofilesplus.input.SdlKeys.toStoredName(key.getName()));
+        *///?} else
         return KeyCombo.encode(modifiers, key.getName());
     }
 

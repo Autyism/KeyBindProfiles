@@ -71,6 +71,9 @@ final class ProfileHotkeyCapture {
             return true;
         }
 
+        //? if >=26.3 {
+        /*addCapturedKey(io.github.autyism.keybindprofilesplus.input.SdlKeys.toStoredName(InputConstants.getKey(input).getName()));
+        *///?} else
         addCapturedKey(InputConstants.getKey(input).getName());
         return true;
     }
@@ -90,6 +93,9 @@ final class ProfileHotkeyCapture {
                 text.append(" + ");
             }
             try {
+                //? if >=26.3 {
+                /*text.append(InputConstants.getKey(io.github.autyism.keybindprofilesplus.input.SdlKeys.toGameName(keys.get(i))).getDisplayName().getString());
+                *///?} else
                 text.append(InputConstants.getKey(keys.get(i)).getDisplayName().getString());
             } catch (IllegalArgumentException e) {
                 text.append(keys.get(i));

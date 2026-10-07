@@ -269,7 +269,7 @@ final class ConfigTree {
 
             @Override
             public boolean mouseClicked(MouseButtonEvent click, boolean doubled) {
-                if (click.button() != 0) {
+                if (click.button() != com.mojang.blaze3d.platform.InputConstants.MOUSE_BUTTON_LEFT) {
                     return false;
                 }
                 int boxLeft = checkboxX();

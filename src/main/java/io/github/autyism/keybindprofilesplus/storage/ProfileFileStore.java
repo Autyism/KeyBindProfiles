@@ -162,6 +162,9 @@ public final class ProfileFileStore {
         }
 
         try {
+            //? if >=26.3 {
+            /*com.mojang.blaze3d.Blaze3D.openPath(dir.toPath());
+            *///?} else
             Util.getPlatform().openFile(dir);
             return true;
         } catch (RuntimeException e) {
@@ -230,6 +233,10 @@ public final class ProfileFileStore {
             if (item instanceof String key) {
                 hotkeys.add(key);
             } else if (item instanceof Number code) {
+                //? if >=26.3 {
+                /*// the original mod saved GLFW key codes, which are not the game's numbers since 26.3
+                hotkeys.add(io.github.autyism.keybindprofilesplus.input.SdlKeys.nameOfGlfwCode(code.intValue()));
+                *///?} else
                 hotkeys.add(InputConstants.getKey(new KeyEvent(code.intValue(), -1, 0)).getName());
             }
         }

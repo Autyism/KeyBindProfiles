@@ -7,6 +7,7 @@ import com.google.gson.JsonParser;
 import com.mojang.blaze3d.platform.InputConstants;
 import io.github.autyism.keybindprofilesplus.KeyBindProfilesPlus;
 import io.github.autyism.keybindprofilesplus.keys.KeyCombo;
+//? if <26.3
 import org.lwjgl.glfw.GLFW;
 
 import java.io.IOException;
@@ -42,6 +43,7 @@ final class MalilibKeys {
     private static final Map<String, Set<String>> SITUATIONAL_HOTKEYS = Map.of(
             "litematica", Set.of("toolPlaceCorner1", "toolPlaceCorner2", "toolSelectElements", "toolSelectModifierBlock1",
                     "toolSelectModifierBlock2", "pickBlockFirst", "pickBlockLast", "easyPlaceActivation", "renderOverlayThroughBlocks"));
+    //? if <26.3
     private static final Map<String, Integer> KEY_CODES = glfwKeyCodes();
 
     private MalilibKeys() {
@@ -156,8 +158,13 @@ final class MalilibKeys {
         }
 
         boolean bareModifier = allKnown && ordinary.isEmpty() && modifierKeys.size() == 1;
+        //? if >=26.3 {
+        /*boolean bareMouseClick = allKnown && modifiers == 0 && ordinary.size() == 1 && ordinary.get(0).getType() == InputConstants.Type.MOUSE
+                && (ordinary.get(0).getValue() == InputConstants.MOUSE_BUTTON_LEFT || ordinary.get(0).getValue() == InputConstants.MOUSE_BUTTON_RIGHT);
+        *///?} else {
         boolean bareMouseClick = allKnown && modifiers == 0 && ordinary.size() == 1 && ordinary.get(0).getType() == InputConstants.Type.MOUSE
                 && ordinary.get(0).getValue() <= 1;
+        //?}
         return new Trigger(mainKey, modifiers, keyText, bareModifier, bareMouseClick);
     }
 
@@ -194,13 +201,21 @@ final class MalilibKeys {
         if (name.startsWith("BUTTON_")) {
             try {
                 int button = Integer.parseInt(name.substring("BUTTON_".length()));
+                //? if >=26.3 {
+                /*// BUTTON_n is GLFW's button n - 1 (left, right, middle, ...), whatever malilib counts internally
+                return button >= 1 && button <= 8 ? InputConstants.Type.MOUSE.getOrCreate(io.github.autyism.keybindprofilesplus.input.SdlKeys.mouseButtonOfGlfw(button - 1)) : null;
+                *///?} else
                 return button >= 1 && button <= 8 ? InputConstants.Type.MOUSE.getOrCreate(button - 1) : null;
             } catch (NumberFormatException e) {
                 return null;
             }
         }
+        //? if >=26.3 {
+        /*return io.github.autyism.keybindprofilesplus.input.SdlKeys.keyOfGlfwName(name);
+        *///?} else {
         Integer code = KEY_CODES.get(name);
         return code == null ? null : InputConstants.Type.KEYSYM.getOrCreate(code);
+        //?}
     }
 
     /** "toggleAllRendering" -> "Toggle All Rendering", "toolPlaceCorner1" -> "Tool Place Corner 1". */
@@ -222,6 +237,7 @@ final class MalilibKeys {
         return name.toString().trim();
     }
 
+    //? if <26.3 {
     /** Every GLFW_KEY_* constant by its name without the prefix. GLFW is a library, so its names are stable. */
     private static Map<String, Integer> glfwKeyCodes() {
         Map<String, Integer> codes = new HashMap<>();
@@ -238,4 +254,5 @@ final class MalilibKeys {
         codes.remove("LAST");
         return codes;
     }
+    //?}
 }

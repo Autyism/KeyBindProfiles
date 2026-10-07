@@ -60,6 +60,9 @@ public record KeyCombo(int modifiers, String key) {
     /** The main key, or null when the name is not a key the game knows. */
     public InputConstants.Key inputKey() {
         try {
+            //? if >=26.3 {
+            /*return InputConstants.getKey(io.github.autyism.keybindprofilesplus.input.SdlKeys.toGameName(key));
+            *///?} else
             return InputConstants.getKey(key);
         } catch (IllegalArgumentException e) {
             return null;

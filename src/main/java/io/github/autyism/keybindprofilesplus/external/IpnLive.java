@@ -30,6 +30,10 @@ final class IpnLive implements LiveSource {
     static final String MOD_ID = "inventoryprofilesnext";
     static final String PREFIX = "ext:ipn:";
     private static final String FILE = "config/inventoryprofilesnext/inventoryprofiles.json";
+    //? if >=26.3 {
+    /*// libIPN 26.3+ counts from the SDL button numbers: its left button (-100) is SDL button 1
+    private static final int LIBIPN_MOUSE_OFFSET = -100 - InputConstants.MOUSE_BUTTON_LEFT;
+    *///?} else
     private static final int LIBIPN_MOUSE_OFFSET = -100;
 
     private boolean reflected;

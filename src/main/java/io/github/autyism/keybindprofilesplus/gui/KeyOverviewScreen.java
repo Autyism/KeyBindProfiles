@@ -876,7 +876,7 @@ public class KeyOverviewScreen extends ResizingScreen {
                     return true;
                 }
                 // A click beside the buttons changes when a mod's key counts as being in use.
-                if (click.button() == 0 && row.scopeAdjustable()) {
+                if (click.button() == InputConstants.MOUSE_BUTTON_LEFT && row.scopeAdjustable()) {
                     cycleOverride(row.binding() != null ? row.binding().getName() : KeyConflicts.overrideKey(row.external()));
                     return true;
                 }

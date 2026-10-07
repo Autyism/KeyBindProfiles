@@ -121,6 +121,11 @@ final class MalilibLive implements LiveSource {
 
         String value = String.valueOf(keybindValue.invoke(keybind));
         String defaultValue = String.valueOf(keybindDefault.invoke(keybind));
+        //? if >=26.3 {
+        /*// malilib 26.3+ writes some keys by other names; profiles keep the names that work on every version
+        value = io.github.autyism.keybindprofilesplus.input.SdlKeys.malilibToStored(value);
+        defaultValue = io.github.autyism.keybindprofilesplus.input.SdlKeys.malilibToStored(defaultValue);
+        *///?}
         String context = null;
         Object settings = keybindSettings.invoke(keybind);
         if (settings != null) {
@@ -191,6 +196,9 @@ final class MalilibLive implements LiveSource {
             return false;
         }
         try {
+            //? if >=26.3 {
+            /*keybindSetValue.invoke(keybind, io.github.autyism.keybindprofilesplus.input.SdlKeys.storedToMalilib(value));
+            *///?} else
             keybindSetValue.invoke(keybind, value);
             changed(hotkeyId);
             return true;

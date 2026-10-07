@@ -1047,7 +1047,7 @@ final class ScreenChecks {
             logic.makeGameDifferFromProfileA();
             KeyBindProfileScreen main = t.screen(KeyBindProfileScreen.class);
             int[] point = main.hitPoint(PROFILE_A);
-            client().screen.mouseClicked(new net.minecraft.client.input.MouseButtonEvent(point[0], point[1], new net.minecraft.client.input.MouseButtonInfo(0, 0)), true);
+            client().screen.mouseClicked(new net.minecraft.client.input.MouseButtonEvent(point[0], point[1], new net.minecraft.client.input.MouseButtonInfo(com.mojang.blaze3d.platform.InputConstants.MOUSE_BUTTON_LEFT, 0)), true);
             t.check("apply: double click asks like the button does", t.isScreen(ApplyConfirmScreen.class));
         });
         t.step("apply: with do-not-ask-again", SCREEN_SETTLE_TICKS, () -> {

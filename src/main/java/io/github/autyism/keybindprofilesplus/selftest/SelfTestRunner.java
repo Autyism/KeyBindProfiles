@@ -275,11 +275,19 @@ abstract class SelfTestRunner {
             fail("nothing to click at");
             return;
         }
+        //? if >=26.3 {
+        /*client().screen.mouseClicked(new MouseButtonEvent(point[0], point[1],
+                new MouseButtonInfo(InputConstants.MOUSE_BUTTON_LEFT, io.github.autyism.keybindprofilesplus.input.SdlKeys.toSdlModifiers(modifiers))), false);
+        *///?} else
         client().screen.mouseClicked(new MouseButtonEvent(point[0], point[1], new MouseButtonInfo(0, modifiers)), false);
     }
 
     /** Feeds one key event into the game exactly where GLFW would. */
     final void sendKey(int keyCode, boolean press, int modifiers) {
+        //? if >=26.3 {
+        /*client().keyboardHandler.keyPress(client().getWindow().handle(), press ? 1 : 0,
+                new KeyEvent(keyCode, io.github.autyism.keybindprofilesplus.input.SdlKeys.sdlKeyCode(keyCode), io.github.autyism.keybindprofilesplus.input.SdlKeys.toSdlModifiers(modifiers)));
+        *///?} else
         client().keyboardHandler.keyPress(client().getWindow().handle(), press ? 1 : 0, new KeyEvent(keyCode, 0, modifiers));
     }
 
