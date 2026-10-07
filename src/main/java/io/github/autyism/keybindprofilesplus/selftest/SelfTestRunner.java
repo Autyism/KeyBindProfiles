@@ -26,6 +26,11 @@ import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.input.MouseButtonInfo;
 import net.minecraft.network.chat.Component;
+//? if >=26.1 {
+/*import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
+import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
+import net.minecraft.resources.Identifier;
+*///?}
 
 /**
  * The machinery of the self-test: a queue of steps run one per tick (with waits in between so
@@ -53,6 +58,11 @@ abstract class SelfTestRunner {
     private int passed;
     private int failed;
     private int screenshotIndex;
+    //? if >=26.1 {
+    /*// Frames drawn so far. 26.1+ can run two catch-up ticks before it draws the next frame, so a screenshot taken
+    // right after a step could still show the screen from before it: screenshots wait for a newly drawn frame.
+    private static int framesDrawn;
+    *///?}
 
     SelfTestRunner(ProfileService service) {
         this.service = service;
@@ -143,8 +153,20 @@ abstract class SelfTestRunner {
     }
 
     final void shot(String name) {
+        //? if >=26.1 {
+        /*int[] seen = new int[1];
+        stepUntil("frame for screenshot " + name, () -> seen[0] = framesDrawn, () -> framesDrawn > seen[0], 40);
+        *///?}
         step("screenshot " + name, SHOT_TICKS, () -> screenshot(name));
     }
+
+    //? if >=26.1 {
+    /*static void countFrames() {
+        ScreenEvents.AFTER_INIT.register((client, screen, width, height) ->
+                ScreenEvents.afterExtract(screen).register((current, context, mouseX, mouseY, tickDelta) -> framesDrawn++));
+        HudElementRegistry.addLast(Identifier.fromNamespaceAndPath(KeyBindProfilesPlus.MOD_ID, "selftest_frames"), (context, tickCounter) -> framesDrawn++);
+    }
+    *///?}
 
     // ------------------------------------------------------------------ results
 

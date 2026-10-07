@@ -34,6 +34,8 @@ public final class OptionCatalog {
                 "cloudRange", "vignette", "weatherRadius", "bobView", "attackIndicator", "screenEffectScale",
                 "darknessEffectScale", "damageTiltStrength", "glintSpeed", "glintStrength", "menuBackgroundBlurriness",
                 "showAutosaveIndicator", "hideLightningFlashes");
+        //? if >=26.1
+        /*assign(Category.VIDEO, "exclusiveFullscreen");*/
         assign(Category.SOUND, "showSubtitles", "directionalAudio", "musicToast", "musicFrequency");
         assign(Category.CHAT, "chatVisibility", "chatColors", "chatLinks", "chatLinksPrompt", "chatOpacity",
                 "chatLineSpacing", "textBackgroundOpacity", "backgroundForChatOnly", "chatHeightFocused",
