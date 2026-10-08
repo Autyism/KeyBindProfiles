@@ -9,13 +9,24 @@
 
 # English
 
+**In short**
+
+- Save your key bindings as named profiles (PvP, building, redstone...) and switch with a click or a hotkey.
+- Covers vanilla keys plus Meteor, MaLiLib (Litematica, Tweakeroo...) and Inventory Profiles Next hotkeys.
+- Shows key conflicts clearly and supports key combinations (Ctrl / Shift / Alt + key).
+- Share profiles with a code; export and import all mod configs.
+- Press O to open it (I on 26.2 and newer).
+
+Everything else is in the folded sections below (features, how to use, settings, FAQ): click a title to open it.
+
 KeyBind Profiles+ is a client-side Fabric mod for Minecraft 1.21.5 to 26.3 that keeps your key bindings in named profiles. Keep one profile for PvP, one for building and one for redstone, and switch with a click, with a hotkey of your own, or automatically when you join a server. A profile can also carry the game settings you pick, such as FOV or mouse sensitivity.
 
 Its Key Binds screen puts every key in one list: the game's keys, the keys your other mods register, and the hotkeys that Meteor Client, MaLiLib mods (Litematica, Tweakeroo, MiniHUD, ...) and Inventory Profiles Next normally keep in their own menus. Every key shows the mod it comes from, conflicts are marked while you rebind, and keys can be put on Ctrl / Shift / Alt combinations.
 
 KeyBind Profiles+ is a fork of [KeyBindProfiles](https://github.com/imsawiq/KeyBindProfiles) by sawiq_.
 
-## Features
+<details>
+<summary><b>Features</b> (click to open)</summary>
 
 ### Profiles
 
@@ -74,6 +85,8 @@ KeyBind Profiles+ is a fork of [KeyBindProfiles](https://github.com/imsawiq/KeyB
 - **Languages.** English and Simplified Chinese, plus the partial Russian translation of the original mod.
 - **Client-side only.** The mod sends nothing to the server and does not change gameplay.
 
+</details>
+
 ## Screenshots
 
 ![Key Binds screen](docs/images/key-binds.png)
@@ -108,7 +121,8 @@ KeyBind Profiles+ is a fork of [KeyBindProfiles](https://github.com/imsawiq/KeyB
 
 *The settings, here opened from Mod Menu, with shortcuts to the profile manager and the Key Binds screen.*
 
-## How to use
+<details>
+<summary><b>How to use</b> (click to open)</summary>
 
 ### Keys
 
@@ -184,7 +198,10 @@ Select a profile and click **Copy Code**: the code is now in your clipboard, rea
 3. Conflicts show as `[ key ]` in red or yellow, with a bar of the same colour. Point at the key button to see with what and why, or turn on **Conflicts only** to list nothing else.
 4. If a mod's key is marked although it can never clash (or the other way round), click its name. Each click changes when it counts as in use: automatic, during play, only while a screen is open, only in a special situation (never a conflict), and back to automatic. Vanilla keys and F3 combinations follow fixed rules.
 
-## Settings
+</details>
+
+<details>
+<summary><b>Settings</b> (click to open)</summary>
 
 Open them with "Settings" in the profile manager or with the configure button in Mod Menu.
 
@@ -207,14 +224,16 @@ Each profile has its own options under **Edit**:
 | Applied automatically in | No rules | Worlds and servers in which this profile is applied when you join. |
 | Use as default profile | OFF | Makes this the profile to go back to (the same as "Default profile" above). |
 
+</details>
+
 ## Requirements
 
 There is a separate jar for each Minecraft version:
 
 | Minecraft | Jar | Java | Fabric Loader |
 |---|---|---|---|
-| 1.21.5 | `keybindprofilesplus-0.2.0+1.21.5.jar` | 21 or newer | 0.17.3 or newer |
-| 1.21.6, 1.21.7, 1.21.8 | `keybindprofilesplus-0.2.0+1.21.8.jar` | 21 or newer | 0.17.3 or newer |
+| 1.21.5 | `keybindprofilesplus-0.2.1+1.21.5.jar` | 21 or newer | 0.17.3 or newer |
+| 1.21.6, 1.21.7, 1.21.8 | `keybindprofilesplus-0.2.1+1.21.8.jar` | 21 or newer | 0.17.3 or newer |
 | 1.21.9, 1.21.10 | `keybindprofilesplus-0.2.0+1.21.10.jar` | 21 or newer | 0.17.3 or newer |
 | 1.21.11 | `keybindprofilesplus-0.2.0.jar` | 21 or newer | 0.17.3 or newer |
 | 26.1, 26.1.1, 26.1.2 | `keybindprofilesplus-0.2.0+26.1.2.jar` | 25 or newer | 0.19.3 or newer |
@@ -235,7 +254,8 @@ Optional, each one only adds its own part:
 
 Tested with Mod Menu 17.0.1, Meteor Client for 1.21.11 (build 86), MaLiLib 0.27.20 with Litematica 0.26.16, and Inventory Profiles Next 2.2.6 with libIPN 6.6.3. On 26.1.2: Meteor Client build 42, MaLiLib 0.28.12 with Litematica 0.27.14, and Inventory Profiles Next 2.3.8. On 26.2: Meteor Client build 33, MaLiLib 0.29.6 with Litematica 0.28.8, and Inventory Profiles Next. On 26.3: MaLiLib 0.30.2 with Litematica 0.29.1, and Inventory Profiles Next (Meteor Client has no 26.3 build yet). The 1.21.5, 1.21.8 and 1.21.10 builds were tested with the Meteor Client, MaLiLib with Litematica, and Inventory Profiles Next builds for those versions.
 
-## Compatibility
+<details>
+<summary><b>Compatibility</b> (click to open)</summary>
 
 - **Meteor Client, MaLiLib mods, Inventory Profiles Next:** tested with the versions above. Meteor addons and other MaLiLib mods (Tweakeroo, MiniHUD, Item Scroller, ...) are read the same way as Meteor itself and Litematica, but have not each been tested. If a future version of one of these mods changes too much inside, its hotkeys become read-only (Meteor, MaLiLib) or are left out (Inventory Profiles Next) instead of causing errors, and a warning is written to the log.
 - **Other key binds screens:** only the vanilla Key Binds screen is replaced. If another mod opens a key binds screen of its own, that screen is left as it is.
@@ -243,6 +263,8 @@ Tested with Mod Menu 17.0.1, Meteor Client for 1.21.11 (build 86), MaLiLib 0.27.
 - **Inventory and recipe mods:** key bindings of mods known to work only inside screens (for example REI, JEI, EMI, Mouse Tweaks, Mouse Wheelie) count as "only while a screen is open" for the conflict check. Any guess can be corrected by clicking the key's name.
 - **Rendering mods:** KeyBind Profiles+ does not change how the world is rendered, so it is not expected to interact with Sodium, Iris or similar mods. This combination has not been specifically tested.
 - **The original KeyBindProfiles:** KeyBind Profiles+ takes over its job and its profiles, and the two cannot be installed together (the game tells you at startup).
+
+</details>
 
 ## Installation
 
@@ -255,7 +277,8 @@ Switching from the original KeyBindProfiles: remove its jar (the two cannot run 
 
 Building from source: run `./gradlew build` (`gradlew build` on Windows) with JDK 21. The jar ends up in `build/libs/`.
 
-## FAQ
+<details>
+<summary><b>FAQ</b> (click to open)</summary>
 
 **Does it work on servers?**
 Yes. KeyBind Profiles+ only changes key and game settings on your own computer; it sends nothing to the server and does not change gameplay. Server rules about other mods, such as Meteor Client, are a separate matter.
@@ -281,7 +304,10 @@ Settings → "Replace the vanilla Key Binds screen" → OFF. The vanilla screen 
 **I used the original KeyBindProfiles. What happens to my profiles?**
 On the first start they are copied to `config/keybindprofilesplus/` (the old folder is not changed), and your old key for opening the profiles carries over.
 
-## Known limitations
+</details>
+
+<details>
+<summary><b>Known limitations</b> (click to open)</summary>
 
 - Combinations use Ctrl, Shift and Alt only (the left and right keys count the same) plus one key or mouse button. The Windows / Command key is not supported; Meteor binds that use it are shown but not checked for conflicts.
 - While the modifier of a combination is held, only the combination reacts on that key. For example, with something on `Ctrl + W`, holding Ctrl to sprint and pressing W does not walk forward, so avoid combinations on keys you already press together with that modifier.
@@ -291,6 +317,8 @@ On the first start they are copied to `config/keybindprofilesplus/` (the old fol
 - Share codes do not include the profile's hotkey and server rules.
 - The notice above the hotbar uses the same line as the name of the held item and can overlap it.
 - The Russian translation covers only a few lines; everything else is shown in English.
+
+</details>
 
 ## Credits
 
@@ -303,13 +331,24 @@ On the first start they are copied to `config/keybindprofilesplus/` (the old fol
 
 # 简体中文
 
+**一句话看懂**
+
+- 把键位存成有名字的档案（PvP、建筑、红石……），点一下或按热键就切换。
+- 原版按键、Meteor、MaLiLib 系（投影、Tweakeroo……）和 IPN 的热键都能管。
+- 冲突的键一目了然，支持组合键（Ctrl / Shift / Alt + 键）。
+- 档案能用分享码分享；还能导出、导入所有模组的配置。
+- 按 O 打开（26.2 起是 I）。
+
+详细说明都在下面折叠起来的部分（功能、使用方法、设置、常见问题），点标题就能展开。
+
 KeyBind Profiles+ 是 Minecraft 1.21.5 到 26.3 的纯客户端 Fabric 模组，把你的键位存成有名字的档案。PvP 一套、建筑一套、红石一套，点一下、按一个自己设的热键，或者进服务器时自动切换。档案还可以顺带保存你选中的游戏设置，比如视场角或鼠标灵敏度。
 
 它自带的按键绑定界面把所有按键放进同一个列表：原版的按键、其他模组注册的按键，还有 Meteor Client、MaLiLib 系模组（Litematica 投影、Tweakeroo、MiniHUD……）和 Inventory Profiles Next 平时只能在各自菜单里改的热键。每个键都标着来自哪个模组，改键时实时标出冲突，还能绑 Ctrl / Shift / Alt 组合键。
 
 KeyBind Profiles+ 是 sawiq_ 的 [KeyBindProfiles](https://github.com/imsawiq/KeyBindProfiles) 的分支版本（fork）。
 
-## 功能
+<details>
+<summary><b>功能</b>（点开查看）</summary>
 
 ### 档案
 
@@ -368,6 +407,8 @@ KeyBind Profiles+ 是 sawiq_ 的 [KeyBindProfiles](https://github.com/imsawiq/Ke
 - **语言。** 英文和简体中文，另外附带原模组留下的部分俄语翻译。
 - **纯客户端。** 不向服务器发送任何东西，也不改变游戏玩法。
 
+</details>
+
 ## 截图
 
 ![按键绑定界面](docs/images/key-binds-zh.png)
@@ -402,7 +443,8 @@ KeyBind Profiles+ 是 sawiq_ 的 [KeyBindProfiles](https://github.com/imsawiq/Ke
 
 *设置界面：替换原版按键绑定界面、应用前先确认、自动切换和默认档案。*
 
-## 使用方法
+<details>
+<summary><b>使用方法</b>（点开查看）</summary>
 
 ### 按键
 
@@ -478,7 +520,10 @@ KeyBind Profiles+ 是 sawiq_ 的 [KeyBindProfiles](https://github.com/imsawiq/Ke
 3. 冲突的键显示成红色或黄色的 `[ 键 ]`，左边有同色的竖条。鼠标停在按键按钮上可以看到和谁冲突、为什么；打开 **只看冲突** 就只列出这些键。
 4. 如果某个模组的键明明不会冲突却被标了（或者反过来），点它的名称。每点一次切换它的生效场合：自动 → 游戏中 → 仅在打开界面时 → 只在特定情况下（不算冲突）→ 自动。原版按键和 F3 组合键的规则是固定的。
 
-## 设置
+</details>
+
+<details>
+<summary><b>设置</b>（点开查看）</summary>
 
 在档案管理界面里点“设置”，或在 Mod Menu 里点配置按钮。
 
@@ -501,14 +546,16 @@ KeyBind Profiles+ 是 sawiq_ 的 [KeyBindProfiles](https://github.com/imsawiq/Ke
 | 在这些地方自动应用 | 没有规则 | 进入哪些世界或服务器时自动应用这个档案。 |
 | 设为默认档案 | 关 | 把它设为要切回的档案（和上面的“默认档案”是同一个设置）。 |
 
+</details>
+
 ## 运行要求
 
 每个 Minecraft 版本有单独的 jar：
 
 | Minecraft | jar 文件 | Java | Fabric Loader |
 |---|---|---|---|
-| 1.21.5 | `keybindprofilesplus-0.2.0+1.21.5.jar` | 21 及以上 | 0.17.3 及以上 |
-| 1.21.6、1.21.7、1.21.8 | `keybindprofilesplus-0.2.0+1.21.8.jar` | 21 及以上 | 0.17.3 及以上 |
+| 1.21.5 | `keybindprofilesplus-0.2.1+1.21.5.jar` | 21 及以上 | 0.17.3 及以上 |
+| 1.21.6、1.21.7、1.21.8 | `keybindprofilesplus-0.2.1+1.21.8.jar` | 21 及以上 | 0.17.3 及以上 |
 | 1.21.9、1.21.10 | `keybindprofilesplus-0.2.0+1.21.10.jar` | 21 及以上 | 0.17.3 及以上 |
 | 1.21.11 | `keybindprofilesplus-0.2.0.jar` | 21 及以上 | 0.17.3 及以上 |
 | 26.1、26.1.1、26.1.2 | `keybindprofilesplus-0.2.0+26.1.2.jar` | 25 及以上 | 0.19.3 及以上 |
@@ -529,7 +576,8 @@ KeyBind Profiles+ 是 sawiq_ 的 [KeyBindProfiles](https://github.com/imsawiq/Ke
 
 测试过的版本：Mod Menu 17.0.1、Meteor Client 1.21.11（build 86）、MaLiLib 0.27.20 加 Litematica 0.26.16、Inventory Profiles Next 2.2.6 加 libIPN 6.6.3。26.1.2 上：Meteor Client build 42、MaLiLib 0.28.12 加 Litematica 0.27.14、Inventory Profiles Next 2.3.8。26.2 上：Meteor Client build 33、MaLiLib 0.29.6 加 Litematica 0.28.8、Inventory Profiles Next。26.3 上：MaLiLib 0.30.2 加 Litematica 0.29.1、Inventory Profiles Next（Meteor Client 还没有 26.3 版）。1.21.5、1.21.8、1.21.10 版用这些版本对应的 Meteor Client、MaLiLib 加 Litematica、Inventory Profiles Next 测试过。
 
-## 兼容性
+<details>
+<summary><b>兼容性</b>（点开查看）</summary>
 
 - **Meteor Client、MaLiLib 系模组、Inventory Profiles Next：** 用上面的版本测试过。Meteor 插件和其他 MaLiLib 系模组（Tweakeroo、MiniHUD、Item Scroller……）和 Meteor 本体、Litematica 走的是同一条路，但没有逐个测试。如果这些模组将来的版本内部改动太大，它们的热键会变成只读（Meteor、MaLiLib）或者不再列出（Inventory Profiles Next），不会报错，日志里会写一行警告。
 - **其他按键绑定界面：** 只替换原版的按键绑定界面。如果别的模组打开的是它自己的按键界面，本模组不会去动它。
@@ -537,6 +585,8 @@ KeyBind Profiles+ 是 sawiq_ 的 [KeyBindProfiles](https://github.com/imsawiq/Ke
 - **物品栏和配方类模组：** 已知只在界面里起作用的模组（比如 REI、JEI、EMI、Mouse Tweaks、Mouse Wheelie），它们的键位在冲突检测里按“仅在打开界面时”处理。判断不对的话，点按键名称就能改。
 - **渲染类模组：** KeyBind Profiles+ 不改变世界的渲染，和 Sodium、Iris 之类的模组应该互不影响，但没有专门测试过这种组合。
 - **原版 KeyBindProfiles：** KeyBind Profiles+ 接替了它的功能和档案，两个不能同时安装（启动时游戏会提示）。
+
+</details>
 
 ## 安装
 
@@ -549,7 +599,8 @@ KeyBind Profiles+ 是 sawiq_ 的 [KeyBindProfiles](https://github.com/imsawiq/Ke
 
 自己构建：用 JDK 21 运行 `./gradlew build`（Windows 上是 `gradlew build`），jar 在 `build/libs/` 里。
 
-## 常见问题
+<details>
+<summary><b>常见问题</b>（点开查看）</summary>
 
 **能在服务器上用吗？**
 能。KeyBind Profiles+ 只改你自己电脑上的按键和游戏设置，不向服务器发送任何东西，也不改变玩法。服务器对其他模组（比如 Meteor Client）有什么规定，是另一回事。
@@ -575,7 +626,10 @@ KeyBind Profiles+ 是 sawiq_ 的 [KeyBindProfiles](https://github.com/imsawiq/Ke
 **我以前用的是原版 KeyBindProfiles，档案会怎样？**
 第一次启动时，档案会复制到 `config/keybindprofilesplus/`（旧文件夹不动），原来打开档案界面的按键也会沿用。
 
-## 已知限制
+</details>
+
+<details>
+<summary><b>已知限制</b>（点开查看）</summary>
 
 - 组合键只支持 Ctrl、Shift、Alt（左右不区分），加一个键或鼠标键。不支持 Windows / Command 键；用到它的 Meteor 绑定会显示出来，但不参与冲突检测。
 - 按住组合键的修饰键时，这个键上只有组合键会响应。比如有功能绑在 `Ctrl + W` 上时，按住 Ctrl 疾跑再按 W 不会向前走，所以别把组合键放在平时就会和这个修饰键一起按的键上。
@@ -585,6 +639,8 @@ KeyBind Profiles+ 是 sawiq_ 的 [KeyBindProfiles](https://github.com/imsawiq/Ke
 - 分享码不包含档案的热键和服务器规则。
 - 快捷栏上方的提示和手持物品名称在同一行，同时出现时会叠在一起。
 - 俄语翻译只有少数几行，其余显示英文。
+
+</details>
 
 ## 致谢
 
