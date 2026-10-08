@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.1 — 2026-10-08
+
+- Fixed (1.21.5–1.21.8 only): clicks in lists no longer miss right after scrolling, for example in small windows.
+
+### 中文
+
+- 修复（只影响 1.21.5–1.21.8）：列表刚滚动后点击会点偏，比如在小窗口里。
+
 ## 0.2.0+1.21.10 — 2026-10-07
 
 KeyBind Profiles+ for Minecraft 1.21.9–1.21.10, with the same features as 0.2.0 for 1.21.11.
