@@ -13,6 +13,7 @@ import io.github.autyism.keybindprofilesplus.gui.ProfileCompareScreen;
 import io.github.autyism.keybindprofilesplus.gui.ProfileContentsScreen;
 import io.github.autyism.keybindprofilesplus.keys.KeyCombo;
 import io.github.autyism.keybindprofilesplus.keys.KeyConflicts;
+import io.github.autyism.keybindprofilesplus.keys.KeyContext;
 import io.github.autyism.keybindprofilesplus.profile.ProfileChange;
 import io.github.autyism.keybindprofilesplus.profile.ProfileComparison;
 import io.github.autyism.keybindprofilesplus.profile.ProfileService;
@@ -58,6 +59,8 @@ final class LiveExternalChecks {
     private boolean litematica;
     private boolean meteor;
     private boolean ipn;
+    private boolean itemScroller;
+    private boolean conflux;
 
     LiveExternalChecks(SelfTestRunner runner, LogicChecks logic, ProfileService service) {
         this.t = runner;
@@ -75,6 +78,8 @@ final class LiveExternalChecks {
         litematicaOnScreen();
         meteorOnScreen();
         t.step("live external: conflicts between edited hotkeys", this::conflicts);
+        t.step("live external: where Item Scroller, IPN, Conflux Map, MiniHUD and Tweakeroo hotkeys act", this::contexts);
+        t.step("live external: only real conflicts with them", this::screenKeyConflicts);
         profileFlow();
         t.step("live external: put everything back", this::restore);
     }
@@ -87,6 +92,10 @@ final class LiveExternalChecks {
         litematica = FabricLoader.getInstance().isModLoaded("litematica");
         meteor = FabricLoader.getInstance().isModLoaded("meteor-client");
         ipn = FabricLoader.getInstance().isModLoaded("inventoryprofilesnext");
+        itemScroller = FabricLoader.getInstance().isModLoaded("itemscroller");
+        conflux = FabricLoader.getInstance().isModLoaded("confluxmap");
+        SelfTestRunner.log("live external: itemscroller=" + itemScroller + " confluxmap=" + conflux + " minihud=" + FabricLoader.getInstance().isModLoaded("minihud")
+                + " tweakeroo=" + FabricLoader.getInstance().isModLoaded("tweakeroo") + " qolbundle=" + FabricLoader.getInstance().isModLoaded("qolbundle"));
         SelfTestRunner.log("live external: litematica=" + litematica + " meteor=" + meteor + " ipn=" + ipn
                 + (litematica && meteor ? "" : " (run tools/prepare-dev-mods.ps1 to have them in the dev client; their checks are skipped)"));
 
@@ -106,14 +115,14 @@ final class LiveExternalChecks {
             }
             ExternalBinding corner = all.stream().filter(binding -> "ext:malilib:litematica/toolPlaceCorner1".equals(binding.hotkeyId())).findFirst().orElse(null);
             t.check("live external: the tool key on the left mouse button still counts as 'only in a special situation'",
-                    corner != null && corner.when() == ExternalBinding.When.SITUATIONAL);
+                    corner != null && corner.context().kind() == KeyContext.Kind.SITUATIONAL);
         }
         if (meteor) {
             t.check("live external: Meteor's binds come from the running Meteor", ExternalKeys.isLive("meteor"));
             long modules = all.stream().filter(binding -> binding.editable() && binding.hotkeyId().startsWith("ext:meteor:")).count();
             t.check("live external: every Meteor module is listed and editable (" + modules + ")", modules > 100);
             ExternalBinding totem = ExternalKeys.find(METEOR_ID);
-            t.check("live external: Auto Totem is found", totem != null && totem.sourceId().equals("meteor") && totem.when() == ExternalBinding.When.IN_GAME);
+            t.check("live external: Auto Totem is found, acting in the world", totem != null && totem.sourceId().equals("meteor") && totem.context().equals(KeyContext.world()));
             if (totem != null) {
                 originals.put(METEOR_ID, totem.value());
             }
@@ -129,8 +138,8 @@ final class LiveExternalChecks {
         }
         t.check("live external: Inventory Profiles Next's hotkeys come from the running mod", ExternalKeys.isLive("ipn"));
         ExternalBinding sort = ExternalKeys.find(IPN_ID);
-        t.check("live external: IPN's 'sort inventory' is listed as an inventory-screen key (" + (sort == null ? "missing" : sort.value() + ", " + sort.when()) + ")",
-                sort != null && sort.when() == ExternalBinding.When.SCREEN_ONLY);
+        t.check("live external: IPN's 'sort inventory' is listed as a key of inventory screens (" + (sort == null ? "missing" : sort.value() + ", " + sort.context()) + ")",
+                sort != null && sort.context().equals(KeyContext.containers()));
         if (sort == null) {
             return;
         }
@@ -281,6 +290,170 @@ final class LiveExternalChecks {
         }
     }
 
+    // ------------------------------------------------------------------ where the hotkeys of screen mods act
+
+    /** Where the real mods' hotkeys act, as worked out from their settings and what is known about each mod. */
+    private void contexts() {
+        if (itemScroller) {
+            context("itemscroller/craftEverything", KeyContext.containers());
+            context("itemscroller/openConfigGui", KeyContext.world());
+            context("itemscroller/recipeView", KeyContext.places(KeyContext.Place.CRAFTING));
+            context("itemscroller/villagerTradeFavorites", KeyContext.places(KeyContext.Place.MERCHANT));
+            context("itemscroller/modifierMoveStack", KeyContext.situational("hold"));
+            context("itemscroller/storeRecipe", KeyContext.situational("recipe_view"));
+            Boolean sorting = ExternalKeys.itemScrollerSorting();
+            t.check("live external: Item Scroller's sorting switch can be read (" + sorting + ")", sorting != null);
+            if (Boolean.FALSE.equals(sorting)) {
+                context("itemscroller/sortInventory", KeyContext.situational("feature_off"));
+            }
+            ExternalBinding craft = external("itemscroller/craftEverything");
+            t.check("live external: Item Scroller's 'craft everything' (Ctrl + C in any order) takes malilib's own settings: order does not matter",
+                    craft != null && craft.trigger() != null && craft.trigger().last() == null && !craft.trigger().allowsMoreKeys());
+        }
+        if (ipn) {
+            context("ipn:do_global_trade", KeyContext.places(KeyContext.Place.MERCHANT));
+            context("ipn:move_all_modifier", KeyContext.situational("hold"));
+            context("ipn:scroll_spread", KeyContext.containers());
+            context("ipn:open_config_menu", KeyContext.world());
+        }
+        if (conflux) {
+            ExternalBinding open = external("confluxmap/openMap");
+            t.check("live external: Conflux Map's 'open map' acts in the world and in its map screen (" + (open == null ? "missing" : open.context()) + ")",
+                    open != null && open.context().actsInWorld() && open.context().actsInModScreen(KeyContext.CONFLUX_MAP_SCREEN)
+                            && !open.context().actsIn(KeyContext.Place.CONTAINER));
+            t.check("live external: ... and, as Conflux Map registers it, also reacts while other keys are held",
+                    open != null && open.trigger() != null && open.trigger().allowsMoreKeys());
+            context("confluxmap/zoomIn", KeyContext.world());
+        }
+        if (FabricLoader.getInstance().isModLoaded("minihud")) {
+            context("minihud/inventoryPreviewToggleScreen", KeyContext.situational("inventory_preview"));
+        }
+        if (FabricLoader.getInstance().isModLoaded("tweakeroo")) {
+            ExternalBinding preview = external("tweakeroo/inventoryPreview");
+            t.check("live external: Tweakeroo's inventory preview key never counts while the tweak is off or it is a held modifier (" + (preview == null ? "missing" : preview.context()) + ")",
+                    preview != null && preview.context().kind() == KeyContext.Kind.SITUATIONAL);
+        }
+    }
+
+    /**
+     * The false conflicts players saw with Inventory Profiles Next, Item Scroller and Conflux Map are gone, the
+     * real ones are still marked. Every hotkey touched is put back by {@link #restore}.
+     */
+    private void screenKeyConflicts() {
+        KeyMapping jump = SelfTestRunner.binding("key.jump");
+        Map<String, String> keysBefore = SelfTestRunner.currentKeyValues();
+        try {
+            if (ipn) {
+                set("ext:ipn:sort_inventory", "F24", true);
+                t.bind("key.jump", "key.keyboard.f24");
+                t.check("live external: IPN's sort key (inventory screens) and jump (world) on one key: no conflict",
+                        noConflictWith(jump, "ext:ipn:sort_inventory"));
+                t.bind("key.jump", keysBefore.get("key.jump"));
+                t.bind("key.hotbar.3", "key.keyboard.f24");
+                t.check("live external: ... but a hotbar key on it (it also swaps items in inventory screens) is a real conflict",
+                        conflictWith(SelfTestRunner.binding("key.hotbar.3"), "ext:ipn:sort_inventory", "containers"));
+                t.bind("key.hotbar.3", keysBefore.get("key.hotbar.3"));
+                if (itemScroller && Boolean.FALSE.equals(ExternalKeys.itemScrollerSorting())) {
+                    set("ext:malilib:itemscroller/sortInventory", "F24", true);
+                    t.check("live external: Item Scroller's sort key on the same key is no conflict while its sorting is switched off",
+                            KeyConflicts.conflictsOf(ExternalKeys.find("ext:ipn:sort_inventory"), client().options).isEmpty());
+                }
+                // IPN's scroll keys are only held while scrolling.
+                set("ext:ipn:scroll_throw", "F22", true);
+                ExternalBinding throwKey = ExternalKeys.find("ext:ipn:scroll_throw");
+                t.check("live external: IPN's 'throw' key is only held while scrolling, so further keys pressed with it do not count",
+                        throwKey != null && throwKey.trigger() != null && !throwKey.trigger().allowsMoreKeys());
+                if (itemScroller) {
+                    set("ext:malilib:itemscroller/craftEverything", "LEFT_CONTROL,F22", true);
+                    t.check("live external: ... so Item Scroller's Ctrl + F22 is no conflict with it",
+                            KeyConflicts.conflictsOf(ExternalKeys.find("ext:ipn:scroll_throw"), client().options).isEmpty());
+                }
+                t.bind("key.inventory", "key.keyboard.f22");
+                t.check("live external: ... but the inventory key on F22 is (pressing it to hold it closes the inventory)",
+                        conflictWith(SelfTestRunner.binding("key.inventory"), "ext:ipn:scroll_throw", "containers"));
+                t.bind("key.inventory", keysBefore.get("key.inventory"));
+            }
+            if (itemScroller) {
+                set("ext:malilib:itemscroller/craftEverything", "LEFT_CONTROL,F24", true);
+                t.bind("key.jump", "ctrl+key.keyboard.f24");
+                t.check("live external: Item Scroller's 'craft everything' and jump on Ctrl + F24: no conflict",
+                        noConflictWith(jump, "ext:malilib:itemscroller/craftEverything"));
+                t.bind("key.jump", keysBefore.get("key.jump"));
+                t.bind("key.drop", "ctrl+key.keyboard.f24");
+                t.check("live external: ... but drop on Ctrl + F24 (it also throws the item under the mouse in inventory screens) is a real conflict",
+                        conflictWith(SelfTestRunner.binding("key.drop"), "ext:malilib:itemscroller/craftEverything", "containers"));
+                t.bind("key.drop", keysBefore.get("key.drop"));
+                if (ipn) {
+                    set("ext:ipn:copy_components", "LEFT_CONTROL,F24", true);
+                    ExternalBinding craft = ExternalKeys.find("ext:malilib:itemscroller/craftEverything");
+                    t.check("live external: Item Scroller's 'craft everything' and IPN's 'copy components' on one key both act in inventory screens: a real conflict",
+                            KeyConflicts.conflictsOf(craft, client().options).stream().anyMatch(conflict -> conflict.external() != null
+                                    && "ext:ipn:copy_components".equals(conflict.external().hotkeyId()) && conflict.level() == KeyConflicts.Level.HARD
+                                    && conflict.reason().equals("containers")));
+                }
+            }
+            if (conflux) {
+                set("ext:malilib:confluxmap/openMap", "F23", true);
+                t.bind("key.jump", "key.keyboard.f23");
+                t.check("live external: Conflux Map's 'open map' and jump on one key: both act in the world, a real conflict",
+                        conflictWith(jump, "ext:malilib:confluxmap/openMap", "world"));
+                t.bind("key.jump", keysBefore.get("key.jump"));
+                if (ipn) {
+                    set("ext:ipn:sort_inventory", "F23", true);
+                    t.check("live external: ... with a key of inventory screens (IPN's sort) on it: no conflict, they never act at the same time",
+                            KeyConflicts.conflictsOf(ExternalKeys.find("ext:malilib:confluxmap/openMap"), client().options).isEmpty());
+                    List<KeyConflicts.Shared> shared = KeyConflicts.sharedWithoutConflict(ExternalKeys.find("ext:malilib:confluxmap/openMap"), client().options);
+                    t.check("live external: ... and its tooltip says where the other one acts " + shared.stream().map(item -> item.where().getString()).toList(),
+                            shared.stream().anyMatch(item -> item.where().getString().equals("in inventory screens")));
+                }
+                if (itemScroller) {
+                    set("ext:malilib:itemscroller/toggleModOnOff", "F23", true);
+                    ExternalBinding open = ExternalKeys.find("ext:malilib:confluxmap/openMap");
+                    t.check("live external: ... a hotkey that acts in any screen (Item Scroller on/off) meets it in the map screen: a real conflict",
+                            KeyConflicts.conflictsOf(open, client().options).stream().anyMatch(conflict -> conflict.external() != null
+                                    && "ext:malilib:itemscroller/toggleModOnOff".equals(conflict.external().hotkeyId()) && conflict.reason().equals("screen")
+                                    && conflict.explanation().getString().contains("Conflux Map's map screen")));
+                }
+                set("ext:malilib:confluxmap/zoomIn", "RIGHT_BRACKET", true);
+                KeyMapping slice = KeyMapping.get("key.qolbundle.diagnostics_slice_next");
+                if (slice != null) {
+                    t.bind("key.qolbundle.diagnostics_slice_next", "key.keyboard.right.bracket");
+                    t.check("live external: Conflux Map's zoom key and QoL Bundle's layer key (only while a scan is shown) on ]: no conflict",
+                            KeyConflicts.conflictsOf(ExternalKeys.find("ext:malilib:confluxmap/zoomIn"), client().options).isEmpty());
+                    t.bind("key.qolbundle.diagnostics_slice_next", keysBefore.get("key.qolbundle.diagnostics_slice_next"));
+                }
+                t.bind("key.keybindprofilesplus.open", "key.keyboard.right.bracket");
+                t.check("live external: ... but a key that opens a screen during play on ] is a real conflict with the zoom key",
+                        conflictWith(SelfTestRunner.binding("key.keybindprofilesplus.open"), "ext:malilib:confluxmap/zoomIn", "world"));
+                t.bind("key.keybindprofilesplus.open", keysBefore.get("key.keybindprofilesplus.open"));
+            }
+        } finally {
+            keysBefore.forEach(t::bind);
+        }
+    }
+
+    private void context(String id, KeyContext expected) {
+        ExternalBinding binding = external(id);
+        KeyContext actual = binding == null ? null : binding.context();
+        t.check("live external: " + id + " acts " + expected + (expected.equals(actual) ? "" : " but was " + actual), expected.equals(actual));
+    }
+
+    /** A hotkey of the running mods by the end of its id ("itemscroller/craftEverything", "ipn:sort_inventory"). */
+    private static ExternalBinding external(String id) {
+        ExternalBinding found = ExternalKeys.find(id.startsWith("ipn:") ? "ext:" + id : "ext:malilib:" + id);
+        return found;
+    }
+
+    private static boolean noConflictWith(KeyMapping binding, String hotkeyId) {
+        return KeyConflicts.conflictsOf(binding, client().options).stream().noneMatch(conflict -> conflict.external() != null
+                && hotkeyId.equals(conflict.external().hotkeyId()));
+    }
+
+    private static boolean conflictWith(KeyMapping binding, String hotkeyId, String reason) {
+        return KeyConflicts.conflictsOf(binding, client().options).stream().anyMatch(conflict -> conflict.external() != null
+                && hotkeyId.equals(conflict.external().hotkeyId()) && conflict.level() == KeyConflicts.Level.HARD && conflict.reason().equals(reason));
+    }
+
     // ------------------------------------------------------------------ profiles
 
     private void profileFlow() {
@@ -360,7 +533,7 @@ final class LiveExternalChecks {
             Map<String, String> now = ExternalKeys.currentValues();
             boolean back = originals.entrySet().stream().allMatch(entry -> entry.getValue().equals(now.get(entry.getKey())));
             t.check("live external: every hotkey touched is back on its value from before (" + originals + ")", back);
-            if (litematica) {
+            if (litematica && originals.containsKey(LITEMATICA_ID)) {
                 t.check("live external: ... also in Litematica's file", originals.get(LITEMATICA_ID).equals(malilibFileValue(LITEMATICA_HOTKEY)));
             }
         }
@@ -372,6 +545,10 @@ final class LiveExternalChecks {
     private void set(String id, String value, boolean when) {
         if (when) {
             ExternalBinding binding = ExternalKeys.find(id);
+            if (binding != null) {
+                // Remembered the first time, so restore() puts it back.
+                originals.putIfAbsent(id, binding.value());
+            }
             if (binding == null || !ExternalKeys.setValue(binding, value)) {
                 t.fail("live external: could not set " + id + " to " + value);
             }

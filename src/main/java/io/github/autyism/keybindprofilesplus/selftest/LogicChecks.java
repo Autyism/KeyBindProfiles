@@ -9,7 +9,9 @@ import io.github.autyism.keybindprofilesplus.external.ExternalKeys;
 import io.github.autyism.keybindprofilesplus.keys.KeyCombo;
 import io.github.autyism.keybindprofilesplus.keys.KeyCombos;
 import io.github.autyism.keybindprofilesplus.keys.KeyConflicts;
+import io.github.autyism.keybindprofilesplus.keys.KeyContext;
 import io.github.autyism.keybindprofilesplus.keys.KeyLabels;
+import io.github.autyism.keybindprofilesplus.keys.KeyTrigger;
 import io.github.autyism.keybindprofilesplus.keys.KeyOrigins;
 import io.github.autyism.keybindprofilesplus.keys.KeySource;
 import io.github.autyism.keybindprofilesplus.keys.KeySourceResolver;
@@ -72,14 +74,16 @@ final class LogicChecks {
     static final String PROFILE_FOV = "0.5";
     static final String DEMO_MOD_BINDING = "key.fabric-api.selftest_demo";
     static final String DEMO_SCREEN_BINDING = "key.fabric-api.selftest_inventory_sort";
+    /** A second key of the same (pretend) mod on the same default key as {@link #DEMO_MOD_BINDING}. */
+    static final String DEMO_TWIN_BINDING = "key.fabric-api.selftest_twin";
     static final String DEMO_UNKNOWN_BINDING = "key.selftest.unknown_demo";
     static final String MOD_MENU_BINDING = "key.modmenu.open_menu";
     /** Stands for an F3 combination added by a mod, like Language Reload's F3+J: a mod key in the game's Debug category. */
     static final String DEMO_DEBUG_BINDING = "key.debug.selftestReloadLanguages";
     //? if >=1.21.11 {
-    static final int DEMO_BINDINGS = 4;
+    static final int DEMO_BINDINGS = 5;
     //?} else
-    /*static final int DEMO_BINDINGS = 3;*/
+    /*static final int DEMO_BINDINGS = 4;*/
     private static final String LANG_PATH = "assets/" + KeyBindProfilesPlus.MOD_ID + "/lang/";
 
     private final SelfTestRunner t;
@@ -305,18 +309,18 @@ final class LogicChecks {
 
             t.bind("key.jump", "key.keyboard.g");
             //? if >=1.21.6 {
-            conflict("a normal key on G conflicts with Quick Actions (also G), never with F3+G", "key.jump", KeyConflicts.Level.HARD, 1, "general");
+            conflict("a normal key on G conflicts with Quick Actions (also G), never with F3+G", "key.jump", KeyConflicts.Level.HARD, 1, "world");
             //?} else
             /*conflict("a normal key on G is free (Quick Actions came in 1.21.6) and never clashes with F3+G", "key.jump", KeyConflicts.Level.NONE, 0, null);*/
             t.bind("key.jump", "key.keyboard.b");
             conflict("a normal key on B and F3+B (show hitboxes) do not conflict", "key.jump", KeyConflicts.Level.NONE, 0, null);
             t.bind("key.jump", "key.keyboard.1");
-            conflict("jump on 1 conflicts with hotbar slot 1 but not with F3+1", "key.jump", KeyConflicts.Level.HARD, 1, "general");
+            conflict("jump on 1 conflicts with hotbar slot 1 but not with F3+1", "key.jump", KeyConflicts.Level.HARD, 1, "world");
             t.bind("key.jump", "key.keyboard.space");
 
             t.bind("key.drop", "key.keyboard.e");
-            conflict("two keys used during play on the same key is a real conflict", "key.drop", KeyConflicts.Level.HARD, 1, "general");
-            conflict("... seen from the other binding too", "key.inventory", KeyConflicts.Level.HARD, 1, "general");
+            conflict("two keys used in the world on the same key is a real conflict", "key.drop", KeyConflicts.Level.HARD, 1, "world");
+            conflict("... seen from the other binding too", "key.inventory", KeyConflicts.Level.HARD, 1, "world");
             KeyConflicts.Summary oneClash = KeyConflicts.summarize(client().options);
             t.check("conflicts: summary counts both bindings of the pair", oneClash.hard() == 2 && oneClash.soft() == 0);
             t.bind("key.drop", "key.keyboard.q");
@@ -340,55 +344,121 @@ final class LogicChecks {
             t.bind("key.debug.reloadChunk", "key.keyboard.a");
 
             t.bind("key.jump", "key.keyboard.f3");
-            conflict("a normal key on F3 itself conflicts with the debug keys", "key.jump", KeyConflicts.Level.HARD, 2, "general");
+            conflict("a normal key on F3 itself conflicts with the debug keys", "key.jump", KeyConflicts.Level.HARD, 2, "world");
             t.bind("key.jump", "key.keyboard.space");
             //?}
 
             t.bind(DEMO_MOD_BINDING, "key.keyboard.q");
-            conflict("a mod key used during play on the same key as a vanilla one conflicts", DEMO_MOD_BINDING, KeyConflicts.Level.HARD, 1, "general");
+            conflict("a mod key used in the world on the same key as a vanilla one conflicts", DEMO_MOD_BINDING, KeyConflicts.Level.HARD, 1, "world");
             t.bind(DEMO_MOD_BINDING, "key.keyboard.keypad.5");
 
-            // A key that only works inside screens against a key used during play.
+            // Two keys a mod ships on the same key are its own business; moved there by the player they are reported.
+            KeyMapping twin = SelfTestRunner.binding(DEMO_TWIN_BINDING);
+            t.check("conflicts: two keys one mod ships on the same key are not reported (" + twin.saveString() + ")",
+                    twin.isDefault() && KeyConflicts.conflictsOf(twin, client().options).isEmpty());
+            t.bind(DEMO_MOD_BINDING, "key.keyboard.keypad.6");
+            t.bind(DEMO_TWIN_BINDING, "key.keyboard.keypad.6");
+            conflict("... put on another key together by the player, they are", DEMO_TWIN_BINDING, KeyConflicts.Level.HARD, 1, "world");
+            t.bind(DEMO_TWIN_BINDING, "key.keyboard.keypad.5");
+            t.bind(DEMO_MOD_BINDING, "key.keyboard.keypad.5");
+
+            // Where the game's own keys act.
             KeySourceResolver sources = KeyConflicts.sources(client().options);
+            context("jump acts in the world only", "key.jump", KeyContext.world());
+            context("the inventory key also closes inventory screens", "key.inventory",
+                    KeyContext.of(KeyContext.part(KeyContext.Mode.ANY, KeyContext.Place.WORLD), KeyContext.part(KeyContext.Mode.ANY, KeyContext.CONTAINERS)));
+            context("drop also throws the item under the mouse in inventory screens", "key.drop",
+                    KeyContext.of(KeyContext.part(KeyContext.Mode.NOT_SPECTATOR, KeyContext.Place.WORLD), KeyContext.part(KeyContext.Mode.ANY, KeyContext.CONTAINERS)));
+            context("a hotbar key also swaps the item under the mouse in inventory screens", "key.hotbar.3",
+                    KeyContext.of(KeyContext.part(KeyContext.Mode.ANY, KeyContext.Place.WORLD), KeyContext.part(KeyContext.Mode.ANY, KeyContext.CONTAINERS)));
+            context("pick block copies the item under the mouse in inventory screens in Creative mode only", "key.pickItem",
+                    KeyContext.of(KeyContext.part(KeyContext.Mode.NOT_SPECTATOR, KeyContext.Place.WORLD), KeyContext.part(KeyContext.Mode.CREATIVE, KeyContext.CONTAINERS)));
+            context("the advancements key also closes the advancements screen", "key.advancements",
+                    KeyContext.of(KeyContext.part(KeyContext.Mode.ANY, KeyContext.Place.WORLD, KeyContext.Place.ADVANCEMENTS)));
+            context("the screenshot key works everywhere", "key.screenshot", KeyContext.anywhere());
+            t.check("conflicts: the chat key also opens the search of the Creative inventory and of an open recipe book",
+                    KeyConflicts.contextOf(SelfTestRunner.binding("key.chat"), sources).actsIn(KeyContext.Place.CREATIVE)
+                            && KeyConflicts.contextOf(SelfTestRunner.binding("key.chat"), sources).parts().stream().anyMatch(part -> "recipe_book".equals(part.condition())));
+            t.check("conflicts: where a key acts reads well (" + KeyConflicts.contextOf(SelfTestRunner.binding("key.drop"), sources).describe().getString() + ")",
+                    KeyConflicts.contextOf(SelfTestRunner.binding("key.drop"), sources).describe().getString()
+                            .equals("in the world (not in Spectator mode) and in inventory screens"));
+
+            // A key that only works inside inventory screens against keys of the world and of inventory screens.
             KeyMapping screenKey = SelfTestRunner.binding(DEMO_SCREEN_BINDING);
-            t.check("conflicts: a mod key named after the inventory is taken to work only in screens",
-                    KeyConflicts.scopeOf(screenKey, sources) == KeyConflicts.Scope.SCREEN_ONLY);
+            t.check("conflicts: a mod key named after the inventory is taken to work in inventory screens",
+                    KeyConflicts.contextOf(screenKey, sources).equals(KeyContext.containers()));
             t.bind(DEMO_SCREEN_BINDING, "key.keyboard.space");
-            conflict("a screen-only key and a key used during play is only a possible conflict", DEMO_SCREEN_BINDING, KeyConflicts.Level.SOFT, 1, "screen");
-            conflict("... seen from the in-game key too", "key.jump", KeyConflicts.Level.SOFT, 1, "screen");
+            conflict("a key that only acts in inventory screens and one that only acts in the world never meet", DEMO_SCREEN_BINDING, KeyConflicts.Level.NONE, 0, null);
+            conflict("... seen from the world key too", "key.jump", KeyConflicts.Level.NONE, 0, null);
+            List<KeyConflicts.Shared> sharedWithJump = KeyConflicts.sharedWithoutConflict(SelfTestRunner.binding("key.jump"), client().options);
+            t.check("conflicts: ... and jump's tooltip names it with where it acts " + sharedWithJump.stream().map(shared -> shared.where().getString()).toList(),
+                    sharedWithJump.size() == 1 && sharedWithJump.get(0).where().getString().equals("in inventory screens"));
             t.bind(DEMO_SCREEN_BINDING, "key.keyboard.1");
-            conflict("a screen-only key on a key that vanilla also uses in inventories is a real conflict", DEMO_SCREEN_BINDING, KeyConflicts.Level.HARD, 1, "screen_vanilla");
+            conflict("a key of inventory screens on a key vanilla also uses in inventories (hotbar 1) is a real conflict", DEMO_SCREEN_BINDING, KeyConflicts.Level.HARD, 1, "containers");
+            t.bind(DEMO_SCREEN_BINDING, "key.keyboard.t");
+            conflict("on the chat key it only meets the chat key's search in the Creative inventory and the recipe book", DEMO_SCREEN_BINDING, KeyConflicts.Level.SOFT, 1, null);
             t.bind(DEMO_SCREEN_BINDING, "key.keyboard.space");
 
-            settings.setScopeOverride(DEMO_SCREEN_BINDING, KeyConflicts.OVERRIDE_GENERAL);
-            conflict("the player can overrule the guess: now active during play, it is a real conflict", DEMO_SCREEN_BINDING, KeyConflicts.Level.HARD, 1, "general");
+            settings.setScopeOverride(DEMO_SCREEN_BINDING, KeyConflicts.OVERRIDE_WORLD);
+            conflict("the player can overrule the guess: set to the world, it is a real conflict", DEMO_SCREEN_BINDING, KeyConflicts.Level.HARD, 1, "world");
             settings.setScopeOverride(DEMO_SCREEN_BINDING, null);
             t.bind(DEMO_SCREEN_BINDING, "key.keyboard.unknown");
 
             t.bind(DEMO_MOD_BINDING, "key.keyboard.space");
-            settings.setScopeOverride(DEMO_MOD_BINDING, KeyConflicts.OVERRIDE_SCREEN);
-            conflict("... and the other way round: marked screen-only, it is only a possible conflict", DEMO_MOD_BINDING, KeyConflicts.Level.SOFT, 1, "screen");
+            settings.setScopeOverride(DEMO_MOD_BINDING, KeyConflicts.OVERRIDE_CONTAINERS);
+            conflict("... and the other way round: set to inventory screens, it no longer meets jump", DEMO_MOD_BINDING, KeyConflicts.Level.NONE, 0, null);
+            settings.setScopeOverride(DEMO_MOD_BINDING, KeyConflicts.OVERRIDE_SCREENS);
+            conflict("... set to any screen neither", DEMO_MOD_BINDING, KeyConflicts.Level.NONE, 0, null);
+            settings.setScopeOverride(DEMO_MOD_BINDING, KeyConflicts.OVERRIDE_ANYWHERE);
+            conflict("... set to everywhere, it meets jump in the world", DEMO_MOD_BINDING, KeyConflicts.Level.HARD, 1, "world");
             settings.setScopeOverride(DEMO_MOD_BINDING, KeyConflicts.OVERRIDE_SITUATIONAL);
             conflict("... marked 'only in a special situation', it is no conflict at all", DEMO_MOD_BINDING, KeyConflicts.Level.NONE, 0, null);
             conflict("... seen from the vanilla key too", "key.jump", KeyConflicts.Level.NONE, 0, null);
             t.check("conflicts: ... but the tooltip can still say what shares the key",
                     KeyConflicts.sharedWithoutConflict(SelfTestRunner.binding("key.jump"), client().options).size() == 1
                             && KeyConflicts.describeShared(KeyConflicts.sharedWithoutConflict(SelfTestRunner.binding("key.jump"), client().options)).size() == 2);
-            t.check("conflicts: clicking through the choices goes automatic -> play -> screens -> special situation -> automatic",
-                    KeyConflicts.OVERRIDE_GENERAL.equals(KeyConflicts.nextOverride(null))
-                            && KeyConflicts.OVERRIDE_SCREEN.equals(KeyConflicts.nextOverride(KeyConflicts.OVERRIDE_GENERAL))
-                            && KeyConflicts.OVERRIDE_SITUATIONAL.equals(KeyConflicts.nextOverride(KeyConflicts.OVERRIDE_SCREEN))
+            t.check("conflicts: clicking through the choices goes automatic -> world -> inventory screens -> any screen -> everywhere -> special situation -> automatic",
+                    KeyConflicts.OVERRIDE_WORLD.equals(KeyConflicts.nextOverride(null))
+                            && KeyConflicts.OVERRIDE_CONTAINERS.equals(KeyConflicts.nextOverride(KeyConflicts.OVERRIDE_WORLD))
+                            && KeyConflicts.OVERRIDE_SCREENS.equals(KeyConflicts.nextOverride(KeyConflicts.OVERRIDE_CONTAINERS))
+                            && KeyConflicts.OVERRIDE_ANYWHERE.equals(KeyConflicts.nextOverride(KeyConflicts.OVERRIDE_SCREENS))
+                            && KeyConflicts.OVERRIDE_SITUATIONAL.equals(KeyConflicts.nextOverride(KeyConflicts.OVERRIDE_ANYWHERE))
                             && KeyConflicts.nextOverride(KeyConflicts.OVERRIDE_SITUATIONAL) == null);
+            // What 0.2 stored still means the same.
+            settings.setScopeOverride(DEMO_MOD_BINDING, "general");
+            conflict("a choice stored by 0.2 ('general') still means the world", DEMO_MOD_BINDING, KeyConflicts.Level.HARD, 1, "world");
+            settings.setScopeOverride(DEMO_MOD_BINDING, "screen");
+            conflict("... and 'screen' any screen", DEMO_MOD_BINDING, KeyConflicts.Level.NONE, 0, null);
+            t.check("conflicts: ... and the next click goes on from there", KeyConflicts.OVERRIDE_CONTAINERS.equals(KeyConflicts.nextOverride("general"))
+                    && KeyConflicts.OVERRIDE_ANYWHERE.equals(KeyConflicts.nextOverride("screen")));
             settings.setScopeOverride(DEMO_MOD_BINDING, null);
-            conflict("... and back to a real conflict once the override is removed", DEMO_MOD_BINDING, KeyConflicts.Level.HARD, 1, "general");
+            conflict("... and back to a real conflict once the override is removed", DEMO_MOD_BINDING, KeyConflicts.Level.HARD, 1, "world");
             settings.reload();
             t.check("conflicts: overrides are stored in settings.json and removed again", settings.scopeOverride(DEMO_MOD_BINDING) == null);
+
+            // Mod keys the game cannot tell anything about: by their names.
+            t.check("conflicts: a mod key that opens something acts in the world, even with 'inventory' in its name",
+                    KeyConflicts.guessFromName("key.somemod.open_inventory_editor", "somemod").equals(KeyContext.world()));
+            t.check("conflicts: a mod key whose name says it sorts or locks slots acts in inventory screens",
+                    KeyConflicts.guessFromName("key.somemod.sort_chest", "somemod").equals(KeyContext.containers())
+                            && KeyConflicts.guessFromName("key.somemod.lockSlot", "somemod").equals(KeyContext.containers()));
+            t.check("conflicts: the mod's own name does not count (a tooltip mod's keys act in the world)",
+                    KeyConflicts.guessFromName("key.hysk-tooltips.equipment", "hysk-tooltips").equals(KeyContext.world()));
+            t.check("conflicts: Conflux Map's map key (without MaLiLib) also acts in its map screen; QoL Bundle's layer keys only during a scan",
+                    KeyConflicts.knownModKey("key.confluxmap.open_map").actsInModScreen(KeyContext.CONFLUX_MAP_SCREEN)
+                            && KeyConflicts.knownModKey("key.confluxmap.open_map").actsInWorld()
+                            && KeyConflicts.knownModKey("key.qolbundle.diagnostics_slice_next").kind() == KeyContext.Kind.SITUATIONAL);
         } finally {
             settings.setScopeOverride(DEMO_SCREEN_BINDING, null);
             settings.setScopeOverride(DEMO_MOD_BINDING, null);
             before.forEach(t::bind);
             ExternalKeys.setEnvironmentForTesting(null);
         }
+    }
+
+    private void context(String what, String bindingId, KeyContext expected) {
+        KeyContext actual = KeyConflicts.contextOf(SelfTestRunner.binding(bindingId), KeyConflicts.sources(client().options));
+        t.check("conflicts: " + what + (actual.equals(expected) ? "" : " - got " + actual), actual.equals(expected));
     }
 
     void conflict(String what, String bindingId, KeyConflicts.Level level, int count, String reason) {
@@ -475,7 +545,7 @@ final class LogicChecks {
 
             conflict("X and Ctrl + X on the same key do not conflict", "key.socialInteractions", KeyConflicts.Level.NONE, 0, null);
             t.bind("key.playerlist", "ctrl+key.keyboard.f15");
-            conflict("two bindings on Ctrl + F15 conflict", "key.socialInteractions", KeyConflicts.Level.HARD, 1, "general");
+            conflict("two bindings on Ctrl + F15 conflict", "key.socialInteractions", KeyConflicts.Level.HARD, 1, "world");
             t.bind("key.playerlist", "key.keyboard.f16");
             t.bind("key.sprint", "key.keyboard.left.control");
             conflict("a combination next to a binding on its modifier key (sprint on Ctrl) is not reported", "key.socialInteractions", KeyConflicts.Level.NONE, 0, null);
@@ -803,27 +873,71 @@ final class LogicChecks {
         t.check("external: malilib hotkeys without keys are left out", all.stream().noneMatch(binding -> binding.name().equals("Unbound One")));
         external(all, "Item Scroller", "Crafting Features", "Num -", true);
         external(all, "Item Scroller", "Modifier Move Everything", "Left Alt", true);
-        t.check("external: malilib's own 'GUI only' marking is understood",
-                all.stream().filter(binding -> binding.sourceId().equals("itemscroller")).allMatch(binding -> binding.when() == ExternalBinding.When.SCREEN_ONLY)
-                        && all.stream().filter(binding -> binding.sourceId().equals("litematica")).noneMatch(binding -> binding.when() == ExternalBinding.When.SCREEN_ONLY));
+        // Where they act: Item Scroller in inventory screens (whatever malilib's own "GUI" marking says about other screens),
+        // Litematica in the world, and hotkeys held with something else or tied to a tool in no place of their own.
+        context(all, "Item Scroller", "Crafting Features", KeyContext.containers());
+        context(all, "Item Scroller", "Modifier Move Everything", KeyContext.situational("hold"));
+        context(all, "Litematica", "Tool Place Corner 1", KeyContext.situational("tool"));
+        context(all, "Litematica", "Tool Place Corner 2", KeyContext.situational("tool"));
+        context(all, "Litematica", "Tool Select Elements", KeyContext.situational("tool"));
+        context(all, "Litematica", "Tool Select Modifier Block 2", KeyContext.situational("tool"));
+        context(all, "Litematica", "Operation Mode Change Modifier", KeyContext.situational("hold"));
+        context(all, "Litematica", "Pick Block Last", KeyContext.situational("tool"));
+        context(all, "Litematica", "Open Gui Main Menu", KeyContext.world());
+        context(all, "Litematica", "Layer Next", KeyContext.world());
+        context(all, "Meteor", "Auto Totem", KeyContext.world());
+        context(all, "Meteor", "Auto Totem / Swap Key", KeyContext.situational("module_setting"));
+        t.check("external: without a word in its file, an Item Scroller hotkey acts in inventory screens, its config key in the world; a bare modifier is held, a bare click is a tool's",
+                malilibContext("itemscroller", "keyDropStack", null, "Q").equals(KeyContext.containers())
+                        && malilibContext("itemscroller", "openConfigGui", null, "I,C").equals(KeyContext.world())
+                        && malilibContext("tweakeroo", "flexibleBlockPlacementOffset", null, "LEFT_CONTROL").equals(KeyContext.situational("hold"))
+                        && malilibContext("somemod", "doSomething", null, "BUTTON_1").equals(KeyContext.situational("tool"))
+                        && malilibContext("somemod", "doSomething", null, "G").equals(KeyContext.world()));
+        t.check("external: malilib's own context: GUI is any screen, ANY is everywhere, INGAME the world",
+                malilibContext("somemod", "doSomething", "GUI", "G").equals(KeyContext.screens())
+                        && malilibContext("somemod", "doSomething", "ANY", "G").equals(KeyContext.anywhere())
+                        && malilibContext("somemod", "doSomething", "INGAME", "G").equals(KeyContext.world()));
+        t.check("external: Item Scroller's recipe view acts in crafting screens, its trading favorites in the villager screen, 'store recipe' only with the recipe view held",
+                malilibContext("itemscroller", "recipeView", "GUI", "A").equals(KeyContext.places(KeyContext.Place.CRAFTING))
+                        && malilibContext("itemscroller", "villagerTradeFavorites", "GUI", "V").equals(KeyContext.places(KeyContext.Place.MERCHANT))
+                        && malilibContext("itemscroller", "storeRecipe", "GUI", "BUTTON_3").equals(KeyContext.situational("recipe_view")));
+        KeyContext openMap = malilibContext("confluxmap", "openMap", "ANY", "M");
+        t.check("external: Conflux Map's 'open map' acts in the world and in its own map screen, not in other screens (" + openMap + ")",
+                openMap.actsInWorld() && openMap.actsInModScreen(KeyContext.CONFLUX_MAP_SCREEN) && !openMap.actsIn(KeyContext.Place.CONTAINER)
+                        && malilibContext("confluxmap", "zoomIn", "INGAME", "RIGHT_BRACKET").equals(KeyContext.world()));
+        t.check("external: MiniHUD's and Tweakeroo's inventory preview screen keys only act while the preview is shown",
+                malilibContext("minihud", "inventoryPreviewToggleScreen", "ANY", "BUTTON_3").equals(KeyContext.situational("inventory_preview"))
+                        && malilibContext("tweakeroo", "inventoryPreviewToggleScreen", "ANY", "BUTTON_3").equals(KeyContext.situational("inventory_preview")));
+        t.check("external: Inventory Profiles Next: sorting and moving in inventory screens, trading in the villager screen, its modifiers held, its profile keys in the world",
+                ExternalKeys.inventoryProfilesContext("sort_inventory", "GUI", "R").equals(KeyContext.containers())
+                        && ExternalKeys.inventoryProfilesContext("scroll_spread", "GUI", "X").equals(KeyContext.containers())
+                        && ExternalKeys.inventoryProfilesContext("do_global_trade", "GUI", "T").equals(KeyContext.places(KeyContext.Place.MERCHANT))
+                        && ExternalKeys.inventoryProfilesContext("local_bookmark_trade2", "GUI", "L").equals(KeyContext.places(KeyContext.Place.MERCHANT))
+                        && ExternalKeys.inventoryProfilesContext("move_all_modifier", "GUI", "LEFT_SHIFT").equals(KeyContext.situational("hold"))
+                        && ExternalKeys.inventoryProfilesContext("move_just_refill_modifier", "GUI", "CAPS_LOCK").equals(KeyContext.situational("hold"))
+                        && ExternalKeys.inventoryProfilesContext("lock_slots_config_key", "GUI", "BUTTON_1").equals(KeyContext.situational("tool"))
+                        && ExternalKeys.inventoryProfilesContext("profile_1", "INGAME", "R,1").equals(KeyContext.world())
+                        && ExternalKeys.inventoryProfilesContext("reload_custom_configs", "ANY", "R,Y").equals(KeyContext.anywhere()));
 
-        // Hotkeys that only act in a situation of the mod's own must be recognised as such.
-        when(all, "Litematica", "Tool Place Corner 1", ExternalBinding.When.SITUATIONAL);
-        when(all, "Litematica", "Tool Place Corner 2", ExternalBinding.When.SITUATIONAL);
-        when(all, "Litematica", "Tool Select Elements", ExternalBinding.When.SITUATIONAL);
-        when(all, "Litematica", "Tool Select Modifier Block 2", ExternalBinding.When.SITUATIONAL);
-        when(all, "Litematica", "Operation Mode Change Modifier", ExternalBinding.When.SITUATIONAL);
-        when(all, "Litematica", "Pick Block Last", ExternalBinding.When.SITUATIONAL);
-        when(all, "Litematica", "Open Gui Main Menu", ExternalBinding.When.IN_GAME);
-        when(all, "Litematica", "Layer Next", ExternalBinding.When.IN_GAME);
-        when(all, "Meteor", "Auto Totem", ExternalBinding.When.IN_GAME);
-        when(all, "Meteor", "Auto Totem / Swap Key", ExternalBinding.When.SITUATIONAL);
-        t.check("external: without a word in its file, an Item Scroller hotkey counts as screen-only, its config key as in-game; a bare modifier as a hold key",
-                malilibWhen("itemscroller", "keyDropStack", false, false) == ExternalBinding.When.SCREEN_ONLY
-                        && malilibWhen("itemscroller", "openConfigGui", false, false) == ExternalBinding.When.IN_GAME
-                        && malilibWhen("tweakeroo", "flexibleBlockPlacementOffset", true, false) == ExternalBinding.When.SITUATIONAL
-                        && malilibWhen("somemod", "doSomething", false, true) == ExternalBinding.When.SITUATIONAL
-                        && malilibWhen("somemod", "doSomething", false, false) == ExternalBinding.When.IN_GAME);
+        // The same press: the full combination, with each mod's own rules on further keys held.
+        InputConstants.Key c = InputConstants.getKey("key.keyboard.c");
+        t.check("external: Ctrl + C of a game key and malilib's LEFT_CONTROL,C are the same press, plain C is not",
+                KeyTrigger.single(c, KeyCombo.CTRL, false).overlaps(ExternalKeys.malilibTrigger("LEFT_CONTROL,C", false, false))
+                        && !KeyTrigger.single(c, 0, false).overlaps(ExternalKeys.malilibTrigger("LEFT_CONTROL,C", false, false)));
+        t.check("external: a malilib hotkey that allows extra keys also reacts to Ctrl + C, one that does not only to C",
+                ExternalKeys.malilibTrigger("C", true, true).overlaps(KeyTrigger.single(c, KeyCombo.CTRL, false))
+                        && !ExternalKeys.malilibTrigger("C", false, true).overlaps(KeyTrigger.single(c, KeyCombo.CTRL, false)));
+        t.check("external: a Meteor bind without modifiers reacts whatever modifiers are held, one with modifiers only to exactly them",
+                ExternalKeys.meteorTrigger(c, 0).overlaps(KeyTrigger.single(c, KeyCombo.CTRL, false))
+                        && !ExternalKeys.meteorTrigger(c, KeyCombo.CTRL).overlaps(KeyTrigger.single(c, 0, false))
+                        && !ExternalKeys.meteorTrigger(c, KeyCombo.CTRL).overlaps(KeyTrigger.single(c, KeyCombo.CTRL | KeyCombo.SHIFT, false)));
+        t.check("external: chords are compared as a whole, in their order where it matters",
+                !ExternalKeys.malilibTrigger("M,R", false, true).overlaps(KeyTrigger.single(InputConstants.getKey("key.keyboard.r"), 0, false))
+                        && ExternalKeys.malilibTrigger("M,R", false, true).overlaps(ExternalKeys.malilibTrigger("M,R", false, true))
+                        && !ExternalKeys.malilibTrigger("M,R", false, true).overlaps(ExternalKeys.malilibTrigger("R,M", false, true))
+                        && ExternalKeys.malilibTrigger("M,R", false, false).overlaps(ExternalKeys.malilibTrigger("R,M", false, false))
+                        && !ExternalKeys.malilibTrigger("M", true, true).overlaps(ExternalKeys.malilibTrigger("M,P", false, true))
+                        && ExternalKeys.malilibTrigger("P", true, true).overlaps(ExternalKeys.malilibTrigger("M,P", false, true)));
 
         Map<String, String> before = SelfTestRunner.currentKeyValues();
         ModSettings settings = KeyBindProfilesPlus.settings();
@@ -839,14 +953,14 @@ final class LogicChecks {
             conflict("... nor its hold-key on Left Shift with sneak", "key.sneak", KeyConflicts.Level.NONE, 0, null);
             conflict("... nor its hold-key on Left Control with sprint", "key.sprint", KeyConflicts.Level.NONE, 0, null);
             ExternalBinding corner1 = all.stream().filter(binding -> binding.name().equals("Tool Place Corner 1")).findFirst().orElseThrow();
-            List<Component> sharedWithAttack = KeyConflicts.sharedWithoutConflict(SelfTestRunner.binding("key.attack"), client().options);
-            t.check("external: the attack key's tooltip still says what shares the left mouse button " + sharedWithAttack.stream().map(Component::getString).toList(),
-                    sharedWithAttack.size() == 1 && sharedWithAttack.get(0).getString().contains("Tool Place Corner 1"));
+            List<KeyConflicts.Shared> sharedWithAttack = KeyConflicts.sharedWithoutConflict(SelfTestRunner.binding("key.attack"), client().options);
+            t.check("external: the attack key's tooltip still says what shares the left mouse button " + sharedWithAttack.stream().map(shared -> shared.name().getString()).toList(),
+                    sharedWithAttack.size() == 1 && sharedWithAttack.get(0).name().getString().contains("Tool Place Corner 1"));
             t.check("external: ... and seen from Litematica's side: no conflict, attack named as sharing the key",
                     KeyConflicts.conflictsOf(corner1, client().options).isEmpty()
                             && KeyConflicts.sharedWithoutConflict(corner1, client().options).size() == 1);
-            settings.setScopeOverride(KeyConflicts.overrideKey(corner1), KeyConflicts.OVERRIDE_GENERAL);
-            conflict("the player can overrule that: counted as used during play, the tool key clashes with attack", "key.attack", KeyConflicts.Level.HARD, 1, "external");
+            settings.setScopeOverride(KeyConflicts.overrideKey(corner1), KeyConflicts.OVERRIDE_WORLD);
+            conflict("the player can overrule that: counted as acting in the world, the tool key clashes with attack", "key.attack", KeyConflicts.Level.HARD, 1, "world");
             settings.setScopeOverride(KeyConflicts.overrideKey(corner1), null);
             conflict("... and removing the choice makes it no conflict again", "key.attack", KeyConflicts.Level.NONE, 0, null);
 
@@ -857,14 +971,18 @@ final class LogicChecks {
             KeyMapping modDebugKey = SelfTestRunner.binding(DEMO_DEBUG_BINDING);
             KeySourceResolver sources = KeyConflicts.sources(client().options);
             t.check("external: a mod's key binding in the Debug category counts as an F3 combination, and cannot be re-labelled by hand",
-                    !sources.isVanilla(DEMO_DEBUG_BINDING) && KeyConflicts.scopeOf(modDebugKey, sources) == KeyConflicts.Scope.DEBUG_COMBO
-                            && !KeyConflicts.canOverrideScope(modDebugKey, sources));
+                    !sources.isVanilla(DEMO_DEBUG_BINDING) && KeyConflicts.contextOf(modDebugKey, sources).kind() == KeyContext.Kind.DEBUG_COMBO
+                            && !KeyConflicts.canOverrideContext(modDebugKey, sources));
             conflict("a mod's F3+J and a Meteor module on J do not conflict", DEMO_DEBUG_BINDING, KeyConflicts.Level.NONE, 0, null);
             //?}
             ExternalBinding autoEat = all.stream().filter(binding -> binding.name().equals("Auto Eat")).findFirst().orElseThrow();
             t.check("external: ... seen from the Meteor module's side neither", KeyConflicts.conflictsOf(autoEat, client().options).isEmpty());
             t.bind("key.jump", "key.keyboard.j");
-            conflict("a normal key on J still clashes with that Meteor module, and only with it", "key.jump", KeyConflicts.Level.HARD, 1, "external");
+            conflict("a normal key on J still clashes with that Meteor module, and only with it", "key.jump", KeyConflicts.Level.HARD, 1, "world");
+            t.bind("key.jump", "ctrl+key.keyboard.j");
+            conflict("a Meteor module on plain J also reacts to Ctrl + J (Meteor ignores the modifiers of such a bind)", "key.jump", KeyConflicts.Level.HARD, 1, "world");
+            t.check("external: ... and the tooltip says so (" + KeyConflicts.conflictsOf(SelfTestRunner.binding("key.jump"), client().options).get(0).explanation().getString() + ")",
+                    KeyConflicts.conflictsOf(SelfTestRunner.binding("key.jump"), client().options).get(0).explanation().getString().contains("also reacts while other keys are held"));
             t.bind("key.jump", "key.keyboard.space");
 
             // F3 combinations against keys of other mods.
@@ -876,10 +994,10 @@ final class LogicChecks {
             t.check("external: a mod's chord that starts with F3 (F3 + M) is not compared with single keys",
                     all.stream().filter(binding -> binding.name().equals("Rerender Schematic")).allMatch(binding -> binding.key() == null));
             t.bind("key.jump", "key.keyboard.b");
-            conflict("a normal key on B does clash with that Meteor module (and still not with F3+B)", "key.jump", KeyConflicts.Level.HARD, 1, "external");
+            conflict("a normal key on B does clash with that Meteor module (and still not with F3+B)", "key.jump", KeyConflicts.Level.HARD, 1, "world");
 
             t.bind("key.jump", "ctrl+key.keyboard.h");
-            conflict("a Meteor key bind in the newer format (Ctrl + H) is compared like the others", "key.jump", KeyConflicts.Level.HARD, 1, "external");
+            conflict("a Meteor key bind in the newer format (Ctrl + H) is compared like the others", "key.jump", KeyConflicts.Level.HARD, 1, "world");
             t.bind("key.jump", "key.keyboard.space");
             t.bind(DEMO_SCREEN_BINDING, "key.keyboard.b");
             conflict("a key that only works in screens never meets a Meteor module, which is ignored while a screen is open",
@@ -887,18 +1005,28 @@ final class LogicChecks {
             t.bind(DEMO_SCREEN_BINDING, "key.keyboard.unknown");
 
             t.bind("key.jump", "key.keyboard.z");
-            conflict("a Meteor module on Z and a game key on Z are reported", "key.jump", KeyConflicts.Level.HARD, 1, "external");
+            conflict("a Meteor module on Z and a game key on Z are reported", "key.jump", KeyConflicts.Level.HARD, 1, "world");
             ExternalBinding autoTotem = all.stream().filter(binding -> binding.name().equals("Auto Totem") && binding.active()).findFirst().orElseThrow();
             t.check("external: ... and seen from the Meteor side too",
                     KeyConflicts.conflictsOf(autoTotem, client().options).stream().anyMatch(conflict -> conflict.otherId().equals("key.jump")));
             t.bind("key.jump", "key.keyboard.y");
             conflict("a key only used by a Meteor profile that is not loaded is not reported", "key.jump", KeyConflicts.Level.NONE, 0, null);
             t.bind("key.jump", "ctrl+key.keyboard.k");
-            conflict("combinations are compared as a whole (Ctrl + K against Meteor's Ctrl + K)", "key.jump", KeyConflicts.Level.HARD, 1, "external");
+            conflict("combinations are compared as a whole (Ctrl + K against Meteor's Ctrl + K)", "key.jump", KeyConflicts.Level.HARD, 1, "world");
             t.bind("key.jump", "key.keyboard.k");
-            conflict("... K alone does not clash with Ctrl + K", "key.jump", KeyConflicts.Level.NONE, 0, null);
+            // Only that pair is looked at: other installed mods may have keys of their own on K.
+            t.check("conflicts: ... K alone does not clash with Ctrl + K",
+                    KeyConflicts.conflictsOf(SelfTestRunner.binding("key.jump"), client().options).stream()
+                            .noneMatch(conflict -> conflict.external() != null && conflict.external().name().equals("Free Look")));
             t.bind("key.jump", "key.keyboard.keypad.subtract");
-            conflict("a malilib hotkey that only works in screens is a possible conflict with a play key", "key.jump", KeyConflicts.Level.SOFT, 1, "external_partial");
+            conflict("an Item Scroller hotkey (inventory screens only) and a key that only acts in the world never meet", "key.jump", KeyConflicts.Level.NONE, 0, null);
+            t.bind("key.jump", "key.keyboard.space");
+            t.bind("key.hotbar.2", "key.keyboard.keypad.subtract");
+            conflict("... but a hotbar key, which also acts in inventory screens, does clash with it", "key.hotbar.2", KeyConflicts.Level.HARD, 1, "containers");
+            t.bind(DEMO_SCREEN_BINDING, "key.keyboard.keypad.subtract");
+            conflict("... and so does a mod key of inventory screens", DEMO_SCREEN_BINDING, KeyConflicts.Level.HARD, 2, "containers");
+            t.bind(DEMO_SCREEN_BINDING, "key.keyboard.unknown");
+            t.bind("key.hotbar.2", "key.keyboard.2");
             t.bind("key.jump", "key.keyboard.r");
             conflict("a chord of two ordinary keys (M + R) is not compared with single keys", "key.jump", KeyConflicts.Level.NONE, 0, null);
         } finally {
@@ -936,14 +1064,14 @@ final class LogicChecks {
         }
     }
 
-    private void when(List<ExternalBinding> all, String group, String name, ExternalBinding.When expected) {
-        ExternalBinding.When actual = all.stream().filter(binding -> binding.group().getString().equals(group) && binding.name().equals(name))
-                .map(ExternalBinding::when).findFirst().orElse(null);
-        t.check("external: " + group + " / " + name + " is in use " + expected + (actual == expected ? "" : " but was " + actual), actual == expected);
+    private void context(List<ExternalBinding> all, String group, String name, KeyContext expected) {
+        KeyContext actual = all.stream().filter(binding -> binding.group().getString().equals(group) && binding.name().equals(name))
+                .map(ExternalBinding::context).findFirst().orElse(null);
+        t.check("external: " + group + " / " + name + " acts " + expected + (expected.equals(actual) ? "" : " but was " + actual), expected.equals(actual));
     }
 
-    private static ExternalBinding.When malilibWhen(String modId, String name, boolean bareModifier, boolean bareMouseClick) {
-        return ExternalKeys.malilibWhen(modId, name, bareModifier, bareMouseClick);
+    private static KeyContext malilibContext(String modId, String name, String context, String keys) {
+        return ExternalKeys.malilibContext(modId, name, context, keys);
     }
 
     private void external(List<ExternalBinding> all, String group, String name, String keyText, boolean active) {

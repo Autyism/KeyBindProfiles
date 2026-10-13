@@ -2,6 +2,8 @@ package io.github.autyism.keybindprofilesplus.external;
 
 import com.mojang.blaze3d.platform.InputConstants;
 import io.github.autyism.keybindprofilesplus.keys.KeyCombo;
+import io.github.autyism.keybindprofilesplus.keys.KeyContext;
+import io.github.autyism.keybindprofilesplus.keys.KeyTrigger;
 import net.fabricmc.loader.api.FabricLoader;
 import net.fabricmc.loader.api.ModContainer;
 import net.fabricmc.loader.api.metadata.ModDependency;
@@ -243,9 +245,36 @@ public final class ExternalKeys {
 
     // ------------------------------------------------------------------ self-test hooks
 
-    /** For the self-test: what the malilib reader makes of a hotkey whose file says nothing about its context. */
-    public static ExternalBinding.When malilibWhen(String modId, String name, boolean bareModifier, boolean bareMouseClick) {
-        return MalilibKeys.when(modId, name, null, bareModifier, bareMouseClick);
+    /**
+     * For the self-test: where a MaLiLib hotkey on these keys ("LEFT_CONTROL,C") acts by the rules for its mod.
+     *
+     * @param context its KeybindSettings context ("INGAME", "GUI", "ANY"), or null as when its file says nothing
+     */
+    public static KeyContext malilibContext(String modId, String name, String context, String keys) {
+        MalilibKeys.Trigger trigger = MalilibKeys.parse(keys);
+        return KnownHotkeys.malilib(modId, name, context, trigger == null ? null : trigger.toTrigger(false, true));
+    }
+
+    /** For the self-test: where an Inventory Profiles Next hotkey on these keys acts by the rules for that mod. */
+    public static KeyContext inventoryProfilesContext(String name, String context, String keys) {
+        MalilibKeys.Trigger trigger = MalilibKeys.parse(keys);
+        return KnownHotkeys.inventoryProfiles(name, context, trigger == null ? null : trigger.toTrigger(false, true));
+    }
+
+    /** For the self-test: a hotkey's trigger as MaLiLib stores it ("LEFT_CONTROL,C"), with its settings on further keys held. */
+    public static KeyTrigger malilibTrigger(String keys, boolean allowExtraKeys, boolean orderSensitive) {
+        MalilibKeys.Trigger trigger = MalilibKeys.parse(keys);
+        return trigger == null ? null : trigger.toTrigger(allowExtraKeys, orderSensitive);
+    }
+
+    /** For the self-test: what a Meteor bind reacts to. */
+    public static KeyTrigger meteorTrigger(InputConstants.Key key, int modifiers) {
+        return MeteorKeys.trigger(key, modifiers);
+    }
+
+    /** For the self-test: Item Scroller's "sort inventory" switch, or null when Item Scroller is not running. */
+    public static Boolean itemScrollerSorting() {
+        return KnownHotkeys.itemScrollerSorting();
     }
 
     /** For the self-test: use this environment instead of the real one (null restores it). */

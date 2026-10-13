@@ -3,6 +3,8 @@ package io.github.autyism.keybindprofilesplus.external;
 import com.mojang.blaze3d.platform.InputConstants;
 import io.github.autyism.keybindprofilesplus.KeyBindProfilesPlus;
 import io.github.autyism.keybindprofilesplus.keys.KeyCombo;
+import io.github.autyism.keybindprofilesplus.keys.KeyContext;
+import io.github.autyism.keybindprofilesplus.keys.KeyTrigger;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.NbtIo;
@@ -90,7 +92,7 @@ final class MeteorKeys {
             if (moduleName.isEmpty()) {
                 continue;
             }
-            module.getCompound("keybind").ifPresent(keybind -> add(moduleName, keybind, ExternalBinding.When.IN_GAME, group, active, relativePath, out));
+            module.getCompound("keybind").ifPresent(keybind -> add(moduleName, keybind, KeyContext.world(), group, active, relativePath, out));
             scanSettings(module.get("settings"), moduleName, group, active, relativePath, out);
         }
     }
@@ -101,7 +103,7 @@ final class MeteorKeys {
             if (compound.get("value") instanceof CompoundTag value && isKeybind(value)) {
                 String settingName = title(compound.getStringOr("name", ""));
                 // A key inside a module's settings only does something within that module's own feature.
-                add(settingName.isEmpty() ? moduleName : moduleName + " / " + settingName, value, ExternalBinding.When.SITUATIONAL, group, active, file, out);
+                add(settingName.isEmpty() ? moduleName : moduleName + " / " + settingName, value, KeyContext.situational("module_setting"), group, active, file, out);
                 return;
             }
             for (String key : compound.keySet()) {
@@ -118,7 +120,7 @@ final class MeteorKeys {
         return (tag.contains("isKey") && tag.contains("value")) || (tag.contains("key") && tag.contains("modifiers"));
     }
 
-    private static void add(String name, CompoundTag keybind, ExternalBinding.When when, Component group, boolean active, String file, List<ExternalBinding> out) {
+    private static void add(String name, CompoundTag keybind, KeyContext context, Component group, boolean active, String file, List<ExternalBinding> out) {
         InputConstants.Key key;
         int modifiers = 0;
         boolean needsSuper = false;
@@ -168,10 +170,18 @@ final class MeteorKeys {
         Component keyText = KeyCombo.withModifiers(modifiers, key.getDisplayName());
         if (needsSuper) {
             // The Windows / Command key is not something a game key binding can ask for: shown, but not compared.
-            out.add(ExternalBinding.readOnly("meteor", group, name, 0, null, Component.literal("Super + ").append(keyText), when, active, file));
+            out.add(ExternalBinding.readOnly("meteor", group, name, 0, null, null, Component.literal("Super + ").append(keyText), context, active, file));
             return;
         }
-        out.add(ExternalBinding.readOnly("meteor", group, name, modifiers, key, keyText, when, active, file));
+        out.add(ExternalBinding.readOnly("meteor", group, name, modifiers, key, trigger(key, modifiers), keyText, context, active, file));
+    }
+
+    /**
+     * What a Meteor bind reacts to. Meteor compares a bind with modifiers to exactly the modifiers held, and a
+     * bind without them to the key alone, whatever modifiers are held (Keybind.matches).
+     */
+    static KeyTrigger trigger(InputConstants.Key key, int modifiers) {
+        return KeyTrigger.single(key, modifiers, modifiers == 0);
     }
 
     /** "auto-totem" -> "Auto Totem". */

@@ -39,6 +39,7 @@ import java.util.Map;
 import static io.github.autyism.keybindprofilesplus.selftest.LogicChecks.DEMO_DEBUG_BINDING;
 import static io.github.autyism.keybindprofilesplus.selftest.LogicChecks.DEMO_MOD_BINDING;
 import static io.github.autyism.keybindprofilesplus.selftest.LogicChecks.DEMO_SCREEN_BINDING;
+import static io.github.autyism.keybindprofilesplus.selftest.LogicChecks.DEMO_TWIN_BINDING;
 import static io.github.autyism.keybindprofilesplus.selftest.LogicChecks.DEMO_UNKNOWN_BINDING;
 import static io.github.autyism.keybindprofilesplus.selftest.LogicChecks.PROFILE_A;
 import static io.github.autyism.keybindprofilesplus.selftest.LogicChecks.PROFILE_C;
@@ -106,15 +107,18 @@ public final class SelfTest extends SelfTestRunner {
     }
 
     /**
-     * Four fake key bindings so the dev client (which has hardly any other mods) can exercise the
+     * Five fake key bindings so the dev client (which has hardly any other mods) can exercise the
      * rules for mod keys: one that looks like it belongs to Fabric API, one whose name says it is
-     * for an inventory screen, one from a mod that cannot be identified, and one a mod put into
-     * the Debug category (an F3 combination of its own). They only exist while the self-test is running. Their creator is forgotten on purpose so the naming rules are used.
+     * for an inventory screen, a second one of that pretend mod on the first one's default key, one
+     * from a mod that cannot be identified, and one a mod put into the Debug category (an F3
+     * combination of its own). They only exist while the self-test is running. Their creator is
+     * forgotten on purpose so the naming rules are used.
      */
     private static void registerDemoBindings() {
         List<KeyMapping> demo = List.of(
                 new KeyMapping(DEMO_MOD_BINDING, InputConstants.Type.KEYSYM, InputConstants.KEY_NUMPAD5, KeyMapping.Category.MISC),
                 new KeyMapping(DEMO_SCREEN_BINDING, InputConstants.Type.KEYSYM, InputConstants.UNKNOWN.getValue(), KeyMapping.Category.MISC),
+                new KeyMapping(DEMO_TWIN_BINDING, InputConstants.Type.KEYSYM, InputConstants.KEY_NUMPAD5, KeyMapping.Category.MISC),
                 new KeyMapping(DEMO_UNKNOWN_BINDING, InputConstants.Type.KEYSYM, InputConstants.UNKNOWN.getValue(),
                         //? if >=1.21.9 {
                         KeyMapping.Category.register(Identifier.fromNamespaceAndPath("selftestmod", "demo")))
@@ -506,7 +510,7 @@ public final class SelfTest extends SelfTestRunner {
         KeyCombos.setHeldModifiersForTesting(null);
 
         ModSettings settings = KeyBindProfilesPlus.settings();
-        for (String demo : List.of(DEMO_MOD_BINDING, DEMO_SCREEN_BINDING, DEMO_UNKNOWN_BINDING)) {
+        for (String demo : List.of(DEMO_MOD_BINDING, DEMO_SCREEN_BINDING, DEMO_TWIN_BINDING, DEMO_UNKNOWN_BINDING)) {
             settings.setScopeOverride(demo, null);
         }
         if (!savedBindings.isEmpty()) {

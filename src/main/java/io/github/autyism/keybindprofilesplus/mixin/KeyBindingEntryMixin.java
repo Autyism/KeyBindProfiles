@@ -25,10 +25,11 @@ import net.minecraft.network.chat.MutableComponent;
 
 /**
  * Replaces the vanilla "this key is also used for..." marker in the Key Binds list with the
- * layered conflict check: red for a real conflict, yellow for a possible one, nothing for keys
- * that merely share a key without ever being active together (F3+G and G). Vanilla recomputes the
- * marker after every key change, so the result updates the moment a key is rebound. There is no
- * Fabric event for this list, hence the mixin; it only changes what is displayed.
+ * context-aware conflict check: red for a real conflict, yellow for a possible one, nothing for keys
+ * that merely share a key without ever acting at the same time (F3+G and G, a key used in the world
+ * and one that only works in inventory screens). Vanilla recomputes the marker after every key change,
+ * so the result updates the moment a key is rebound (the verdicts themselves are cached per key layout).
+ * There is no Fabric event for this list, hence the mixin; it only changes what is displayed.
  */
 @Mixin(KeyBindsList.KeyEntry.class)
 public abstract class KeyBindingEntryMixin {
@@ -57,13 +58,12 @@ public abstract class KeyBindingEntryMixin {
         if (hasCollision) {
             keybindprofilesplus$markerColor = level.color();
             changeButton.setMessage(Component.literal("[ ").append(keyName.copy().withStyle(ChatFormatting.WHITE)).append(" ]").withStyle(level.formatting()));
-            changeButton.setTooltip(Tooltip.create(lines(KeyConflicts.describe(conflicts))));
         } else {
             changeButton.setMessage(keyName);
-            // Not marked, but worth a word: something of another mod is on this key on purpose.
-            List<Component> shared = KeyConflicts.describeShared(KeyConflicts.sharedWithoutConflict(key, client.options));
-            changeButton.setTooltip(shared.isEmpty() ? null : Tooltip.create(lines(shared)));
         }
+        // Where the key acts, what it conflicts with, and what shares it without ever acting at the same time.
+        List<Component> tooltip = KeyConflicts.keyTooltip(key, client.options);
+        changeButton.setTooltip(tooltip.isEmpty() ? null : Tooltip.create(lines(tooltip)));
 
         // Same "waiting for a key" decoration as vanilla, which the lines above just overwrote.
         if (client.screen instanceof KeyBindsScreen screen && screen.selectedKey == key) {

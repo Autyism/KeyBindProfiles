@@ -46,6 +46,8 @@ public final class KeyCombos {
     private static int batchDepth;
     private static boolean dirty;
     private static IntSupplier heldModifiers = KeyCombos::readHeldModifiers;
+    /** Goes up whenever any binding's modifiers may have changed, so results worked out from them can tell they are old. */
+    private static int version;
 
     private KeyCombos() {
     }
@@ -58,6 +60,11 @@ public final class KeyCombos {
 
     public static boolean hasAny() {
         return !MODIFIERS.isEmpty();
+    }
+
+    /** Changes whenever any binding's modifiers change (see {@link #version}). */
+    public static int version() {
+        return version;
     }
 
     /** The binding's trigger in text form: "ctrl+key.keyboard.x", or just the key when it has no modifiers. */
@@ -96,6 +103,7 @@ public final class KeyCombos {
         }
         Integer previous = mask == 0 ? MODIFIERS.remove(keyBinding.getName()) : MODIFIERS.put(keyBinding.getName(), mask);
         if ((previous == null ? 0 : previous) != mask) {
+            version++;
             markDirty();
         }
     }
@@ -114,6 +122,7 @@ public final class KeyCombos {
     /** Called whenever the game changes a binding's key: its old modifiers no longer apply. */
     public static void onBoundKeyChanged(KeyMapping keyBinding) {
         if (live && !binding && MODIFIERS.remove(keyBinding.getName()) != null) {
+            version++;
             markDirty();
         }
     }
@@ -185,6 +194,7 @@ public final class KeyCombos {
 
     /** Reads combos.json. Entries whose key no longer matches the binding's key are dropped. */
     public static void load(File directory) {
+        version++;
         MODIFIERS.clear();
         file = directory == null ? null : new File(directory, FILE_NAME);
         if (file != null && file.isFile()) {

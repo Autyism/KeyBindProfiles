@@ -7,6 +7,7 @@ import com.google.gson.JsonParser;
 import com.mojang.blaze3d.platform.InputConstants;
 import io.github.autyism.keybindprofilesplus.KeyBindProfilesPlus;
 import io.github.autyism.keybindprofilesplus.keys.KeyCombo;
+import io.github.autyism.keybindprofilesplus.keys.KeyTrigger;
 //? if <26.3
 import org.lwjgl.glfw.GLFW;
 
@@ -22,7 +23,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 
@@ -32,17 +32,11 @@ import net.minecraft.network.chat.MutableComponent;
  *
  * <p>malilib writes a hotkey as an object with a "keys" text such as {@code "LEFT_CONTROL,X"}:
  * the GLFW key names without the "GLFW_KEY_" prefix, mouse buttons as "BUTTON_n". Its optional
- * "settings.context" says whether it works in game, in screens ("GUI") or both; see
- * {@link #when} for how the rest is worked out.
+ * "settings" (only written once the player changed them) say whether it works in game, in screens
+ * ("GUI") or both, and whether further keys may be held; {@link KnownHotkeys} works out the rest.
  */
 final class MalilibKeys {
     static final String LIBRARY_ID = "malilib";
-    /** Mods whose hotkeys work inside inventory screens unless their file says otherwise. */
-    private static final Set<String> SCREEN_ONLY_MODS = Set.of("itemscroller");
-    /** Hotkeys known to act only in a situation of the mod's own (tool item held, looking at a schematic block...). */
-    private static final Map<String, Set<String>> SITUATIONAL_HOTKEYS = Map.of(
-            "litematica", Set.of("toolPlaceCorner1", "toolPlaceCorner2", "toolSelectElements", "toolSelectModifierBlock1",
-                    "toolSelectModifierBlock2", "pickBlockFirst", "pickBlockLast", "easyPlaceActivation", "renderOverlayThroughBlocks"));
     //? if <26.3
     private static final Map<String, Integer> KEY_CODES = glfwKeyCodes();
 
@@ -87,24 +81,38 @@ final class MalilibKeys {
         if (trigger == null) {
             return;
         }
+        // malilib only writes a hotkey's settings once the player changed them; otherwise its defaults apply.
         String context = null;
-        if (hotkey.get("settings") instanceof JsonObject settings && settings.get("context") != null && settings.get("context").isJsonPrimitive()) {
-            context = settings.get("context").getAsString();
+        boolean allowExtraKeys = false;
+        boolean orderSensitive = true;
+        if (hotkey.get("settings") instanceof JsonObject settings) {
+            context = string(settings, "context");
+            allowExtraKeys = "true".equalsIgnoreCase(string(settings, "allow_extra_keys"));
+            orderSensitive = !"false".equalsIgnoreCase(string(settings, "order_sensitive"));
         }
-        ExternalBinding.When when = when(modId, name, context, trigger.bareModifier(), trigger.bareMouseClick());
-        out.add(ExternalBinding.readOnly(modId, group, readableName(name), trigger.modifiers(), trigger.key(), trigger.text(), when, true, file));
+        KeyTrigger keys = trigger.toTrigger(allowExtraKeys && !KnownHotkeys.onlyHeld(modId, name), orderSensitive);
+        out.add(ExternalBinding.readOnly(modId, group, readableName(name), trigger.modifiers(), trigger.key(), keys, trigger.text(),
+                KnownHotkeys.malilib(modId, name, context, keys), true, file));
+    }
+
+    private static String string(JsonObject object, String member) {
+        JsonElement element = object.get(member);
+        return element != null && element.isJsonPrimitive() ? element.getAsString() : null;
     }
 
     /**
      * What a malilib key text ("LEFT_CONTROL,X") means.
      *
-     * @param key            the main key when the hotkey is one key plus (optionally) Ctrl / Shift / Alt, else null
-     * @param modifiers      Ctrl / Shift / Alt bits held with {@code key} (0 when {@code key} is null)
-     * @param text           the whole trigger as shown to the player
-     * @param bareModifier   it is a single Ctrl / Shift / Alt key
-     * @param bareMouseClick it is the bare left or right mouse button
+     * @param key       the main key when the hotkey is one key plus (optionally) Ctrl / Shift / Alt, else null
+     * @param modifiers Ctrl / Shift / Alt bits held with {@code key} (0 when {@code key} is null)
+     * @param text      the whole trigger as shown to the player
+     * @param keys      every key in the order stored, or null when one of them is no key the game knows (scroll wheel...)
      */
-    record Trigger(InputConstants.Key key, int modifiers, Component text, boolean bareModifier, boolean bareMouseClick) {
+    record Trigger(InputConstants.Key key, int modifiers, Component text, List<InputConstants.Key> keys) {
+        /** The trigger with the hotkey's own rules on further keys held; null when it cannot be compared. */
+        KeyTrigger toTrigger(boolean allowExtraKeys, boolean orderSensitive) {
+            return keys == null ? null : KeyTrigger.chord(keys, allowExtraKeys, orderSensitive);
+        }
     }
 
     /** Reads a malilib key text; null when it holds no key at all. */
@@ -120,6 +128,7 @@ final class MalilibKeys {
         }
 
         int modifiers = 0;
+        List<InputConstants.Key> keys = new ArrayList<>();
         List<InputConstants.Key> ordinary = new ArrayList<>();
         List<InputConstants.Key> modifierKeys = new ArrayList<>();
         MutableComponent chord = Component.empty();
@@ -134,6 +143,7 @@ final class MalilibKeys {
                 chord.append(names.get(i));
                 continue;
             }
+            keys.add(key);
             chord.append(key.getDisplayName());
             int modifier = key.getType() == InputConstants.Type.KEYSYM ? KeyCombo.modifierOfKeyCode(key.getValue()) : 0;
             if (modifier != 0) {
@@ -144,7 +154,7 @@ final class MalilibKeys {
             }
         }
 
-        // Comparable with a game key binding only when it is one key plus (optionally) Ctrl / Shift / Alt.
+        // Shown like a game key binding when it is one key plus (optionally) Ctrl / Shift / Alt.
         InputConstants.Key mainKey = null;
         Component keyText = chord;
         if (allKnown && ordinary.size() == 1) {
@@ -156,43 +166,7 @@ final class MalilibKeys {
         } else {
             modifiers = 0;
         }
-
-        boolean bareModifier = allKnown && ordinary.isEmpty() && modifierKeys.size() == 1;
-        //? if >=26.3 {
-        /*boolean bareMouseClick = allKnown && modifiers == 0 && ordinary.size() == 1 && ordinary.get(0).getType() == InputConstants.Type.MOUSE
-                && (ordinary.get(0).getValue() == InputConstants.MOUSE_BUTTON_LEFT || ordinary.get(0).getValue() == InputConstants.MOUSE_BUTTON_RIGHT);
-        *///?} else {
-        boolean bareMouseClick = allKnown && modifiers == 0 && ordinary.size() == 1 && ordinary.get(0).getType() == InputConstants.Type.MOUSE
-                && ordinary.get(0).getValue() <= 1;
-        //?}
-        return new Trigger(mainKey, modifiers, keyText, bareModifier, bareMouseClick);
-    }
-
-    /**
-     * When the hotkey does something. malilib only writes a hotkey's settings to the file once the
-     * player has changed them, so most of this comes from what is known about these mods:
-     * <ul>
-     *   <li>Item Scroller's hotkeys work inside inventory screens;</li>
-     *   <li>a hotkey that is one bare Ctrl / Shift / Alt key, or is called "...Modifier", is held
-     *       together with something else (scrolling, clicking) and does nothing on its own;</li>
-     *   <li>a hotkey on the bare left or right mouse button cannot be meant to replace attacking and
-     *       using: it only acts in a situation of the mod's own, like Litematica's tool item being held;</li>
-     *   <li>Litematica's tool and schematic pick-block hotkeys, which share their keys with the game
-     *       on purpose.</li>
-     * </ul>
-     */
-    static ExternalBinding.When when(String modId, String name, String context, boolean bareModifier, boolean bareMouseClick) {
-        if ("GUI".equalsIgnoreCase(context)) {
-            return ExternalBinding.When.SCREEN_ONLY;
-        }
-        if (context == null && SCREEN_ONLY_MODS.contains(modId) && !name.startsWith("openConfigGui") && !name.startsWith("openGui")) {
-            return ExternalBinding.When.SCREEN_ONLY;
-        }
-        if (bareModifier || bareMouseClick || name.contains("Modifier")
-                || SITUATIONAL_HOTKEYS.getOrDefault(modId, Set.of()).contains(name)) {
-            return ExternalBinding.When.SITUATIONAL;
-        }
-        return "ANY".equalsIgnoreCase(context) ? ExternalBinding.When.ANYWHERE : ExternalBinding.When.IN_GAME;
+        return new Trigger(mainKey, modifiers, keyText, allKnown ? List.copyOf(keys) : null);
     }
 
     /** "LEFT_CONTROL" / "BUTTON_3" -> the game's key object; null for names that are not keys (scroll wheel...). */

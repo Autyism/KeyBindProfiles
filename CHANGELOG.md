@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.3.0 — 2026-10-14
+
+Conflict marks that know where each key acts. For Minecraft 1.21.11; the other versions follow later.
+
+- Every key now knows where it does something: in the world, in inventory screens, in one particular screen (villager trading, Conflux Map's map) or in one game mode. Two keys are only marked when the same press reaches both in a place where both act.
+- No more false marks for Inventory Profiles Next, Item Scroller and Conflux Map: their screen keys no longer clash with keys you use in the world. Real clashes stay red, for example a hotbar key and IPN's sort key on the same key (both act in inventories).
+- Never marked: keys held together with something else, Item Scroller's sort while its sorting is off, the MiniHUD / Tweakeroo inventory preview keys while the preview is off, QoL Bundle's diagnostics layer keys.
+- MaLiLib's and IPN's own key settings (extra keys allowed, key order, multi-key combos) count, and a Meteor bind without modifiers is also checked against Ctrl / Shift / Alt + that key.
+- Tooltips say where a key acts and why two keys clash or not. Clicking a mod key's name now cycles: in the world, inventory screens, any screen, everywhere, special situation.
+
+### 中文
+
+冲突标记现在知道每个键在哪里起作用。适用于 Minecraft 1.21.11，其他版本之后跟上。
+
+- 每个键都知道自己在哪里起作用：游戏中、物品栏界面里、某个特定界面里（村民交易、Conflux Map 的地图）或某个游戏模式下。只有同一下按键在两个键都起作用的地方同时触发它们，才会标成冲突。
+- Inventory Profiles Next、Item Scroller 和 Conflux Map 不再被误报：它们只在界面里起作用的键，不会再和游戏中用的键算冲突。真正的冲突照样标红，比如快捷栏键和 IPN 的整理键在同一个键上（两个都在物品栏里起作用）。
+- 永远不标的：和别的操作一起按住的键、关掉排序时 Item Scroller 的整理键、关掉预览时 MiniHUD / Tweakeroo 的物品栏预览键、QoL Bundle 的诊断台切层键。
+- MaLiLib 和 IPN 自己的按键设置（允许多按其他键、按键顺序、多键组合）都算进去；没有修饰键的 Meteor 绑定，也会和 Ctrl / Shift / Alt + 同一个键比较。
+- 提示框会说明一个键在哪里起作用，以及两个键为什么算或不算冲突。点模组按键的名称现在依次切换：游戏中、物品栏界面、任何界面、任何时候、特定情况。
+
 ## 0.2.1 — 2026-10-08
 
 - Fixed (1.21.5–1.21.8 only): clicks in lists no longer miss right after scrolling, for example in small windows.

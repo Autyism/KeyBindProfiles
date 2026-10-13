@@ -3,6 +3,7 @@ package io.github.autyism.keybindprofilesplus.external;
 import com.mojang.blaze3d.platform.InputConstants;
 import io.github.autyism.keybindprofilesplus.KeyBindProfilesPlus;
 import io.github.autyism.keybindprofilesplus.keys.KeyCombo;
+import io.github.autyism.keybindprofilesplus.keys.KeyTrigger;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.resources.language.I18n;
 import net.minecraft.network.chat.Component;
@@ -52,6 +53,8 @@ final class IpnLive implements LiveSource {
     private Method defaultKeyCodes;
     private Method keybindSettings;
     private Method settingsContext;
+    private Method settingsAllowExtraKeys;
+    private Method settingsOrderSensitive;
     private Object companion;
     private Method storageString;
     private Method parseStorage;
@@ -108,17 +111,17 @@ final class IpnLive implements LiveSource {
         String value = String.valueOf(storageString.invoke(companion, keyCodes.invoke(keybind)));
         String defaultValue = String.valueOf(storageString.invoke(companion, defaultKeyCodes.invoke(keybind)));
         String context = null;
+        boolean allowExtraKeys = false;
+        boolean orderSensitive = true;
         Object settings = keybindSettings.invoke(keybind);
         if (settings != null) {
             Object contextValue = settingsContext.invoke(settings);
             context = contextValue instanceof Enum<?> e ? e.name() : null;
+            allowExtraKeys = flag(settingsAllowExtraKeys, settings, false);
+            orderSensitive = flag(settingsOrderSensitive, settings, true);
         }
         MalilibKeys.Trigger trigger = MalilibKeys.parse(value);
-        ExternalBinding.When when = "GUI".equals(context) ? ExternalBinding.When.SCREEN_ONLY
-                : "ANY".equals(context) ? ExternalBinding.When.ANYWHERE : ExternalBinding.When.IN_GAME;
-        if (trigger != null && trigger.bareModifier()) {
-            when = ExternalBinding.When.SITUATIONAL;
-        }
+        KeyTrigger keys = trigger == null ? null : trigger.toTrigger(allowExtraKeys && !KnownHotkeys.onlyHeld(MOD_ID, key), orderSensitive);
         String name = MalilibKeys.readableName(key);
         String translationKey = optionsPrefix + "name." + key;
         //? if >=26.2 {
@@ -127,7 +130,18 @@ final class IpnLive implements LiveSource {
         Component title = I18n.exists(translationKey) ? Component.translatable(translationKey) : Component.literal(name);
         Component keyText = trigger == null ? Component.translatable("key.keyboard.unknown") : trigger.text();
         out.add(new ExternalBinding(MOD_ID, group, name, title, trigger == null ? 0 : trigger.modifiers(), trigger == null ? null : trigger.key(),
-                keyText, when, true, FILE, id, value, defaultValue));
+                keys, keyText, KnownHotkeys.inventoryProfiles(key, context, keys), true, FILE, id, value, defaultValue));
+    }
+
+    private static boolean flag(Method getter, Object settings, boolean fallback) {
+        if (getter == null) {
+            return fallback;
+        }
+        try {
+            return getter.invoke(settings) instanceof Boolean value ? value : fallback;
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            return fallback;
+        }
     }
 
     @Override
@@ -230,6 +244,8 @@ final class IpnLive implements LiveSource {
             defaultKeyCodes = keybindClass.getMethod("getDefaultKeyCodes");
             keybindSettings = keybindClass.getMethod("getSettings");
             settingsContext = settingsDataClass.getMethod("getContext");
+            settingsAllowExtraKeys = optionalMethod(settingsDataClass, "getAllowExtraKeys");
+            settingsOrderSensitive = optionalMethod(settingsDataClass, "getOrderSensitive");
             companion = keybindClass.getField("Companion").get(null);
             storageString = companionClass.getMethod("getStorageString", List.class);
             parseStorage = companionClass.getMethod("getKeyCodes", String.class);
@@ -244,6 +260,14 @@ final class IpnLive implements LiveSource {
             KeyBindProfilesPlus.LOGGER.warn("Inventory Profiles Next's hotkeys cannot be reached (unexpected version?); they are not listed: {}", e.toString());
         }
         return !broken;
+    }
+
+    private static Method optionalMethod(Class<?> owner, String name) {
+        try {
+            return owner.getMethod(name);
+        } catch (NoSuchMethodException e) {
+            return null;
+        }
     }
 
     private void fail(String what, Exception e) {

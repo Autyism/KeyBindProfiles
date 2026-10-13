@@ -13,6 +13,7 @@ import io.github.autyism.keybindprofilesplus.gui.SettingsScreen;
 import io.github.autyism.keybindprofilesplus.keys.KeyCombo;
 import io.github.autyism.keybindprofilesplus.keys.KeyCombos;
 import io.github.autyism.keybindprofilesplus.keys.KeyConflicts;
+import io.github.autyism.keybindprofilesplus.keys.KeyContext;
 import io.github.autyism.keybindprofilesplus.keys.KeySourceResolver;
 import io.github.autyism.keybindprofilesplus.options.GameOptionsBridge;
 import io.github.autyism.keybindprofilesplus.profile.ProfileService;
@@ -27,6 +28,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.options.controls.KeyBindsScreen;
 
 import static io.github.autyism.keybindprofilesplus.selftest.LogicChecks.DEMO_MOD_BINDING;
+import static io.github.autyism.keybindprofilesplus.selftest.LogicChecks.DEMO_SCREEN_BINDING;
 import static io.github.autyism.keybindprofilesplus.selftest.LogicChecks.PROFILE_A;
 import static io.github.autyism.keybindprofilesplus.selftest.LogicChecks.PROFILE_A_KEY;
 import static io.github.autyism.keybindprofilesplus.selftest.LogicChecks.PROFILE_C;
@@ -53,6 +55,8 @@ final class ScreenChecks {
     private final ProfileService service;
     private String shareCode;
     private int ruleBaseline;
+    /** Jump's key before the tooltip screenshots borrow it. */
+    private String jumpBeforeTooltips;
 
     private ConfigChecks configChecks;
 
@@ -272,12 +276,12 @@ final class ScreenChecks {
         // Before 1.21.11 the debug keys were no key bindings: nothing to share a key with
         //? if >=1.21.11 {
         for (KeyMapping debug : client().options.keyMappings) {
-            if (KeyConflicts.scopeOf(debug, sources) != KeyConflicts.Scope.DEBUG_COMBO || debug.isUnbound()) {
+            if (KeyConflicts.contextOf(debug, sources).kind() != KeyContext.Kind.DEBUG_COMBO || debug.isUnbound()) {
                 continue;
             }
             boolean usedElsewhere = false;
             for (KeyMapping other : client().options.keyMappings) {
-                if (other != debug && other.same(debug) && KeyConflicts.scopeOf(other, sources) != KeyConflicts.Scope.DEBUG_COMBO) {
+                if (other != debug && other.same(debug) && KeyConflicts.contextOf(other, sources).kind() != KeyContext.Kind.DEBUG_COMBO) {
                     usedElsewhere = true;
                     break;
                 }
@@ -461,27 +465,64 @@ final class ScreenChecks {
                 t.check("overview: a search without hits shows nothing", overview.visibleBindingCount() == 0);
                 overview.setQuery("");
             });
-            t.step("overview: change when a mod key is active", 3, () -> {
+            t.step("overview: change where a mod key acts", 3, () -> {
                 KeyOverviewScreen overview = t.screen(KeyOverviewScreen.class);
-                t.check("overview: clicking a mod key row cycles automatic -> play -> screens -> special situation -> automatic",
-                        KeyConflicts.OVERRIDE_GENERAL.equals(overview.cycleScope(DEMO_MOD_BINDING))
-                                && KeyConflicts.OVERRIDE_SCREEN.equals(overview.cycleScope(DEMO_MOD_BINDING))
+                t.check("overview: clicking a mod key row cycles automatic -> world -> inventory screens -> any screen -> everywhere -> special situation -> automatic",
+                        KeyConflicts.OVERRIDE_WORLD.equals(overview.cycleScope(DEMO_MOD_BINDING))
+                                && KeyConflicts.OVERRIDE_CONTAINERS.equals(overview.cycleScope(DEMO_MOD_BINDING))
+                                && KeyConflicts.OVERRIDE_SCREENS.equals(overview.cycleScope(DEMO_MOD_BINDING))
+                                && KeyConflicts.OVERRIDE_ANYWHERE.equals(overview.cycleScope(DEMO_MOD_BINDING))
                                 && KeyConflicts.OVERRIDE_SITUATIONAL.equals(overview.cycleScope(DEMO_MOD_BINDING))
                                 && overview.cycleScope(DEMO_MOD_BINDING) == null);
                 t.check("overview: vanilla keys cannot be changed that way", overview.cycleScope("key.jump") == null
                         && KeyBindProfilesPlus.settings().scopeOverride("key.jump") == null);
                 t.check("overview: F3 combinations cannot be changed that way either", overview.cycleScope("key.debug.showHitboxes") == null);
             });
-            t.step("overview: change when another mod's hotkey is in use", 3, () -> {
+            t.step("overview: change where another mod's hotkey acts", 3, () -> {
                 KeyOverviewScreen overview = t.screen(KeyOverviewScreen.class);
                 String attackKey = SelfTestRunner.keyLabel("key.attack");
-                t.check("overview: a click on Litematica's tool key row makes it count as used during play",
-                        KeyConflicts.OVERRIDE_GENERAL.equals(overview.cycleExternalScope("Litematica", "Tool Place Corner 1")));
+                t.check("overview: a click on Litematica's tool key row makes it count as acting in the world",
+                        KeyConflicts.OVERRIDE_WORLD.equals(overview.cycleExternalScope("Litematica", "Tool Place Corner 1")));
                 t.check("overview: ... and attack is then marked as clashing with it", t.hasWidget("[ " + attackKey + " ]"));
+                t.check("overview: in inventory screens only, it no longer meets attack (which only acts in the world)",
+                        KeyConflicts.OVERRIDE_CONTAINERS.equals(overview.cycleExternalScope("Litematica", "Tool Place Corner 1")) && !t.hasWidget("[ " + attackKey + " ]"));
                 overview.cycleExternalScope("Litematica", "Tool Place Corner 1");
+                t.check("overview: everywhere, it meets attack again",
+                        KeyConflicts.OVERRIDE_ANYWHERE.equals(overview.cycleExternalScope("Litematica", "Tool Place Corner 1")) && t.hasWidget("[ " + attackKey + " ]"));
                 overview.cycleExternalScope("Litematica", "Tool Place Corner 1");
                 t.check("overview: clicking on round to automatic removes the mark again",
                         overview.cycleExternalScope("Litematica", "Tool Place Corner 1") == null && !t.hasWidget("[ " + attackKey + " ]"));
+            });
+            t.step("overview: tooltip of a key button that conflicts", 2, () -> {
+                KeyOverviewScreen overview = t.screen(KeyOverviewScreen.class);
+                overview.setQuery(SelfTestRunner.keyLabel("key.inventory"));
+                overview.showTooltipForTesting("key.inventory", true);
+            });
+            t.shot(tag + "_overview_tooltip_conflict");
+            t.step("overview: tooltip of a mod key's name", 2, () -> {
+                KeyOverviewScreen overview = t.screen(KeyOverviewScreen.class);
+                jumpBeforeTooltips = KeyCombos.valueOf(SelfTestRunner.binding("key.jump"));
+                t.bind(DEMO_SCREEN_BINDING, "key.keyboard.keypad.7");
+                t.bind("key.jump", "key.keyboard.keypad.7");
+                overview.refreshKeys();
+                overview.setQuery("selftest inventory sort");
+                overview.showTooltipForTesting(DEMO_SCREEN_BINDING, false);
+            });
+            t.shot(tag + "_overview_tooltip_context");
+            t.step("overview: tooltip of a key shared without a conflict", 2, () -> {
+                KeyOverviewScreen overview = t.screen(KeyOverviewScreen.class);
+                overview.showTooltipForTesting(DEMO_SCREEN_BINDING, true);
+                t.check("overview: a key that only acts in inventory screens and jump on the same key are not marked",
+                        !t.hasWidget("[ " + SelfTestRunner.keyLabel(DEMO_SCREEN_BINDING) + " ]"));
+            });
+            t.shot(tag + "_overview_tooltip_shared");
+            t.step("overview: tooltips off again", 2, () -> {
+                KeyOverviewScreen overview = t.screen(KeyOverviewScreen.class);
+                overview.showTooltipForTesting(null, false);
+                t.bind(DEMO_SCREEN_BINDING, "key.keyboard.unknown");
+                t.bind("key.jump", jumpBeforeTooltips);
+                overview.refreshKeys();
+                overview.setQuery("");
             });
             t.step("overview: manage profiles button", SCREEN_SETTLE_TICKS, () -> {
                 t.click(translated("keybindprofilesplus.open"));

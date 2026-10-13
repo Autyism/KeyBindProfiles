@@ -3,6 +3,7 @@ package io.github.autyism.keybindprofilesplus.external;
 import com.mojang.blaze3d.platform.InputConstants;
 import io.github.autyism.keybindprofilesplus.KeyBindProfilesPlus;
 import io.github.autyism.keybindprofilesplus.keys.KeyCombo;
+import io.github.autyism.keybindprofilesplus.keys.KeyTrigger;
 import net.fabricmc.loader.api.FabricLoader;
 import net.fabricmc.loader.api.ModContainer;
 import net.minecraft.network.chat.Component;
@@ -50,6 +51,8 @@ final class MalilibLive implements LiveSource {
     private Method keybindAdd;
     private Method keybindSettings;
     private Method settingsContext;
+    private Method settingsAllowExtraKeys;
+    private Method settingsOrderSensitive;
     private Method configManagerInstance;
     private Method configsChanged;
     private Method saveAllConfigs;
@@ -127,21 +130,34 @@ final class MalilibLive implements LiveSource {
         defaultValue = io.github.autyism.keybindprofilesplus.input.SdlKeys.malilibToStored(defaultValue);
         *///?}
         String context = null;
+        boolean allowExtraKeys = false;
+        boolean orderSensitive = true;
         Object settings = keybindSettings.invoke(keybind);
         if (settings != null) {
             Object contextValue = settingsContext.invoke(settings);
             context = contextValue instanceof Enum<?> e ? e.name() : null;
+            allowExtraKeys = flag(settingsAllowExtraKeys, settings, false);
+            orderSensitive = flag(settingsOrderSensitive, settings, true);
         }
 
         MalilibKeys.Trigger trigger = MalilibKeys.parse(value);
-        boolean bareModifier = trigger != null && trigger.bareModifier();
-        boolean bareMouseClick = trigger != null && trigger.bareMouseClick();
-        ExternalBinding.When when = MalilibKeys.when(modId, rawName, context, bareModifier, bareMouseClick);
+        KeyTrigger keys = trigger == null ? null : trigger.toTrigger(allowExtraKeys && !KnownHotkeys.onlyHeld(modId, rawName), orderSensitive);
         String name = MalilibKeys.readableName(rawName);
         Component title = Component.literal(prettyName(hotkey, name));
         Component keyText = trigger == null ? Component.translatable("key.keyboard.unknown") : trigger.text();
         out.add(new ExternalBinding(modId, group, name, title, trigger == null ? 0 : trigger.modifiers(), trigger == null ? null : trigger.key(),
-                keyText, when, true, "config/" + modId + ".json", id, value, defaultValue));
+                keys, keyText, KnownHotkeys.malilib(modId, rawName, context, keys), true, "config/" + modId + ".json", id, value, defaultValue));
+    }
+
+    private static boolean flag(Method getter, Object settings, boolean fallback) {
+        if (getter == null) {
+            return fallback;
+        }
+        try {
+            return getter.invoke(settings) instanceof Boolean value ? value : fallback;
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            return fallback;
+        }
     }
 
     private String prettyName(Object hotkey, String fallback) {
@@ -287,6 +303,8 @@ final class MalilibLive implements LiveSource {
             keybindAdd = keybind.getMethod("addKey", int.class);
             keybindSettings = keybind.getMethod("getSettings");
             settingsContext = settings.getMethod("getContext");
+            settingsAllowExtraKeys = optional(settings, "getAllowExtraKeys");
+            settingsOrderSensitive = optional(settings, "isOrderSensitive");
             configManagerInstance = configManager.getMethod("getInstance");
             configsChanged = configManagerApi.getMethod("onConfigsChanged", String.class);
             saveAllConfigs = configManager.getMethod("saveAllConfigs");

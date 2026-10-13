@@ -22,6 +22,7 @@ public final class ModSettings {
 
     private final Supplier<File> directory;
     private Data data;
+    private int overridesVersion;
 
     public ModSettings(Supplier<File> directory) {
         this.directory = directory;
@@ -79,10 +80,11 @@ public final class ModSettings {
     }
 
     /**
-     * The player's own say on when a mod's key binding (or, under an "external:" name, a hotkey
-     * another mod manages itself) is in use: "general" (during play), "screen" (only while a screen
-     * is open) or "situational" (only in a special situation, never a conflict). Null means the
-     * mod decides by its built-in rules.
+     * The player's own say on where a mod's key binding (or, under an "external:" name, a hotkey
+     * another mod manages itself) acts: "world", "containers" (inventory screens), "screens" (any
+     * screen), "anywhere" or "situational" (only in a special situation, never a conflict); 0.2
+     * stored "general" and "screen", which still count as "world" and "screens". Null means the mod
+     * decides by its built-in rules (see KeyContext).
      */
     public String scopeOverride(String bindingId) {
         Map<String, String> overrides = data().scopeOverrides;
@@ -98,12 +100,19 @@ public final class ModSettings {
         } else {
             data().scopeOverrides.put(bindingId, scope);
         }
+        overridesVersion++;
         save();
+    }
+
+    /** Changes whenever a choice made with {@link #setScopeOverride} may be different, so cached conflict verdicts know to start again. */
+    public int overridesVersion() {
+        return overridesVersion;
     }
 
     /** Forgets what was read so the next access reads the file again. */
     public void reload() {
         data = null;
+        overridesVersion++;
     }
 
     private Data data() {

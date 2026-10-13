@@ -7,6 +7,7 @@ import io.github.autyism.keybindprofilesplus.external.ExternalKeys;
 import io.github.autyism.keybindprofilesplus.keys.KeyCombo;
 import io.github.autyism.keybindprofilesplus.keys.KeyCombos;
 import io.github.autyism.keybindprofilesplus.keys.KeyConflicts;
+import io.github.autyism.keybindprofilesplus.keys.KeyContext;
 import io.github.autyism.keybindprofilesplus.keys.KeyLabels;
 import io.github.autyism.keybindprofilesplus.keys.KeySource;
 import io.github.autyism.keybindprofilesplus.keys.KeySourceResolver;
@@ -44,6 +45,7 @@ import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.util.FormattedCharSequence;
 
 /**
  * The mod's Key Binds screen, shown instead of the vanilla one (unless that is switched off in the
@@ -85,7 +87,16 @@ public class KeyOverviewScreen extends ResizingScreen {
     private KeyConflicts.Summary conflictSummary = new KeyConflicts.Summary(0, 0);
     private Row hoveredRow;
     private boolean hoveredOverKey;
+    /** For the self-test: the row whose tooltip is drawn whatever the mouse does, or null. */
+    private String tooltipForTesting;
+    private boolean tooltipForTestingOverKey;
+    /** The tooltip last drawn, already wrapped, so pointing at a row does not rebuild it every frame. */
+    private Row cachedTooltipRow;
+    private boolean cachedTooltipOverKey;
+    private int cachedTooltipWidth;
+    private List<FormattedCharSequence> cachedTooltip = List.of();
     private int resetWidth = 40;
+    private int visibleCount;
 
     /** The binding that is waiting for its new key, or null. */
     private KeyMapping waiting;
@@ -248,16 +259,64 @@ public class KeyOverviewScreen extends ResizingScreen {
             context.drawCenteredString(font, Component.translatable("keybindprofilesplus.overview.empty"),
                     width / 2, layout.getHeaderHeight() + layout.getContentHeight() / 2 - 4, GuiUtil.GRAY);
         }
-        if (hoveredRow != null && !isWaiting()) {
-            // Over the key: only what matters while rebinding (conflicts). Over the name: everything about the binding.
-            List<Component> lines = hoveredOverKey ? hoveredRow.keyTooltip() : hoveredRow.tooltip();
-            if (!lines.isEmpty()) {
+        Row tooltipRow = hoveredRow;
+        boolean overKey = hoveredOverKey;
+        int tooltipX = mouseX;
+        int tooltipY = mouseY;
+        if (tooltipForTesting != null) {
+            int[] point = list.keyButtonPoint(tooltipForTesting);
+            tooltipRow = point == null ? null : rowById(tooltipForTesting);
+            overKey = tooltipForTestingOverKey;
+            tooltipX = point == null ? 0 : overKey ? point[0] : list.getRowLeft() + 20;
+            tooltipY = point == null ? 0 : point[1];
+        }
+        if (tooltipRow != null && !isWaiting()) {
+            List<FormattedCharSequence> wrapped = wrappedTooltip(tooltipRow, overKey);
+            if (!wrapped.isEmpty()) {
                 //? if >=1.21.6 {
-                context.setComponentTooltipForNextFrame(font, lines, mouseX, mouseY);
+                context.setTooltipForNextFrame(font, wrapped, tooltipX, tooltipY);
                 //?} else
-                /*setTooltipForNextRenderPass(lines.stream().map(Component::getVisualOrderText).toList());*/
+                /*setTooltipForNextRenderPass(wrapped);*/
             }
         }
+    }
+
+    /**
+     * The tooltip of a row, over its key button (only what matters while rebinding: conflicts) or over its name
+     * (everything about it). Long lines (where a key acts, why two keys clash) are wrapped so the tooltip stays on
+     * the screen. Built once per row and kept while the pointer stays there; rows are new after every change.
+     */
+    private List<FormattedCharSequence> wrappedTooltip(Row row, boolean overKey) {
+        int maxWidth = Math.max(120, Math.min(width - 24, 360));
+        if (row != cachedTooltipRow || overKey != cachedTooltipOverKey || maxWidth != cachedTooltipWidth) {
+            List<FormattedCharSequence> wrapped = new ArrayList<>();
+            for (Component line : overKey ? row.keyTooltip() : row.tooltip()) {
+                wrapped.addAll(font.split(line, maxWidth));
+            }
+            cachedTooltipRow = row;
+            cachedTooltipOverKey = overKey;
+            cachedTooltipWidth = maxWidth;
+            cachedTooltip = wrapped;
+        }
+        return cachedTooltip;
+    }
+
+    /**
+     * For the self-test: draws the tooltip of one row (a binding id or a hotkey id) as if the mouse pointed at
+     * its key button ({@code overKey}) or its name, so screenshots can show it; null stops it.
+     */
+    public void showTooltipForTesting(String id, boolean overKey) {
+        tooltipForTesting = id;
+        tooltipForTestingOverKey = overKey;
+    }
+
+    private Row rowById(String id) {
+        for (Row row : rows) {
+            if (row.binding() != null ? row.binding().getName().equals(id) : id.equals(row.external().hotkeyId())) {
+                return row;
+            }
+        }
+        return null;
     }
 
     // ------------------------------------------------------------------ recording a new key
@@ -333,6 +392,11 @@ public class KeyOverviewScreen extends ResizingScreen {
         waiting = null;
         waitingExternal = null;
         pendingModifiers = 0;
+    }
+
+    /** Shows the keys and their conflicts as they are now, after they were changed somewhere else (also used by the self-test). */
+    public void refreshKeys() {
+        reloadKeys();
     }
 
     /** After any key change: lets the game know and shows the list (and its conflicts) as it is now. */
@@ -464,8 +528,9 @@ public class KeyOverviewScreen extends ResizingScreen {
         refreshList(false);
     }
 
+    /** How many keys the list shows right now (counted when the list is filled, not every frame). */
     public int visibleBindingCount() {
-        return (int) list.children().stream().filter(entry -> entry instanceof KeyList.BindingEntry).count();
+        return visibleCount;
     }
 
     /** The group headings currently shown, in order. */
@@ -480,13 +545,13 @@ public class KeyOverviewScreen extends ResizingScreen {
     }
 
     /**
-     * Changes when a mod's key binding counts as being in use, the way a click on its row does:
-     * automatic, during play, only in screens, only in a special situation, and round again.
-     * Returns the new setting ("general", "screen", "situational") or null for "automatic".
+     * Changes where a mod's key binding counts as acting, the way a click on its row does: automatic,
+     * in the world, in inventory screens, in any screen, everywhere, only in a special situation, and
+     * round again. Returns the new setting (see {@link KeyConflicts#nextOverride}) or null for "automatic".
      */
     public String cycleScope(String bindingId) {
         KeyMapping binding = KeyMapping.get(bindingId);
-        if (binding == null || !KeyConflicts.canOverrideScope(binding, KeyConflicts.sources(minecraft.options))) {
+        if (binding == null || !KeyConflicts.canOverrideContext(binding, KeyConflicts.sources(minecraft.options))) {
             return null;
         }
         return cycleOverride(bindingId);
@@ -548,15 +613,15 @@ public class KeyOverviewScreen extends ResizingScreen {
     private void collectRows() {
         rows.clear();
         KeySourceResolver resolver = KeyConflicts.sources(minecraft.options);
+        List<ExternalBinding> externals = ExternalKeys.all();
+        KeyConflicts.Verdicts verdicts = KeyConflicts.verdicts(minecraft.options);
         KeyMapping[] bindings = minecraft.options.keyMappings.clone();
         Arrays.sort(bindings);
         for (KeyMapping binding : bindings) {
-            rows.add(Row.of(binding, resolver, KeyConflicts.conflictsOf(binding, minecraft.options),
-                    KeyConflicts.sharedWithoutConflict(binding, minecraft.options)));
+            rows.add(Row.of(binding, resolver, verdicts.conflictsOf(binding), verdicts.sharedWithoutConflict(binding)));
         }
-        for (ExternalBinding external : ExternalKeys.all()) {
-            rows.add(Row.of(external, KeyConflicts.conflictsOf(external, minecraft.options),
-                    KeyConflicts.sharedWithoutConflict(external, minecraft.options)));
+        for (ExternalBinding external : externals) {
+            rows.add(Row.of(external, verdicts.conflictsOf(external), verdicts.sharedWithoutConflict(external)));
         }
 
         Set<String> sources = new LinkedHashSet<>();
@@ -605,6 +670,7 @@ public class KeyOverviewScreen extends ResizingScreen {
 
         double scroll = keepScroll ? list.scrollAmount() : 0;
         list.setRows(visible);
+        visibleCount = visible.size();
         list.setScrollAmount(scroll);
         summary = Component.translatable("keybindprofilesplus.overview.summary", visible.size(), rows.size(), fromMods, unbound);
         conflictSummary = new KeyConflicts.Summary(hard, soft);
@@ -636,20 +702,27 @@ public class KeyOverviewScreen extends ResizingScreen {
      * @param shared what sits on the same key without being a conflict (see {@link KeyConflicts#sharedWithoutConflict})
      */
     private record Row(KeyMapping binding, ExternalBinding external, Component name, Component category, KeySource source, Component keyText,
-                       boolean unbound, boolean changed, KeyConflicts.Scope scope, boolean scopeAdjustable, boolean scopeOverridden,
-                       List<KeyConflicts.Conflict> conflicts, List<Component> shared) {
-        static Row of(KeyMapping binding, KeySourceResolver resolver, List<KeyConflicts.Conflict> conflicts, List<Component> shared) {
-            boolean adjustable = KeyConflicts.canOverrideScope(binding, resolver);
+                       boolean unbound, boolean changed, KeyContext context, Component contextLine, boolean scopeAdjustable, boolean scopeOverridden,
+                       List<KeyConflicts.Conflict> conflicts, List<KeyConflicts.Shared> shared) {
+        static Row of(KeyMapping binding, KeySourceResolver resolver, List<KeyConflicts.Conflict> conflicts, List<KeyConflicts.Shared> shared) {
+            boolean adjustable = KeyConflicts.canOverrideContext(binding, resolver);
+            boolean overridden = adjustable && KeyBindProfilesPlus.settings().scopeOverride(binding.getName()) != null;
+            KeyContext context = KeyConflicts.contextOf(binding, resolver);
             return new Row(binding, null, KeyLabels.name(binding), KeyLabels.category(binding.getCategory()), resolver.resolve(binding),
-                    binding.getTranslatedKeyMessage(), binding.isUnbound(), !binding.isDefault(), KeyConflicts.scopeOf(binding, resolver),
-                    adjustable, adjustable && KeyBindProfilesPlus.settings().scopeOverride(binding.getName()) != null, conflicts, shared);
+                    binding.getTranslatedKeyMessage(), binding.isUnbound(), !binding.isDefault(), context, contextLine(context, adjustable, overridden),
+                    adjustable, overridden, conflicts, shared);
         }
 
-        static Row of(ExternalBinding external, List<KeyConflicts.Conflict> conflicts, List<Component> shared) {
+        static Row of(ExternalBinding external, List<KeyConflicts.Conflict> conflicts, List<KeyConflicts.Shared> shared) {
+            boolean overridden = KeyBindProfilesPlus.settings().scopeOverride(KeyConflicts.overrideKey(external)) != null;
+            KeyContext context = KeyConflicts.contextOf(external);
             return new Row(null, external, external.title(), external.group(),
                     KeySource.external(external.sourceId(), external.group().getString()), external.keyText(), external.unbound(), external.changed(),
-                    KeyConflicts.scopeOf(external), true,
-                    KeyBindProfilesPlus.settings().scopeOverride(KeyConflicts.overrideKey(external)) != null, conflicts, shared);
+                    context, contextLine(context, true, overridden), true, overridden, conflicts, shared);
+        }
+
+        private static Component contextLine(KeyContext context, boolean adjustable, boolean overridden) {
+            return KeyConflicts.contextLine(context, adjustable, overridden);
         }
 
         KeyConflicts.Level level() {
@@ -693,9 +766,8 @@ public class KeyOverviewScreen extends ResizingScreen {
                     lines.add(Component.translatable("keybindprofilesplus.external.inactive").withStyle(ChatFormatting.GRAY));
                 }
             }
+            lines.add(contextLine);
             if (scopeAdjustable) {
-                lines.add(Component.translatable(scopeOverridden ? "keybindprofilesplus.overview.tooltip.scope_set" : "keybindprofilesplus.overview.tooltip.scope_guessed",
-                        scope.label()).withStyle(ChatFormatting.GRAY));
                 lines.add(Component.translatable("keybindprofilesplus.overview.tooltip.scope_click").withStyle(ChatFormatting.DARK_AQUA));
             }
             lines.addAll(KeyConflicts.describe(conflicts));
@@ -708,10 +780,13 @@ public class KeyOverviewScreen extends ResizingScreen {
             return lines;
         }
 
-        /** What the key button says when pointed at: the conflicts, and what shares the key without conflicting. */
+        /** What the key button says when pointed at: the conflicts and what shares the key without conflicting, after where this key acts. */
         List<Component> keyTooltip() {
             List<Component> lines = new ArrayList<>(KeyConflicts.describe(conflicts));
             lines.addAll(KeyConflicts.describeShared(shared));
+            if (!lines.isEmpty()) {
+                lines.add(0, contextLine);
+            }
             return lines;
         }
 

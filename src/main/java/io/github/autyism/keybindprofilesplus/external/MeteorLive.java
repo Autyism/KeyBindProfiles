@@ -3,6 +3,7 @@ package io.github.autyism.keybindprofilesplus.external;
 import com.mojang.blaze3d.platform.InputConstants;
 import io.github.autyism.keybindprofilesplus.KeyBindProfilesPlus;
 import io.github.autyism.keybindprofilesplus.keys.KeyCombo;
+import io.github.autyism.keybindprofilesplus.keys.KeyContext;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.network.chat.Component;
 import java.lang.reflect.Field;
@@ -135,8 +136,9 @@ final class MeteorLive implements LiveSource {
         if (keybind != null) {
             String id = unique(PREFIX + rawName);
             targets.put(id, new Target(keybind, null, false, true));
+            // Meteor toggles a module by its key during play only: not while a screen is open or F3 is held.
             out.add(binding(id, readable, Component.literal(title), group, keybind, KeyCombo.encode(0, InputConstants.UNKNOWN.getName()),
-                    ExternalBinding.When.IN_GAME, MODULES_FILE));
+                    KeyContext.world(), MODULES_FILE));
         }
 
         Object settings = get(moduleSettings, module);
@@ -163,7 +165,7 @@ final class MeteorLive implements LiveSource {
                 Component settingTitleText = Component.literal(title + " / " + get(settingTitle, setting));
                 // A key inside a module's settings only does something within that module's own feature.
                 out.add(binding(id, readable + " / " + MeteorKeys.title(settingRaw), settingTitleText, group, value,
-                        defaultValue == null ? null : encode(defaultValue), ExternalBinding.When.SITUATIONAL, MODULES_FILE));
+                        defaultValue == null ? null : encode(defaultValue), KeyContext.situational("module_setting"), MODULES_FILE));
             }
         }
     }
@@ -181,8 +183,9 @@ final class MeteorLive implements LiveSource {
         }
         String id = unique(MACRO_PREFIX + name);
         targets.put(id, new Target(keybind, keybindSetting, true, false));
+        // Macros run during play only (not while a screen is open).
         out.add(binding(id, name, Component.literal(name), Component.translatable("keybindprofilesplus.external.meteor_macros"), keybind,
-                KeyCombo.encode(0, InputConstants.UNKNOWN.getName()), ExternalBinding.When.IN_GAME, MACROS_FILE));
+                KeyCombo.encode(0, InputConstants.UNKNOWN.getName()), KeyContext.world(), MACROS_FILE));
     }
 
     /** The id itself, or with "#2", "#3"... when it is taken already in this listing. */
@@ -195,7 +198,7 @@ final class MeteorLive implements LiveSource {
     }
 
     private ExternalBinding binding(String id, String name, Component title, Component group, Object keybind, String defaultValue,
-                                    ExternalBinding.When when, String file) throws ReflectiveOperationException {
+                                    KeyContext context, String file) throws ReflectiveOperationException {
         String value = encode(keybind);
         KeyCombo combo = KeyCombo.parse(value);
         InputConstants.Key key = ExternalKeys.isUnboundValue(value) ? null : combo.inputKey();
@@ -207,7 +210,8 @@ final class MeteorLive implements LiveSource {
             key = null;
             modifiers = 0;
         }
-        return new ExternalBinding("meteor", group, name, title, modifiers, key, keyText, when, true, file, id, value, defaultValue);
+        return new ExternalBinding("meteor", group, name, title, modifiers, key, key == null ? null : MeteorKeys.trigger(key, modifiers), keyText,
+                context, true, file, id, value, defaultValue);
     }
 
     private Component groupOf(Object module) {

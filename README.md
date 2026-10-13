@@ -57,10 +57,11 @@ KeyBind Profiles+ is a fork of [KeyBindProfiles](https://github.com/imsawiq/KeyB
 
 ### Conflicts
 
-- **Three levels.** Red means two keys act in the same situation. Yellow means they only meet in some situations, for example only in Creative mode, or one works during play and the other only in screens. No mark means they never get in each other's way.
-- **No false alarms.** `G` and `F3 + G`, `X` and `Ctrl + X`, an F3 combination added by a mod and a plain key, or Litematica's tool and the attack button are not marked; the tooltip still lists what shares the key.
-- **Across mods.** A Meteor module on `Z` and a vanilla key on `Z` are marked, and so are a Meteor module and a Litematica hotkey on the same key.
-- **Live and adjustable.** The marks and the conflict counter update the moment you change a key. If the mod guessed wrong about when a mod's key is in use, click the key's name and set it yourself.
+- **Where each key acts.** Every key knows where it does something: in the world, in inventory screens, in one particular screen (villager trading, Conflux Map's map) or in one game mode. Two keys are only marked when the same press reaches both in a place where both act.
+- **Three levels.** Red means they get in each other's way. Yellow means only in Creative or Spectator mode, or while the recipe book is open. No mark means they never act at the same time; the tooltip still lists what shares the key and where it acts.
+- **No false alarms.** `G` and `F3 + G`, `X` and `Ctrl + X`, a key used in the world and an Inventory Profiles Next, Item Scroller or Conflux Map key that only works in screens, Litematica's tool and attack, or keys held together with something else are not marked.
+- **Real clashes, across mods.** A hotbar key and IPN's sort key on one key (both act in inventories), a Meteor module and a vanilla key, two Meteor modules. MaLiLib's and IPN's own key settings (extra keys allowed, key order, multi-key combos) count.
+- **Live and adjustable.** The marks and the conflict counter update the moment you change a key. Point at a key to see where it acts; if the mod guessed wrong about a mod's key, click its name and set it yourself.
 
 ### Modifier combinations
 
@@ -196,7 +197,7 @@ Select a profile and click **Copy Code**: the code is now in your clipboard, rea
 1. Open Options → Controls → Key Binds.
 2. Click a key button: it shows `> key <` while it waits. Press the new key, a combination or a mouse button, or Esc for no key. **Reset** on a row restores its default; **Reset Keys** at the bottom resets all game key bindings after asking.
 3. Conflicts show as `[ key ]` in red or yellow, with a bar of the same colour. Point at the key button to see with what and why, or turn on **Conflicts only** to list nothing else.
-4. If a mod's key is marked although it can never clash (or the other way round), click its name. Each click changes when it counts as in use: automatic, during play, only while a screen is open, only in a special situation (never a conflict), and back to automatic. Vanilla keys and F3 combinations follow fixed rules.
+4. If a mod's key is marked although it can never clash (or the other way round), click its name. Each click changes where it counts as acting: automatic, in the world, in inventory screens, in any screen, everywhere, only in a special situation (never a conflict), and back to automatic. Vanilla keys and F3 combinations follow fixed rules.
 
 </details>
 
@@ -235,7 +236,7 @@ There is a separate jar for each Minecraft version:
 | 1.21.5 | `keybindprofilesplus-0.2.1+1.21.5.jar` | 21 or newer | 0.17.3 or newer |
 | 1.21.6, 1.21.7, 1.21.8 | `keybindprofilesplus-0.2.1+1.21.8.jar` | 21 or newer | 0.17.3 or newer |
 | 1.21.9, 1.21.10 | `keybindprofilesplus-0.2.0+1.21.10.jar` | 21 or newer | 0.17.3 or newer |
-| 1.21.11 | `keybindprofilesplus-0.2.0.jar` | 21 or newer | 0.17.3 or newer |
+| 1.21.11 | `keybindprofilesplus-0.3.0+1.21.11.jar` | 21 or newer | 0.17.3 or newer |
 | 26.1, 26.1.1, 26.1.2 | `keybindprofilesplus-0.2.0+26.1.2.jar` | 25 or newer | 0.19.3 or newer |
 | 26.2 | `keybindprofilesplus-0.2.0+26.2.jar` | 25 or newer | 0.19.3 or newer |
 | 26.3 | `keybindprofilesplus-0.2.0+26.3.jar` | 25 or newer | 0.19.3 or newer |
@@ -252,7 +253,7 @@ Optional, each one only adds its own part:
 | [MaLiLib](https://modrinth.com/mod/malilib) and the mods built on it ([Litematica](https://modrinth.com/mod/litematica), Tweakeroo, MiniHUD, Item Scroller, ...) | Their hotkeys in the Key Binds screen and in profiles |
 | [Inventory Profiles Next](https://modrinth.com/mod/inventory-profiles-next) (with libIPN) | Its hotkeys in the Key Binds screen and in profiles |
 
-Tested with Mod Menu 17.0.1, Meteor Client for 1.21.11 (build 86), MaLiLib 0.27.20 with Litematica 0.26.16, and Inventory Profiles Next 2.2.6 with libIPN 6.6.3. On 26.1.2: Meteor Client build 42, MaLiLib 0.28.12 with Litematica 0.27.14, and Inventory Profiles Next 2.3.8. On 26.2: Meteor Client build 33, MaLiLib 0.29.6 with Litematica 0.28.8, and Inventory Profiles Next. On 26.3: MaLiLib 0.30.2 with Litematica 0.29.1, and Inventory Profiles Next (Meteor Client has no 26.3 build yet). The 1.21.5, 1.21.8 and 1.21.10 builds were tested with the Meteor Client, MaLiLib with Litematica, and Inventory Profiles Next builds for those versions.
+Tested with Mod Menu 17.0.1, Meteor Client for 1.21.11 (build 86), MaLiLib 0.27.20 with Litematica 0.26.16, Item Scroller 0.30.8, MiniHUD 0.38.16 and Tweakeroo 0.27.15, Inventory Profiles Next 2.2.6 with libIPN 6.6.3, and Conflux Map 0.1.11-beta.1. On 26.1.2: Meteor Client build 42, MaLiLib 0.28.12 with Litematica 0.27.14, and Inventory Profiles Next 2.3.8. On 26.2: Meteor Client build 33, MaLiLib 0.29.6 with Litematica 0.28.8, and Inventory Profiles Next. On 26.3: MaLiLib 0.30.2 with Litematica 0.29.1, and Inventory Profiles Next (Meteor Client has no 26.3 build yet). The 1.21.5, 1.21.8 and 1.21.10 builds were tested with the Meteor Client, MaLiLib with Litematica, and Inventory Profiles Next builds for those versions.
 
 <details>
 <summary><b>Compatibility</b> (click to open)</summary>
@@ -260,7 +261,7 @@ Tested with Mod Menu 17.0.1, Meteor Client for 1.21.11 (build 86), MaLiLib 0.27.
 - **Meteor Client, MaLiLib mods, Inventory Profiles Next:** tested with the versions above. Meteor addons and other MaLiLib mods (Tweakeroo, MiniHUD, Item Scroller, ...) are read the same way as Meteor itself and Litematica, but have not each been tested. If a future version of one of these mods changes too much inside, its hotkeys become read-only (Meteor, MaLiLib) or are left out (Inventory Profiles Next) instead of causing errors, and a warning is written to the log.
 - **Other key binds screens:** only the vanilla Key Binds screen is replaced. If another mod opens a key binds screen of its own, that screen is left as it is.
 - **Mods that add F3 combinations:** keys that mods put into the game's Debug category are treated like the vanilla F3 combinations, so they do not clash with plain keys.
-- **Inventory and recipe mods:** key bindings of mods known to work only inside screens (for example REI, JEI, EMI, Mouse Tweaks, Mouse Wheelie) count as "only while a screen is open" for the conflict check. Any guess can be corrected by clicking the key's name.
+- **Inventory and recipe mods:** key bindings of mods known to work only inside inventory screens (for example REI, JEI, EMI, Mouse Tweaks, Mouse Wheelie) count as acting in inventory screens for the conflict check, and so do the screen hotkeys of Item Scroller and Inventory Profiles Next. Any guess can be corrected by clicking the key's name.
 - **Rendering mods:** KeyBind Profiles+ does not change how the world is rendered, so it is not expected to interact with Sodium, Iris or similar mods. This combination has not been specifically tested.
 - **The original KeyBindProfiles:** KeyBind Profiles+ takes over its job and its profiles, and the two cannot be installed together (the game tells you at startup).
 
@@ -293,7 +294,7 @@ In `config/keybindprofilesplus/` inside your game folder, one `.kbp` file (plain
 When the game starts, KeyBind Profiles+ applies the profile you applied last. Save your changes into that profile first (Edit → Saved Contents... → Use Current Values → Done), or save them as a new profile and apply that one.
 
 **Why is a key marked yellow, or not marked at all, although another key uses it?**
-Point at its key button: the tooltip lists what shares the key and why it counts as a real, a possible or no conflict. If the mod guessed wrong about when a mod's key is in use, click the key's name to change it.
+Point at its key button: the tooltip says where the key acts, lists what shares the key and why it counts as a real, a possible or no conflict. If the mod guessed wrong about where a mod's key acts, click the key's name to change it.
 
 **A hotkey of another mod has no key button.**
 It is read-only. It belongs to a Meteor profile that is not loaded (shown in grey), or that mod could not be reached. Point at its name for details and change it in that mod.
@@ -379,10 +380,11 @@ KeyBind Profiles+ 是 sawiq_ 的 [KeyBindProfiles](https://github.com/imsawiq/Ke
 
 ### 冲突
 
-- **三档。** 红色：两个键在同一种场合都会起作用。黄色：只在某些场合才会碰上，比如只在创造模式下，或者一个在游戏中生效、另一个只在打开界面时生效。不标记：两个键永远不会互相干扰。
-- **不误报。** `G` 和 `F3 + G`、`X` 和 `Ctrl + X`、模组加的 F3 组合键和普通键、Litematica 的工具和攻击键，都不会被标成冲突；提示框里仍会列出共用这个键的是谁。
-- **跨模组。** Meteor 模块绑在 `Z`、原版某个键也在 `Z`，会被标出来；Meteor 模块和 Litematica 热键同键也一样。
-- **实时、可调整。** 改键的同一瞬间，冲突标记和冲突计数就会更新。如果模组对某个模组按键的生效场合判断错了，点一下按键名称自己设定。
+- **知道每个键在哪里起作用。** 每个键都知道自己在哪里起作用：游戏中、物品栏界面里、某个特定界面里（村民交易、Conflux Map 的地图）或某个游戏模式下。只有同一下按键在两个键都起作用的地方同时触发它们，才会标成冲突。
+- **三档。** 红色：两个键会互相干扰。黄色：只在创造或旁观模式下、或者打开配方书时才会碰上。不标记：两个键永远不会同时起作用；提示框里仍会列出共用这个键的是谁、它在哪里起作用。
+- **不误报。** `G` 和 `F3 + G`、`X` 和 `Ctrl + X`、游戏中用的键和只在界面里起作用的 Inventory Profiles Next / Item Scroller / Conflux Map 按键、Litematica 的工具和攻击键、和别的操作一起按住的键，都不会被标成冲突。
+- **真正的冲突照样标出，跨模组也一样。** 快捷栏键和 IPN 的整理键在同一个键上（两个都在物品栏里起作用）、Meteor 模块和原版按键、两个 Meteor 模块。MaLiLib 和 IPN 自己的按键设置（允许多按其他键、按键顺序、多键组合）都算进去。
+- **实时、可调整。** 改键的同一瞬间，冲突标记和冲突计数就会更新。鼠标停在键上能看到它在哪里起作用；如果模组对某个模组按键判断错了，点一下按键名称自己设定。
 
 ### 组合键
 
@@ -518,7 +520,7 @@ KeyBind Profiles+ 是 sawiq_ 的 [KeyBindProfiles](https://github.com/imsawiq/Ke
 1. 打开 选项 → 控制 → 按键绑定。
 2. 点一个按键按钮，等待输入时它显示成 `> 键 <`。按新键、组合键或鼠标键，按 Esc 就是不绑键。每行的 **重置** 回到默认键；底部的 **重置按键** 会先确认，再把所有游戏键位恢复默认。
 3. 冲突的键显示成红色或黄色的 `[ 键 ]`，左边有同色的竖条。鼠标停在按键按钮上可以看到和谁冲突、为什么；打开 **只看冲突** 就只列出这些键。
-4. 如果某个模组的键明明不会冲突却被标了（或者反过来），点它的名称。每点一次切换它的生效场合：自动 → 游戏中 → 仅在打开界面时 → 只在特定情况下（不算冲突）→ 自动。原版按键和 F3 组合键的规则是固定的。
+4. 如果某个模组的键明明不会冲突却被标了（或者反过来），点它的名称。每点一次切换它的生效场合：自动 → 游戏中 → 物品栏界面里 → 任何界面里 → 任何时候 → 只在特定情况下（不算冲突）→ 自动。原版按键和 F3 组合键的规则是固定的。
 
 </details>
 
@@ -557,7 +559,7 @@ KeyBind Profiles+ 是 sawiq_ 的 [KeyBindProfiles](https://github.com/imsawiq/Ke
 | 1.21.5 | `keybindprofilesplus-0.2.1+1.21.5.jar` | 21 及以上 | 0.17.3 及以上 |
 | 1.21.6、1.21.7、1.21.8 | `keybindprofilesplus-0.2.1+1.21.8.jar` | 21 及以上 | 0.17.3 及以上 |
 | 1.21.9、1.21.10 | `keybindprofilesplus-0.2.0+1.21.10.jar` | 21 及以上 | 0.17.3 及以上 |
-| 1.21.11 | `keybindprofilesplus-0.2.0.jar` | 21 及以上 | 0.17.3 及以上 |
+| 1.21.11 | `keybindprofilesplus-0.3.0+1.21.11.jar` | 21 及以上 | 0.17.3 及以上 |
 | 26.1、26.1.1、26.1.2 | `keybindprofilesplus-0.2.0+26.1.2.jar` | 25 及以上 | 0.19.3 及以上 |
 | 26.2 | `keybindprofilesplus-0.2.0+26.2.jar` | 25 及以上 | 0.19.3 及以上 |
 | 26.3 | `keybindprofilesplus-0.2.0+26.3.jar` | 25 及以上 | 0.19.3 及以上 |
@@ -574,7 +576,7 @@ KeyBind Profiles+ 是 sawiq_ 的 [KeyBindProfiles](https://github.com/imsawiq/Ke
 | [MaLiLib](https://modrinth.com/mod/malilib) 及基于它的模组（[Litematica](https://modrinth.com/mod/litematica) 投影、Tweakeroo、MiniHUD、Item Scroller……） | 它们的热键，出现在按键绑定界面和档案里 |
 | [Inventory Profiles Next](https://modrinth.com/mod/inventory-profiles-next)（需要 libIPN） | 它的热键，出现在按键绑定界面和档案里 |
 
-测试过的版本：Mod Menu 17.0.1、Meteor Client 1.21.11（build 86）、MaLiLib 0.27.20 加 Litematica 0.26.16、Inventory Profiles Next 2.2.6 加 libIPN 6.6.3。26.1.2 上：Meteor Client build 42、MaLiLib 0.28.12 加 Litematica 0.27.14、Inventory Profiles Next 2.3.8。26.2 上：Meteor Client build 33、MaLiLib 0.29.6 加 Litematica 0.28.8、Inventory Profiles Next。26.3 上：MaLiLib 0.30.2 加 Litematica 0.29.1、Inventory Profiles Next（Meteor Client 还没有 26.3 版）。1.21.5、1.21.8、1.21.10 版用这些版本对应的 Meteor Client、MaLiLib 加 Litematica、Inventory Profiles Next 测试过。
+测试过的版本：Mod Menu 17.0.1、Meteor Client 1.21.11（build 86）、MaLiLib 0.27.20 加 Litematica 0.26.16、Item Scroller 0.30.8、MiniHUD 0.38.16 和 Tweakeroo 0.27.15、Inventory Profiles Next 2.2.6 加 libIPN 6.6.3，以及 Conflux Map 0.1.11-beta.1。26.1.2 上：Meteor Client build 42、MaLiLib 0.28.12 加 Litematica 0.27.14、Inventory Profiles Next 2.3.8。26.2 上：Meteor Client build 33、MaLiLib 0.29.6 加 Litematica 0.28.8、Inventory Profiles Next。26.3 上：MaLiLib 0.30.2 加 Litematica 0.29.1、Inventory Profiles Next（Meteor Client 还没有 26.3 版）。1.21.5、1.21.8、1.21.10 版用这些版本对应的 Meteor Client、MaLiLib 加 Litematica、Inventory Profiles Next 测试过。
 
 <details>
 <summary><b>兼容性</b>（点开查看）</summary>
@@ -582,7 +584,7 @@ KeyBind Profiles+ 是 sawiq_ 的 [KeyBindProfiles](https://github.com/imsawiq/Ke
 - **Meteor Client、MaLiLib 系模组、Inventory Profiles Next：** 用上面的版本测试过。Meteor 插件和其他 MaLiLib 系模组（Tweakeroo、MiniHUD、Item Scroller……）和 Meteor 本体、Litematica 走的是同一条路，但没有逐个测试。如果这些模组将来的版本内部改动太大，它们的热键会变成只读（Meteor、MaLiLib）或者不再列出（Inventory Profiles Next），不会报错，日志里会写一行警告。
 - **其他按键绑定界面：** 只替换原版的按键绑定界面。如果别的模组打开的是它自己的按键界面，本模组不会去动它。
 - **添加 F3 组合键的模组：** 模组放进游戏“调试”分类的按键，会和原版 F3 组合键一样处理，不会和普通按键算冲突。
-- **物品栏和配方类模组：** 已知只在界面里起作用的模组（比如 REI、JEI、EMI、Mouse Tweaks、Mouse Wheelie），它们的键位在冲突检测里按“仅在打开界面时”处理。判断不对的话，点按键名称就能改。
+- **物品栏和配方类模组：** 已知只在物品栏界面里起作用的模组（比如 REI、JEI、EMI、Mouse Tweaks、Mouse Wheelie），它们的键位在冲突检测里按“物品栏界面里”处理，Item Scroller 和 Inventory Profiles Next 的界面热键也一样。判断不对的话，点按键名称就能改。
 - **渲染类模组：** KeyBind Profiles+ 不改变世界的渲染，和 Sodium、Iris 之类的模组应该互不影响，但没有专门测试过这种组合。
 - **原版 KeyBindProfiles：** KeyBind Profiles+ 接替了它的功能和档案，两个不能同时安装（启动时游戏会提示）。
 
@@ -615,7 +617,7 @@ KeyBind Profiles+ 是 sawiq_ 的 [KeyBindProfiles](https://github.com/imsawiq/Ke
 启动游戏时，KeyBind Profiles+ 会重新应用你上次应用的档案。先把改动存进那个档案（编辑 → 保存内容… → 改用当前的值 → 完成），或者存成一个新档案再应用它。
 
 **另一个键也用着这个键，为什么只标黄，甚至不标？**
-把鼠标停在它的按键按钮上：提示框会列出共用这个键的是谁，以及为什么算真冲突、可能冲突或不算冲突。如果模组对某个模组按键的生效场合判断错了，点按键名称就能改。
+把鼠标停在它的按键按钮上：提示框会说明这个键在哪里起作用，列出共用这个键的是谁，以及为什么算真冲突、可能冲突或不算冲突。如果模组对某个模组按键的生效场合判断错了，点按键名称就能改。
 
 **有个其他模组的热键没有按键按钮。**
 它是只读的：它属于一个没有加载的 Meteor 配置（显示为灰色），或者连不上那个模组。鼠标停在名称上可以看详情，要改请到那个模组里改。
