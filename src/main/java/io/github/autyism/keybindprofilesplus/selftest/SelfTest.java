@@ -172,6 +172,11 @@ public final class SelfTest extends SelfTestRunner {
         step("snapshot current settings", () -> snapshot(client));
         // Staged by the harness before this start, written before any mod read its settings.
         step("configs: import staged before this start", configs::earlyImport);
+        if (ConflictReport.requested()) {
+            // Only the conflict report of a given key layout (tools/selftest.ps1 -Report), not the whole self-test.
+            new ConflictReport(this, service).register();
+            return;
+        }
 
         // Rules and calculations, no screens involved.
         step("identity", logic::identity);

@@ -11,10 +11,15 @@
 #
 # The game folder is run\ for 1.21.11 and versions\<version>\run for the other Minecraft versions.
 # Exit code 0 = self-test finished with no failed step. Anything else = failure.
+#
+# -Report <profile file>: instead of the self-test, put the key bindings of that profile in place (its game
+# settings are left out), log every conflict ("[SelfTest] REPORT" lines), take screenshots of the Key Binds
+# screen with "Conflicts only" on, and put everything back.
 
 param(
     [string]$Version = '1.21.11',
-    [int]$TimeoutSec = 300
+    [int]$TimeoutSec = 300,
+    [string]$Report = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -96,6 +101,9 @@ try {
     }
 } finally { $zip.Dispose() }
 Remove-Item (Join-Path $runDir 'selftest.pid') -Force -ErrorAction SilentlyContinue
+$reportFile = Join-Path $runDir 'selftest-report.kbp'
+Remove-Item $reportFile -Force -ErrorAction SilentlyContinue
+if ($Report) { Copy-Item -LiteralPath $Report $reportFile -Force }
 
 $start = Get-Date
 $proc = Start-Process -FilePath (Join-Path $root 'gradlew.bat') -ArgumentList ":${Version}:runSelfTest", '--console=plain', '--no-daemon' `
@@ -136,6 +144,7 @@ if (Test-Path $pendingFile) { Remove-Item $pendingFile -Force -ErrorAction Silen
 Remove-Item (Join-Path $runDir 'config\kbp_selftest_early.json') -Force -ErrorAction SilentlyContinue
 Remove-Item (Join-Path $runDir 'selftest_configs') -Recurse -Force -ErrorAction SilentlyContinue
 if (-not $hadResult) { Remove-Item $resultFile -Force -ErrorAction SilentlyContinue }
+Remove-Item $reportFile -Force -ErrorAction SilentlyContinue
 
 foreach ($b in $backups) { Copy-Item $b.Backup $b.Source -Force }
 
