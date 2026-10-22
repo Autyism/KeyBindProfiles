@@ -2,7 +2,7 @@
 
 ## 0.3.0 — 2026-10-14
 
-Conflict marks that know where each key acts. For Minecraft 1.21.11; the other versions follow later.
+Conflict marks that know where each key acts. For Minecraft 1.21.5–26.3.
 
 - Every key now knows where it does something: in the world, in inventory screens, in one particular screen (villager trading, Conflux Map's map) or in one game mode. Two keys are only marked when the same press reaches both in a place where both act.
 - No more false marks for Inventory Profiles Next, Item Scroller and Conflux Map: their screen keys no longer clash with keys you use in the world. Real clashes stay red, for example a hotbar key and IPN's sort key on the same key (both act in inventories).
@@ -12,7 +12,7 @@ Conflict marks that know where each key acts. For Minecraft 1.21.11; the other v
 
 ### 中文
 
-冲突标记现在知道每个键在哪里起作用。适用于 Minecraft 1.21.11，其他版本之后跟上。
+冲突标记现在知道每个键在哪里起作用。适用于 Minecraft 1.21.5–26.3。
 
 - 每个键都知道自己在哪里起作用：游戏中、物品栏界面里、某个特定界面里（村民交易、Conflux Map 的地图）或某个游戏模式下。只有同一下按键在两个键都起作用的地方同时触发它们，才会标成冲突。
 - Inventory Profiles Next、Item Scroller 和 Conflux Map 不再被误报：它们只在界面里起作用的键，不会再和游戏中用的键算冲突。真正的冲突照样标红，比如快捷栏键和 IPN 的整理键在同一个键上（两个都在物品栏里起作用）。
