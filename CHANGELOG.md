@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.3.0 — 2026-10-14
+## 0.3.0 — 2026-10-22
 
 Conflict marks that know where each key acts. For Minecraft 1.21.5–26.3.
 
