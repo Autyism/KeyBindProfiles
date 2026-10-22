@@ -1,4 +1,4 @@
-<p align="center"><img src="docs/icon.png" width="128" alt="icon"></p>
+<p align="center"><img src="docs/icon_transparent.png" width="156" alt="icon"></p>
 <h1 align="center">KeyBind Profiles+</h1>
 <p align="center">Save, switch, compare and share whole sets of key binds, and manage the keys of the game, your mods, Meteor Client, MaLiLib mods and Inventory Profiles Next from one screen.</p>
 <p align="center">保存、切换、对比、分享整套键位，在一个界面里管理原版、各模组、Meteor Client、MaLiLib 系模组和 Inventory Profiles Next 的按键。</p>
