@@ -71,6 +71,8 @@ public class SettingsScreen extends ResizingScreen {
         ModSettings settings = KeyBindProfilesPlus.settings();
         double scroll = rows.scrollAmount();
         rows.clear();
+        rows.addWidgets(Button.builder(Component.translatable("keybindprofilesplus.manual.button").withStyle(net.minecraft.ChatFormatting.GOLD),
+                button -> minecraft.setScreen(new ManualScreen(this))).build());
 
         if (!(parent instanceof KeyBindProfileScreen)) {
             // Opened from outside the mod's own screens (the mod list): offer the way in.

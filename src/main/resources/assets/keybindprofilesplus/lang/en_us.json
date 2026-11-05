@@ -357,5 +357,8 @@
   "keybindprofilesplus.settings.keyboard_view.tooltip": "The Key Binds screen starts with the keyboard picture instead of the list. The button at the top switches either way.",
   "keybindprofilesplus.hold.button": "⏱ %s s: %s",
   "keybindprofilesplus.hold.press": "hold keys",
-  "keybindprofilesplus.hold.flip": "Turn over: normal key / long-press key (Accurate Hotkeys)"
+  "keybindprofilesplus.hold.flip": "Turn over: normal key / long-press key (Accurate Hotkeys)",
+  "keybindprofilesplus.manual.title": "KeyBind Profiles manual",
+  "keybindprofilesplus.manual.search": "Search the manual...",
+  "keybindprofilesplus.manual.button": "Manual"
 }

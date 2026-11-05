@@ -357,5 +357,8 @@
   "keybindprofilesplus.settings.keyboard_view.tooltip": "打开按键绑定界面时先显示键盘图，而不是列表。上面的按钮随时可以切换。",
   "keybindprofilesplus.hold.button": "⏱ %s 秒：%s",
   "keybindprofilesplus.hold.press": "按下组合键",
-  "keybindprofilesplus.hold.flip": "翻面：普通按键 / 长按按键（Accurate Hotkeys）"
+  "keybindprofilesplus.hold.flip": "翻面：普通按键 / 长按按键（Accurate Hotkeys）",
+  "keybindprofilesplus.manual.title": "按键方案说明书",
+  "keybindprofilesplus.manual.search": "搜索说明书……",
+  "keybindprofilesplus.manual.button": "说明书"
 }
