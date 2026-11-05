@@ -197,8 +197,17 @@ final class KeyboardMap {
             int fill = list.isEmpty() ? 0xFF262626 : worst == KeyConflicts.Level.NONE ? 0xFF2F4F6F : worst.color() & 0x00FFFFFF | 0xFF000000;
             if (!list.isEmpty() && worst != KeyConflicts.Level.NONE) fill = darken(fill);
             int border = cap.key().equals(hovered) ? GuiUtil.WHITE : list.isEmpty() ? 0xFF4A4A4A : 0xFF8AA8C8;
-            context.fill(x0, y0, x1, y1, border);
+            // a pixel key cap: dark outline, face, a lighter top edge and a darker bottom edge
+            context.fill(x0, y0, x1, y1, 0xFF0C0C0C);
             context.fill(x0 + 1, y0 + 1, x1 - 1, y1 - 1, fill);
+            context.fill(x0 + 1, y0 + 1, x1 - 1, y0 + 2, lighten(fill));
+            context.fill(x0 + 1, y1 - 3, x1 - 1, y1 - 1, darken(fill));
+            if (cap.key().equals(hovered)) {
+                context.fill(x0, y0, x1, y0 + 1, border);
+                context.fill(x0, y1 - 1, x1, y1, border);
+                context.fill(x0, y0, x0 + 1, y1, border);
+                context.fill(x1 - 1, y0, x1, y1, border);
+            }
             String label = capLabel(cap.key());
             // F10 and the like on a small screen: the part that tells keys apart
             if (font.width(label) > x1 - x0 - 2 && label.length() > 2 && label.startsWith("F") && Character.isDigit(label.charAt(1))) {
@@ -208,6 +217,11 @@ final class KeyboardMap {
             int textColor = list.isEmpty() ? GuiUtil.DARK_GRAY : GuiUtil.WHITE;
             context.drawString(font, text, x0 + Math.max(1, (x1 - x0 - font.width(text)) / 2), y0 + Math.max(1, (y1 - y0 - font.lineHeight) / 2 + 1), textColor);
         }
+    }
+
+    private static int lighten(int argb) {
+        int r = Math.min(255, (argb >> 16 & 0xFF) + 40), g = Math.min(255, (argb >> 8 & 0xFF) + 40), b = Math.min(255, (argb & 0xFF) + 40);
+        return 0xFF000000 | r << 16 | g << 8 | b;
     }
 
     private static int darken(int argb) {

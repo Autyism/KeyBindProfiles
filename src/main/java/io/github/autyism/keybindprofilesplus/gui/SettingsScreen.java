@@ -84,6 +84,9 @@ public class SettingsScreen extends ResizingScreen {
         rows.addWidgets(CycleButton.onOffBuilder(settings.replaceKeyBinds())
                 .withTooltip(value -> Tooltip.create(Component.translatable("keybindprofilesplus.settings.replace_key_binds.tooltip")))
                 .create(0, 0, 100, 20, Component.translatable("keybindprofilesplus.settings.replace_key_binds"), (button, value) -> settings.setReplaceKeyBinds(value)));
+        rows.addWidgets(CycleButton.onOffBuilder(settings.keyboardView())
+                .withTooltip(value -> Tooltip.create(Component.translatable("keybindprofilesplus.settings.keyboard_view.tooltip")))
+                .create(0, 0, 100, 20, Component.translatable("keybindprofilesplus.settings.keyboard_view"), (button, value) -> settings.setKeyboardView(value)));
 
         rows.addHeading(Component.translatable("keybindprofilesplus.settings.section.apply"));
         rows.addWidgets(CycleButton.onOffBuilder(settings.confirmApply())

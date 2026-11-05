@@ -1378,22 +1378,32 @@ final class LogicChecks {
         service.deleteProfile(PROFILE_PREFIX + "d");
     }
 
-    /** Undo puts back what the last apply changed: keys, game settings and which profile is current. */
+    /** Back / forward: applying a profile and rebinding are steps; back puts everything back, forward does it again. */
     void undoApply() {
         makeGameDifferFromProfileA();
+        io.github.autyism.keybindprofilesplus.profile.KeyHistory.rebase();
         KeyMapping jump = SelfTestRunner.binding(TEST_BINDING_ID);
         String before = KeyCombos.valueOf(jump);
         String fovBefore = GameOptionsBridge.readAll(client().options).get("fov").rawValue();
         String previous = service.getCurrentProfile();
         service.applyProfile(PROFILE_A);
-        ProfileService.UndoState state = service.undoState();
-        t.check("undo: after applying " + PROFILE_A + " undo is offered for it", state != null && PROFILE_A.equals(state.applied())
+        var entry = io.github.autyism.keybindprofilesplus.profile.KeyHistory.backEntry();
+        t.check("history: applying " + PROFILE_A + " is a step (" + (entry == null ? "none" : entry.label().getString()) + ")",
+                entry != null && entry.label().getString().contains(PROFILE_A) && PROFILE_A_KEY.equals(KeyCombos.valueOf(jump)));
+        t.check("history: back puts the key, the setting and the current profile back (" + KeyCombos.valueOf(jump) + ")",
+                io.github.autyism.keybindprofilesplus.profile.KeyHistory.back() && before.equals(KeyCombos.valueOf(jump))
+                        && fovBefore.equals(GameOptionsBridge.readAll(client().options).get("fov").rawValue())
+                        && java.util.Objects.equals(previous, service.getCurrentProfile()));
+        t.check("history: forward applies it again", io.github.autyism.keybindprofilesplus.profile.KeyHistory.forward()
                 && PROFILE_A_KEY.equals(KeyCombos.valueOf(jump)) && PROFILE_A.equals(service.getCurrentProfile()));
-        t.check("undo: puts the key, the setting and the current profile back (" + KeyCombos.valueOf(jump) + ")", service.undoLastApply()
-                && before.equals(KeyCombos.valueOf(jump)) && fovBefore.equals(GameOptionsBridge.readAll(client().options).get("fov").rawValue())
-                && java.util.Objects.equals(previous, service.getCurrentProfile()));
-        t.check("undo: only once", service.undoState() == null && !service.undoLastApply());
+        t.bind(TEST_BINDING_ID, "key.keyboard.u");
+        io.github.autyism.keybindprofilesplus.profile.KeyHistory.track(null);
+        var rebind = io.github.autyism.keybindprofilesplus.profile.KeyHistory.backEntry();
+        t.check("history: a rebind is a step (" + (rebind == null ? "none" : rebind.label().getString()) + ")", rebind != null
+                && io.github.autyism.keybindprofilesplus.profile.KeyHistory.back() && PROFILE_A_KEY.equals(KeyCombos.valueOf(jump)));
+        t.check("history: after going back, forward is offered", io.github.autyism.keybindprofilesplus.profile.KeyHistory.forwardEntry() != null);
         makeGameDifferFromProfileA();
+        io.github.autyism.keybindprofilesplus.profile.KeyHistory.rebase();
     }
 
     /** Puts the live game back into a state where applying selftest_a changes exactly its saved items. */

@@ -81,6 +81,8 @@ public class KeyOverviewScreen extends ResizingScreen {
     /** Only the bindings that end on this key (InputConstants name), set from the keyboard picture; null = all. */
     private String keyFilter;
     private String keyFilterText;
+    private Button backButton;
+    private Button forwardButton;
 
     private EditBox searchField;
     /** Opens the list of sources below it (a click picks one) instead of stepping through them one by one. */
@@ -129,6 +131,8 @@ public class KeyOverviewScreen extends ResizingScreen {
     public KeyOverviewScreen(Screen parent) {
         super(Component.translatable("keybindprofilesplus.overview.title"));
         this.parent = parent;
+        this.keyboardMode = KeyBindProfilesPlus.settings().keyboardView();
+        io.github.autyism.keybindprofilesplus.profile.KeyHistory.rebase();
     }
 
     /**
@@ -207,8 +211,37 @@ public class KeyOverviewScreen extends ResizingScreen {
         footer.addChild(Button.builder(CommonComponents.GUI_DONE, button -> onClose()).width(buttonWidth).build());
 
         layout.visitWidgets(this::addRenderableWidget);
+        // back / forward like a browser, always at the top left
+        backButton = addRenderableWidget(Button.builder(Component.literal("\u2190"), button -> historyStep(true)).bounds(4, 2, 16, 14).build());
+        forwardButton = addRenderableWidget(Button.builder(Component.literal("\u2192"), button -> historyStep(false)).bounds(22, 2, 16, 14).build());
+        updateHistoryButtons();
+        if (list != null) list.visible = !keyboardMode;
         refreshList(false);
         repositionElements();
+    }
+
+    /** Undo (back) or redo (forward) one step of the key history. */
+    public boolean historyStep(boolean back) {
+        if (isWaiting()) return false;
+        boolean done = back ? io.github.autyism.keybindprofilesplus.profile.KeyHistory.back() : io.github.autyism.keybindprofilesplus.profile.KeyHistory.forward();
+        if (done) {
+            reloadKeys();
+            refreshList(true);
+        }
+        updateHistoryButtons();
+        return done;
+    }
+
+    private void updateHistoryButtons() {
+        if (backButton == null) return;
+        var back = io.github.autyism.keybindprofilesplus.profile.KeyHistory.backEntry();
+        var forward = io.github.autyism.keybindprofilesplus.profile.KeyHistory.forwardEntry();
+        backButton.active = back != null;
+        forwardButton.active = forward != null;
+        backButton.setTooltip(Tooltip.create(back == null ? Component.translatable("keybindprofilesplus.history.back_none")
+                : Component.translatable("keybindprofilesplus.history.back", back.label())));
+        forwardButton.setTooltip(Tooltip.create(forward == null ? Component.translatable("keybindprofilesplus.history.forward_none")
+                : Component.translatable("keybindprofilesplus.history.forward", forward.label())));
     }
 
     @Override
@@ -244,6 +277,12 @@ public class KeyOverviewScreen extends ResizingScreen {
     @Override
     public void tick() {
         swallowTypedCharacter = false;
+        if (!isWaiting()) {
+            int before = io.github.autyism.keybindprofilesplus.profile.KeyHistory.position() * 1000 + io.github.autyism.keybindprofilesplus.profile.KeyHistory.size();
+            io.github.autyism.keybindprofilesplus.profile.KeyHistory.track(null);
+            int after = io.github.autyism.keybindprofilesplus.profile.KeyHistory.position() * 1000 + io.github.autyism.keybindprofilesplus.profile.KeyHistory.size();
+            if (before != after) updateHistoryButtons();
+        }
     }
 
     @Override

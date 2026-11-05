@@ -104,6 +104,29 @@ public final class ModSettings {
         save();
     }
 
+    /** All scope choices (a copy). */
+    public Map<String, String> scopeOverridesCopy() {
+        Map<String, String> overrides = data().scopeOverrides;
+        return overrides == null ? new TreeMap<>() : new TreeMap<>(overrides);
+    }
+
+    /** Puts back a whole set of scope choices (undo / redo). */
+    public void setScopeOverrides(Map<String, String> overrides) {
+        data().scopeOverrides = new TreeMap<>(overrides);
+        overridesVersion++;
+        save();
+    }
+
+    /** The Key Binds screen opens on the keyboard picture instead of the list. */
+    public boolean keyboardView() {
+        return data().keyboardView;
+    }
+
+    public void setKeyboardView(boolean keyboardView) {
+        data().keyboardView = keyboardView;
+        save();
+    }
+
     /** Changes whenever a choice made with {@link #setScopeOverride} may be different, so cached conflict verdicts know to start again. */
     public int overridesVersion() {
         return overridesVersion;
@@ -161,5 +184,6 @@ public final class ModSettings {
         boolean returnToDefault;
         boolean replaceKeyBinds = true;
         Map<String, String> scopeOverrides;
+        boolean keyboardView;
     }
 }

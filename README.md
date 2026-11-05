@@ -37,7 +37,7 @@ KeyBind Profiles+ is a fork of [KeyBindProfiles](https://github.com/imsawiq/KeyB
 - **Compare profiles.** See two profiles, or a profile and your current settings, side by side with the differences highlighted. "Only differences" hides everything else; key bindings, other mods' hotkeys and saved game settings are all compared.
 - **Share codes.** "Copy Code" turns a profile into one line of text starting with `KBP1-`, and "Import" turns such a line back into a profile after showing a preview. A damaged or incomplete code is explained instead of failing.
 - **Picks up where you left off.** The profile you applied last is applied again when the game starts.
-- **Undo.** Puts everything back as it was before the last profile was applied.
+- **Back and forward.** Arrows at the top left of the Key Binds screen undo and redo every change (keys, where they count, applied profiles) until the game closes.
 - **Profiles for a while.** A profile can also go on by situation: in the Nether or the End, while gliding, while holding or wearing an item. Afterwards the one before comes back, and keys you hold stay held.
 - **Coming from KeyBindProfiles.** On the first start, the profiles of the original mod are copied over (its own folder is left untouched) and your old key for opening the profiles is kept.
 
@@ -363,7 +363,7 @@ KeyBind Profiles+ 是 sawiq_ 的 [KeyBindProfiles](https://github.com/imsawiq/Ke
 - **档案对比。** 把两个档案，或者一个档案和当前设置并排显示，不同的地方高亮。“只看差异”会隐藏其余各行；键位、其他模组的热键和保存的游戏设置都会参与对比。
 - **分享码。** “复制分享码”把档案变成一行以 `KBP1-` 开头的文字，“导入”会先显示预览，再把这行文字还原成档案。损坏或不完整的分享码会说明原因，不会出错。
 - **接着上次用。** 启动游戏时，会重新应用你上次应用的档案。
-- **撤销。** 把一切恢复成应用上一个档案之前的样子。
+- **后退 / 前进。** 按键绑定界面左上角的箭头可以撤销、重做每一步改动（按键、生效范围、应用档案），一直保留到关游戏。
 - **临时档案。** 档案也可以按情况自动换上：在下界或末地、鞘翅滑翔时、手上拿着或身上穿着某样东西时。结束后换回原来的，正按着的键不会被松开。
 - **从 KeyBindProfiles 换过来。** 第一次启动时会把原模组的档案复制过来（原来的文件夹不动），原来打开档案界面的按键也会保留。
 

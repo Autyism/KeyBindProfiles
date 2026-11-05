@@ -51,7 +51,6 @@ public class KeyBindProfileScreen extends ResizingScreen {
     private EditBox searchField;
     private ProfileList list;
     private Button applyButton;
-    private Button undoButton;
     private Button editButton;
     private Button compareButton;
     private Button shareButton;
@@ -96,11 +95,10 @@ public class KeyBindProfileScreen extends ResizingScreen {
         LinearLayout footer = layout.addToFooter(LinearLayout.vertical().spacing(4));
         footer.defaultCellSetting().alignHorizontallyCenter();
 
-        int[] top = split(total, 3);
+        int[] top = split(total, 2);
         LinearLayout first = footer.addChild(LinearLayout.horizontal().spacing(BUTTON_GAP));
         applyButton = first.addChild(button("keybindprofilesplus.apply", top[0], this::applySelectedProfile));
-        undoButton = first.addChild(button("keybindprofilesplus.undo", top[1], this::undoLastApply));
-        first.addChild(button("keybindprofilesplus.new", top[2],
+        first.addChild(button("keybindprofilesplus.new", top[1],
                 () -> minecraft.setScreen(ProfileContentsScreen.forNewProfile(this, service, this::onProfileCreated))));
 
         int[] middle = split(total, 5);
@@ -292,18 +290,6 @@ public class KeyBindProfileScreen extends ResizingScreen {
         showStatus("keybindprofilesplus.status.profile_applied", name);
     }
 
-    private void undoLastApply() {
-        ProfileService.UndoState state = service.undoState();
-        if (state == null || !service.undoLastApply()) {
-            return;
-        }
-        if (parent instanceof KeyBindsScreen keybindsScreen) {
-            KeybindsScreenNavigation.refreshControlsList(keybindsScreen);
-        }
-        refreshList();
-        showStatus("keybindprofilesplus.status.undone", state.applied());
-    }
-
     private void editSelectedProfile() {
         if (selected != null) {
             minecraft.setScreen(new ProfileEditScreen(this, service, selected, renamed -> selected = renamed));
@@ -339,10 +325,7 @@ public class KeyBindProfileScreen extends ResizingScreen {
         }
         boolean hasSelection = selected != null;
         applyButton.active = hasSelection;
-        ProfileService.UndoState undo = service.undoState();
-        undoButton.active = undo != null;
-        undoButton.setTooltip(Tooltip.create(undo == null ? Component.translatable("keybindprofilesplus.undo.none")
-                : Component.translatable("keybindprofilesplus.undo.tooltip", undo.applied())));
+
         editButton.active = hasSelection;
         shareButton.active = hasSelection;
         deleteButton.active = hasSelection;

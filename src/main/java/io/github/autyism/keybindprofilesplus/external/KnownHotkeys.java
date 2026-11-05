@@ -23,6 +23,7 @@ import java.util.regex.Pattern;
  *       of them while Item Scroller itself is switched off;</li>
  *   <li>the inventory preview hotkeys of MiniHUD and Tweakeroo only act while the preview is switched on
  *       in their settings, and their "toggle screen" hotkeys only while the preview is shown;</li>
+ *   <li>Tweakeroo Freecam Plus's two locks (placing direction, sneak) only act in Tweakeroo's free camera;</li>
  *   <li>Conflux Map's "open map" acts during play and inside its own map screen (it closes it there);</li>
  *   <li>Inventory Profiles Next acts on inventory screens, and its trading hotkeys only on the villager screen;</li>
  *   <li>a hotkey that is a single Ctrl / Shift / Alt key, or whose name says it is a modifier, is held together
@@ -40,7 +41,9 @@ final class KnownHotkeys {
                     "easyPlaceActivation", "tool", "renderOverlayThroughBlocks", "hold"),
             "itemscroller", Map.of("storeRecipe", "recipe_view"),
             "minihud", Map.of("inventoryPreviewToggleScreen", "inventory_preview"),
-            "tweakeroo", Map.of("inventoryPreviewToggleScreen", "inventory_preview"));
+            "tweakeroo", Map.of("inventoryPreviewToggleScreen", "inventory_preview"),
+            // Tweakeroo Freecam Plus: its two locks only react while Tweakeroo's free camera is on
+            "tweakeroo_freecam_plus", Map.of("lockDirection", "free_camera", "lockSneak", "free_camera"));
 
     private static final Set<String> ITEMSCROLLER_IN_GAME = Set.of("openConfigGui", "massCraftToggle");
     private static final String ITEMSCROLLER_SETTINGS = "fi.dy.masa.itemscroller.config.Configs$Generic";

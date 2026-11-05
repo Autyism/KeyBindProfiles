@@ -85,71 +85,13 @@ public final class ProfileService {
         exportProfile(name);
     }
 
-    /** How everything was before the last profile was applied (keys, other mods' hotkeys, game settings it changed). */
-    public record UndoState(String applied, String previousProfile, Map<String, String> keys, Map<String, String> options) {
-    }
-
-    private UndoState undo;
-
-    /** What "Undo" would bring back, or null when there is nothing to undo. */
-    public UndoState undoState() {
-        return undo;
-    }
-
-    private void rememberForUndo(String name, Minecraft client, Map<String, String> keyMap) {
-        Map<String, String> keys = new HashMap<>();
-        for (KeyMapping binding : client.options.keyMappings) {
-            if (binding != null) {
-                keys.put(binding.getName(), KeyCombos.valueOf(binding));
-            }
-        }
-        for (String id : keyMap.keySet()) {
-            if (ExternalKeys.isExternalId(id)) {
-                ExternalBinding current = ExternalKeys.find(id);
-                if (current != null) {
-                    keys.put(id, current.value());
-                }
-            }
-        }
-        Map<String, String> options = new LinkedHashMap<>();
-        Map<String, String> saved = profileOptions.get(name);
-        if (saved != null && !saved.isEmpty()) {
-            Map<String, GameOptionsBridge.Entry> current = GameOptionsBridge.readAll(client.options);
-            for (String option : saved.keySet()) {
-                GameOptionsBridge.Entry entry = current.get(option);
-                if (entry != null) {
-                    options.put(option, entry.rawValue());
-                }
-            }
-        }
-        undo = new UndoState(name, currentProfile, keys, options);
-    }
-
-    /** Puts back what the last apply changed. Returns false when there was nothing to undo. */
-    public boolean undoLastApply() {
-        UndoState state = undo;
-        Minecraft client = Minecraft.getInstance();
-        if (state == null || client == null || client.options == null) {
-            return false;
-        }
-        undo = null;
-        KeyCombos.batch(() -> applyKeyBindings(client.options.keyMappings, state.keys()));
-        KeyMapping.resetMapping();
-        releaseAllKeys(client.options.keyMappings);
-        applyExternalHotkeys(state.keys());
-        applyGameOptions(client, state.options());
-        writeOptions(client);
-        saveCurrentProfile(state.previousProfile());
-        return true;
-    }
-
     public void applyProfile(String name) {
         Map<String, String> keyMap = profiles.get(name);
         Minecraft client = Minecraft.getInstance();
         if (keyMap == null || client == null || client.options == null) {
             return;
         }
-        rememberForUndo(name, client, keyMap);
+        KeyHistory.track(null);
 
         KeyCombos.batch(() -> applyKeyBindings(client.options.keyMappings, keyMap));
         KeyMapping.resetMapping();
@@ -160,6 +102,7 @@ public final class ProfileService {
 
         currentProfile = name;
         saveCurrentProfile(name);
+        KeyHistory.track(net.minecraft.network.chat.Component.translatable("keybindprofilesplus.history.applied", name));
     }
 
     /**
@@ -182,6 +125,8 @@ public final class ProfileService {
         applyExternalHotkeys(keyMap);
         applyGameOptions(client, profileOptions.get(name));
         currentProfile = name;
+        // for a while only: not a step of the history
+        KeyHistory.rebase();
     }
 
     public void deleteProfile(String name) {
