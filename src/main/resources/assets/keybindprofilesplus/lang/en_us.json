@@ -343,5 +343,28 @@
   "keybindprofilesplus.configs.status.folder_opened": "Exports folder opened",
   "keybindprofilesplus.configs.status.folder_failed": "Could not open the exports folder",
 
-  "modmenu.descriptionTranslation.keybindprofilesplus": "Save, compare, share and instantly switch whole sets of key bindings, optionally together with chosen game settings. Its Key Binds screen shows which mod every key comes from, marks real conflicts, supports Ctrl/Shift/Alt combinations and also edits the hotkeys of Meteor Client, MaLiLib mods and Inventory Profiles Next. Based on KeyBindProfiles by sawiq_."
+  "modmenu.descriptionTranslation.keybindprofilesplus": "Save, compare, share and instantly switch whole sets of key bindings, optionally together with chosen game settings. Its Key Binds screen shows which mod every key comes from, marks real conflicts, supports Ctrl/Shift/Alt combinations and also edits the hotkeys of Meteor Client, MaLiLib mods and Inventory Profiles Next. Based on KeyBindProfiles by sawiq_.",
+
+  "keybindprofilesplus.server.rule.situation_in": "While in this dimension (then back to the profile before)",
+  "keybindprofilesplus.server.rule.situation_flying": "While gliding with an elytra (then back to the profile before)",
+  "keybindprofilesplus.server.rule.situation_wearing": "While this item is worn (then back to the profile before)",
+  "keybindprofilesplus.server.rule.situation_holding": "While this item is in the main hand (then back to the profile before)",
+  "keybindprofilesplus.situation.add_nether": "In the Nether",
+  "keybindprofilesplus.situation.add_end": "In the End",
+  "keybindprofilesplus.situation.add_flying": "While gliding",
+  "keybindprofilesplus.situation.add_holding": "Holding %s",
+  "keybindprofilesplus.situation.add_holding_none": "Holding (take an item first)",
+  "keybindprofilesplus.situation.help": "For a while: this profile is put on while it applies, and the one before comes back afterwards. Rules: in:the_nether, in:the_end, in:overworld, flying (gliding with an elytra), wearing:elytra, holding:bow (any item id). Holding beats gliding beats wearing beats a dimension; all of them beat server rules while they apply. Picking a profile yourself meanwhile wins until the situation is over.",
+  "keybindprofilesplus.status.situation_invalid": "Write it like in:the_nether, holding:bow, wearing:elytra or flying",
+  "keybindprofilesplus.undo": "Undo",
+  "keybindprofilesplus.undo.tooltip": "Put the keys back as they were before %s was applied (also other mods' hotkeys and the game settings it changed)",
+  "keybindprofilesplus.undo.none": "Nothing to undo yet: this undoes the last profile you applied",
+  "keybindprofilesplus.status.undone": "Undone: back to how it was before %s",
+  "keybindprofilesplus.keyboard.open": "Keyboard",
+  "keybindprofilesplus.keyboard.list": "List",
+  "keybindprofilesplus.keyboard.tooltip": "A picture of the keyboard and mouse: grey keys are free, blue ones are used, red or yellow ones have a conflict. Point at a key to see what is on it; click it to list only that key.",
+  "keybindprofilesplus.keyboard.free": "Free: nothing uses this key",
+  "keybindprofilesplus.keyboard.more": "... and %s more",
+  "keybindprofilesplus.keyboard.click": "Click: show only this key in the list",
+  "keybindprofilesplus.keyboard.use": "%s: %s (%s)"
 }

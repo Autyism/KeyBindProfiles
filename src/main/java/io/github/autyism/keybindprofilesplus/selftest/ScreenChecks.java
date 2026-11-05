@@ -507,6 +507,30 @@ final class ScreenChecks {
                 t.check("overview: a click beside the list only closes it", !overview.sourceListOpen() && overview.visibleBindingCount() == vanilla);
                 overview.setSourceFilter(KeyOverviewScreen.FILTER_ALL);
             });
+            t.step("overview: keyboard picture", 3, () -> {
+                KeyOverviewScreen overview = t.screen(KeyOverviewScreen.class);
+                t.click(translated("keybindprofilesplus.keyboard.open"));
+                t.check("overview: the Keyboard button shows the keyboard picture", overview.keyboardMode());
+                String forward = net.minecraft.client.Minecraft.getInstance().options.keyUp.saveString();
+                t.check("overview: the picture knows what is on the forward key " + forward + " and the left mouse button ("
+                                + overview.keyboardUses(forward) + ", " + overview.keyboardUses("key.mouse.left") + ")",
+                        overview.keyboardUses(forward) >= 1 && overview.keyboardUses("key.mouse.left") >= 1);
+            });
+            t.shot(tag + "_overview_keyboard");
+            t.step("overview: click a key on the picture", 3, () -> {
+                KeyOverviewScreen overview = t.screen(KeyOverviewScreen.class);
+                String forward = net.minecraft.client.Minecraft.getInstance().options.keyUp.saveString();
+                int[] point = overview.keyboardPoint(forward);
+                t.check("overview: the forward key " + forward + " is on the picture", point != null);
+                if (point != null) {
+                    t.mouseClick(point, 0);
+                }
+                int shown = overview.visibleBindingCount();
+                t.check("overview: a click on the forward key lists only what is on it (" + shown + " rows)", !overview.keyboardMode()
+                        && forward.equals(overview.keyFilter()) && shown >= overview.keyboardUses(forward) && shown >= 1);
+                overview.setQuery("");
+                t.check("overview: clearing the search shows everything again", overview.keyFilter() == null && overview.visibleBindingCount() > shown);
+            });
             t.step("overview: search", 3, () -> {
                 KeyOverviewScreen overview = t.screen(KeyOverviewScreen.class);
                 overview.setConflictsOnly(false);

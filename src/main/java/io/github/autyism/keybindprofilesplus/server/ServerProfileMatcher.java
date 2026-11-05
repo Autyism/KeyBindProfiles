@@ -112,7 +112,7 @@ public final class ServerProfileMatcher {
     /** How well a rule fits a location: 0 means it does not match, higher means more specific. */
     public static int score(Location location, String rule) {
         String pattern = normalizeRule(rule);
-        if (pattern.isEmpty() || location == null) {
+        if (pattern.isEmpty() || location == null || SituationRules.isSituation(pattern)) {
             return 0;
         }
 
@@ -166,6 +166,9 @@ public final class ServerProfileMatcher {
     /** Translation key suffix explaining what kind of rule this is (keybindprofilesplus.server.rule.*). */
     public static String ruleKind(String rule) {
         String pattern = normalizeRule(rule);
+        if (SituationRules.isSituation(pattern)) {
+            return SituationRules.kind(pattern);
+        }
         if (pattern.equals("*")) {
             return "anywhere";
         }
@@ -184,6 +187,9 @@ public final class ServerProfileMatcher {
             return "keybindprofilesplus.status.server_required";
         }
         String pattern = normalizeRule(rule);
+        if (SituationRules.isSituation(pattern)) {
+            return SituationRules.validate(pattern);
+        }
         if (pattern.isEmpty() || pattern.chars().anyMatch(Character::isWhitespace)) {
             return "keybindprofilesplus.status.server_invalid";
         }

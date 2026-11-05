@@ -343,5 +343,28 @@
   "keybindprofilesplus.configs.status.folder_opened": "已打开导出文件夹",
   "keybindprofilesplus.configs.status.folder_failed": "无法打开导出文件夹",
 
-  "modmenu.descriptionTranslation.keybindprofilesplus": "保存、对比、分享整套键位并一键切换，还可以顺带保存选中的游戏设置。自带的按键绑定界面标出每个键来自哪个模组、提示真正的冲突、支持 Ctrl/Shift/Alt 组合键，还能修改 Meteor Client、MaLiLib 系模组和 Inventory Profiles Next 的热键。基于 sawiq_ 的 KeyBindProfiles。"
+  "modmenu.descriptionTranslation.keybindprofilesplus": "保存、对比、分享整套键位并一键切换，还可以顺带保存选中的游戏设置。自带的按键绑定界面标出每个键来自哪个模组、提示真正的冲突、支持 Ctrl/Shift/Alt 组合键，还能修改 Meteor Client、MaLiLib 系模组和 Inventory Profiles Next 的热键。基于 sawiq_ 的 KeyBindProfiles。",
+
+  "keybindprofilesplus.server.rule.situation_in": "在这个维度时（离开后换回之前的方案）",
+  "keybindprofilesplus.server.rule.situation_flying": "用鞘翅滑翔时（落地后换回之前的方案）",
+  "keybindprofilesplus.server.rule.situation_wearing": "穿着这件东西时（脱下后换回之前的方案）",
+  "keybindprofilesplus.server.rule.situation_holding": "主手拿着这样东西时（换掉后换回之前的方案）",
+  "keybindprofilesplus.situation.add_nether": "在下界时",
+  "keybindprofilesplus.situation.add_end": "在末地时",
+  "keybindprofilesplus.situation.add_flying": "鞘翅滑翔时",
+  "keybindprofilesplus.situation.add_holding": "拿着 %s 时",
+  "keybindprofilesplus.situation.add_holding_none": "拿着…时（先拿起一样东西）",
+  "keybindprofilesplus.situation.help": "临时切换：情况成立时换成这个方案，结束后换回之前的方案。规则写法：in:the_nether（下界）、in:the_end（末地）、in:overworld（主世界）、flying（鞘翅滑翔）、wearing:elytra（穿着鞘翅）、holding:bow（主手拿着，任何物品 ID 都行）。拿着 > 滑翔 > 穿着 > 维度；成立时都比服务器规则优先。期间你自己换了方案就以你的为准，直到这个情况结束。",
+  "keybindprofilesplus.status.situation_invalid": "要写成 in:the_nether、holding:bow、wearing:elytra 或 flying 这样",
+  "keybindprofilesplus.undo": "撤销",
+  "keybindprofilesplus.undo.tooltip": "把按键恢复成应用 %s 之前的样子（也包括别的模组的快捷键和它改过的游戏设置）",
+  "keybindprofilesplus.undo.none": "还没有可以撤销的：这个按钮撤销你最后一次应用的方案",
+  "keybindprofilesplus.status.undone": "已撤销：恢复到应用 %s 之前的样子",
+  "keybindprofilesplus.keyboard.open": "键盘图",
+  "keybindprofilesplus.keyboard.list": "列表",
+  "keybindprofilesplus.keyboard.tooltip": "键盘和鼠标的图：灰色的键空着，蓝色的有人用，红色或黄色的有冲突。鼠标指着一个键能看到它上面有什么；点一下就只列出这个键。",
+  "keybindprofilesplus.keyboard.free": "空着：没有东西用这个键",
+  "keybindprofilesplus.keyboard.more": "……还有 %s 个",
+  "keybindprofilesplus.keyboard.click": "点一下：列表里只看这个键",
+  "keybindprofilesplus.keyboard.use": "%s：%s（%s）"
 }

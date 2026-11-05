@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.4.0 — 2026-11-05
+
+For Minecraft 1.21.5–26.3.
+
+- Profiles for a while: besides servers, a profile's rules can now be situations. **In the Nether**, **In the End**, **While gliding** and **Holding** (the item in your hand) are one click away in the profile's settings; `in:`, `flying`, `wearing:` and `holding:` can be typed too. While it applies the profile is on, afterwards the one before comes back. Keys you are holding stay held, so you keep walking or flying. If you pick a profile yourself meanwhile, yours stays.
+- **Keyboard** in the Key Binds screen: a picture of the keyboard and mouse. Grey keys are free, blue ones are used, red or yellow ones have a conflict. Point at a key to see everything on it, click it to list only that key.
+- **Undo** on the main screen puts the keys (and other mods' hotkeys and game settings) back as they were before the last profile was applied.
+
+### 中文
+
+适用于 Minecraft 1.21.5–26.3。
+
+- 临时方案：方案的规则除了服务器，现在还可以是"情况"。方案设置里一键添加 **在下界时**、**在末地时**、**鞘翅滑翔时**、**拿着…时**（手上的东西），也可以自己写 `in:`、`flying`、`wearing:`、`holding:`。情况成立时换成这个方案，结束后换回原来的。正按着的键不会被松开，走路、飞行不受影响。期间你自己换了方案就以你的为准。
+- 按键设置界面新增 **键盘图**：键盘和鼠标的图，灰色的键空着，蓝色的有人用，红色或黄色的有冲突。鼠标指着能看到这个键上的所有绑定，点一下列表里就只看这个键。
+- 主界面新增 **撤销**：把按键（还有别的模组的快捷键和游戏设置）恢复成应用上一个方案之前的样子。
+
 ## 0.3.1 — 2026-11-05
 
 For Minecraft 1.21.5–26.3.

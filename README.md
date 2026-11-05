@@ -37,11 +37,14 @@ KeyBind Profiles+ is a fork of [KeyBindProfiles](https://github.com/imsawiq/KeyB
 - **Compare profiles.** See two profiles, or a profile and your current settings, side by side with the differences highlighted. "Only differences" hides everything else; key bindings, other mods' hotkeys and saved game settings are all compared.
 - **Share codes.** "Copy Code" turns a profile into one line of text starting with `KBP1-`, and "Import" turns such a line back into a profile after showing a preview. A damaged or incomplete code is explained instead of failing.
 - **Picks up where you left off.** The profile you applied last is applied again when the game starts.
+- **Undo.** Puts everything back as it was before the last profile was applied.
+- **Profiles for a while.** A profile can also go on by situation: in the Nether or the End, while gliding, while holding or wearing an item. Afterwards the one before comes back, and keys you hold stay held.
 - **Coming from KeyBindProfiles.** On the first start, the profiles of the original mod are copied over (its own folder is left untouched) and your old key for opening the profiles is kept.
 
 ### Key Binds screen
 
 - **Every key in one list.** Options → Controls → Key Binds opens this mod's screen in place of the vanilla one (you can switch back in the settings). Rebind keys there, and reset one key or all of them.
+- **Keyboard picture.** See at a glance which keys are free, used or in conflict; point at a key for everything on it, click it to list only that key.
 - **The source of every key.** Each row names the mod a key belongs to, so you can see at a glance which mod added which key. Search by name, key or mod, filter by source, group by category or by source, or show conflicts only.
 - **Details on hover.** Point at a key's name for its source, category and default key; point at its key button to see what it conflicts with and why.
 - **Readable key names.** Numpad keys show as "Num 5", "Num +" or "Num Enter" everywhere in the game. In this mod's screens, mod keys without a translation show readable words instead of raw names like `key.somemod.toggle_zoom`.
@@ -360,11 +363,14 @@ KeyBind Profiles+ 是 sawiq_ 的 [KeyBindProfiles](https://github.com/imsawiq/Ke
 - **档案对比。** 把两个档案，或者一个档案和当前设置并排显示，不同的地方高亮。“只看差异”会隐藏其余各行；键位、其他模组的热键和保存的游戏设置都会参与对比。
 - **分享码。** “复制分享码”把档案变成一行以 `KBP1-` 开头的文字，“导入”会先显示预览，再把这行文字还原成档案。损坏或不完整的分享码会说明原因，不会出错。
 - **接着上次用。** 启动游戏时，会重新应用你上次应用的档案。
+- **撤销。** 把一切恢复成应用上一个档案之前的样子。
+- **临时档案。** 档案也可以按情况自动换上：在下界或末地、鞘翅滑翔时、手上拿着或身上穿着某样东西时。结束后换回原来的，正按着的键不会被松开。
 - **从 KeyBindProfiles 换过来。** 第一次启动时会把原模组的档案复制过来（原来的文件夹不动），原来打开档案界面的按键也会保留。
 
 ### 按键绑定界面
 
 - **所有按键一个列表。** 选项 → 控制 → 按键绑定，打开的是本模组的界面，替代原版界面（设置里可以换回原版）。在里面直接改键，可以重置单个键，也可以全部重置。
+- **键盘图。** 一眼看出哪些键空着、哪些有人用、哪些有冲突；指着一个键看它上面的所有绑定，点一下只列出这个键。
 - **每个键的来源。** 每一行都标着这个键属于哪个模组，一眼就能看出哪个键是哪个模组加的。可以按名称、按键或模组搜索，按来源筛选，按分类或按来源分组，或者只看冲突。
 - **悬停显示详情。** 鼠标停在名称上显示来源、分类和默认按键；停在按键按钮上显示和谁冲突、为什么。
 - **看得懂的键名。** 小键盘的键在整个游戏里都显示成“小键盘 5”“小键盘 +”这样，和主键盘区分开。在本模组的界面里，没有翻译的模组按键会显示成能读懂的词，而不是 `key.somemod.toggle_zoom` 这种原始名字。

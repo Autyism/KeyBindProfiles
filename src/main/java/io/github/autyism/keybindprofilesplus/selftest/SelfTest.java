@@ -13,6 +13,7 @@ import io.github.autyism.keybindprofilesplus.options.GameOptionsBridge;
 import io.github.autyism.keybindprofilesplus.options.OptionCatalog;
 import io.github.autyism.keybindprofilesplus.profile.ProfileService;
 import io.github.autyism.keybindprofilesplus.server.ServerAutoSwitchController;
+import io.github.autyism.keybindprofilesplus.server.ServerProfileMatcher;
 import io.github.autyism.keybindprofilesplus.storage.ModSettings;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
@@ -206,6 +207,7 @@ public final class SelfTest extends SelfTestRunner {
         step("contents: game options and partial profiles", logic::profileContents);
         step("compare: model", logic::comparison);
         step("leave: back to the default profile", logic::leaveDefault);
+        step("undo the last apply", logic::undoApply);
         step("configs: rules and login data", configs::rules);
         step("configs: reading mod code", configs::bytecode);
         step("configs: sorting a made-up game folder", configs::classification);
@@ -243,6 +245,7 @@ public final class SelfTest extends SelfTestRunner {
         step("world: settle", 30, () -> {
         });
         step("world: auto-switch rules", 2, () -> worldAutoSwitch(client));
+        situationSteps(client);
         step("world: profile hotkey", 2, () -> worldHotkey(client));
         open("main screen in a world", () -> new KeyBindProfileScreen(null));
         step("world: open the edit screen of " + PROFILE_A, SCREEN_SETTLE_TICKS, () -> {
@@ -352,6 +355,46 @@ public final class SelfTest extends SelfTestRunner {
                 /*client.screen.resize(client, client.getWindow().getGuiScaledWidth(), client.getWindow().getGuiScaledHeight());*/
             }
         }
+    }
+
+    /**
+     * Situation rules: a profile for a while (here: in the overworld, then holding a stick), the one before comes back
+     * afterwards; picking a profile by hand meanwhile wins; the saved current profile never changes for a while.
+     */
+    private void situationSteps(Minecraft client) {
+        ServerAutoSwitchController controller = KeyBindProfilesPlus.autoSwitchController();
+        step("world: situation rule 'in:overworld' for " + PROFILE_C, 20, () -> {
+            check("situation: starts on " + PROFILE_A, PROFILE_A.equals(service.getCurrentProfile()));
+            service.setProfileAutoSwitchServers(PROFILE_C, List.of("in:overworld"));
+        });
+        step("world: situation applies", 2, () -> {
+            check("situation: in the overworld " + PROFILE_C + " is put on for a while (now " + service.getCurrentProfile() + ")",
+                    PROFILE_C.equals(service.getCurrentProfile()) && controller.inSituation() && PROFILE_A.equals(controller.situationBase()));
+            check("situation: the rule never matches a server or world", ServerProfileMatcher.score(ServerProfileMatcher.Location.singleplayer(), "in:overworld") == 0
+                    && "situation_in".equals(ServerProfileMatcher.ruleKind("in:overworld")) && ServerProfileMatcher.validate("holding:") != null
+                    && ServerProfileMatcher.validate("holding:bow") == null);
+            service.applyProfile(PROFILE_A);
+        });
+        step("world: picking a profile by hand wins", 20, () -> {
+        });
+        step("world: situation stays off after picking by hand", 2, () -> {
+            check("situation: picked " + PROFILE_A + " by hand, it stays (now " + service.getCurrentProfile() + ")",
+                    PROFILE_A.equals(service.getCurrentProfile()) && !controller.inSituation());
+            service.setProfileAutoSwitchServers(PROFILE_C, List.of("holding:stick"));
+        });
+        step("world: hand empty, nothing applies", 15, () -> {
+            client.player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.STICK));
+        });
+        step("world: holding a stick", 10, () -> {
+            check("situation: holding a stick puts " + PROFILE_C + " on (now " + service.getCurrentProfile() + ")",
+                    PROFILE_C.equals(service.getCurrentProfile()) && controller.inSituation());
+            client.player.setItemInHand(net.minecraft.world.InteractionHand.MAIN_HAND, net.minecraft.world.item.ItemStack.EMPTY);
+        });
+        step("world: stick put away", 20, () -> {
+            check("situation: putting the stick away brings " + PROFILE_A + " back (now " + service.getCurrentProfile() + ")",
+                    PROFILE_A.equals(service.getCurrentProfile()) && !controller.inSituation());
+            service.setProfileAutoSwitchServers(PROFILE_C, List.of("*"));
+        });
     }
 
     private void worldAutoSwitch(Minecraft client) {

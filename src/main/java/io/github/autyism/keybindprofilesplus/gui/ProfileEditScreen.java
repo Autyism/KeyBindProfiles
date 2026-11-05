@@ -179,6 +179,22 @@ public class ProfileEditScreen extends ResizingScreen {
                 Button.builder(Component.translatable("keybindprofilesplus.server.add_singleplayer"), button -> addRule(ServerProfileMatcher.SINGLEPLAYER))
                         .tooltip(Tooltip.create(Component.translatable("keybindprofilesplus.server.help"))).build(),
                 addCurrent);
+        // situation rules: this profile only for a while (in a dimension, gliding, holding something)
+        String holding = io.github.autyism.keybindprofilesplus.server.SituationRules.currentHolding(minecraft);
+        Button addHolding = Button.builder(holding == null
+                        ? Component.translatable("keybindprofilesplus.situation.add_holding_none")
+                        : Component.translatable("keybindprofilesplus.situation.add_holding", holding.substring(holding.indexOf(':') + 1)), button -> addRule(holding))
+                .tooltip(Tooltip.create(Component.translatable("keybindprofilesplus.situation.help"))).build();
+        addHolding.active = holding != null;
+        rows.addWidgets(
+                Button.builder(Component.translatable("keybindprofilesplus.situation.add_nether"), button -> addRule("in:the_nether"))
+                        .tooltip(Tooltip.create(Component.translatable("keybindprofilesplus.situation.help"))).build(),
+                Button.builder(Component.translatable("keybindprofilesplus.situation.add_end"), button -> addRule("in:the_end"))
+                        .tooltip(Tooltip.create(Component.translatable("keybindprofilesplus.situation.help"))).build());
+        rows.addWidgets(
+                Button.builder(Component.translatable("keybindprofilesplus.situation.add_flying"), button -> addRule("flying"))
+                        .tooltip(Tooltip.create(Component.translatable("keybindprofilesplus.situation.help"))).build(),
+                addHolding);
 
         List<String> rules = service.getProfileAutoSwitchServers(profileName);
         if (rules == null || rules.isEmpty()) {

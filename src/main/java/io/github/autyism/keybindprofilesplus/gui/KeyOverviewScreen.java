@@ -7,6 +7,7 @@ import io.github.autyism.keybindprofilesplus.external.ExternalKeys;
 import io.github.autyism.keybindprofilesplus.keys.KeyCombo;
 import io.github.autyism.keybindprofilesplus.keys.KeyCombos;
 import io.github.autyism.keybindprofilesplus.keys.KeyConflicts;
+import io.github.autyism.keybindprofilesplus.keys.KeyTrigger;
 import io.github.autyism.keybindprofilesplus.keys.KeyContext;
 import io.github.autyism.keybindprofilesplus.keys.KeyLabels;
 import io.github.autyism.keybindprofilesplus.keys.KeySource;
@@ -32,6 +33,7 @@ import net.minecraft.client.gui.components.ContainerObjectSelectionList;
 import net.minecraft.client.gui.components.CycleButton;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.StringWidget;
+import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.layouts.HeaderAndFooterLayout;
 import net.minecraft.client.gui.layouts.LinearLayout;
@@ -72,6 +74,13 @@ public class KeyOverviewScreen extends ResizingScreen {
     private final Screen parent;
     private HeaderAndFooterLayout layout;
     private final List<Row> rows = new ArrayList<>();
+    /** The keyboard picture shown instead of the list; a click there shows only that key in the list (keyFilter). */
+    private final KeyboardMap keyboard = new KeyboardMap();
+    private boolean keyboardMode;
+    private Button keyboardButton;
+    /** Only the bindings that end on this key (InputConstants name), set from the keyboard picture; null = all. */
+    private String keyFilter;
+    private String keyFilterText;
 
     private EditBox searchField;
     /** Opens the list of sources below it (a click picks one) instead of stepping through them one by one. */
@@ -152,6 +161,9 @@ public class KeyOverviewScreen extends ResizingScreen {
         searchField.setHint(Component.translatable("keybindprofilesplus.overview.search").setStyle(EditBox.SEARCH_HINT_STYLE));
         searchField.setResponder(value -> {
             query = value;
+            if (keyFilter != null && !value.equals(keyFilterText)) {
+                keyFilter = null;
+            }
             refreshList(false);
         });
         conflictsButton = first.addChild(CycleButton.onOffBuilder(conflictsOnly)
@@ -165,20 +177,23 @@ public class KeyOverviewScreen extends ResizingScreen {
         if (!filterValues.contains(filter)) {
             filter = FILTER_ALL;
         }
+        int third = (half * 2 + 4 - 8) / 3;
         filterButton = second.addChild(Button.builder(filterMessage(), button -> {
                     filterOpen = !filterOpen;
                     filterScroll = Math.max(0, filterValues.indexOf(filter) - 2);
-                }).width(half).build());
+                }).width(third).build());
         groupButton = second.addChild(CycleButton.<Boolean>builder(bySource -> Component.translatable(
                         //? if >=1.21.11 {
                         bySource ? "keybindprofilesplus.overview.group.source" : "keybindprofilesplus.overview.group.category"), groupBySource)
                         //?} else
                         /*bySource ? "keybindprofilesplus.overview.group.source" : "keybindprofilesplus.overview.group.category")).withInitialValue(groupBySource)*/
                 .withValues(Boolean.FALSE, Boolean.TRUE)
-                .create(0, 0, half, 20, Component.translatable("keybindprofilesplus.overview.group"), (button, value) -> {
+                .create(0, 0, third, 20, Component.translatable("keybindprofilesplus.overview.group"), (button, value) -> {
                     groupBySource = value;
                     refreshList(false);
                 }));
+        keyboardButton = second.addChild(Button.builder(keyboardLabel(), button -> setKeyboardMode(!keyboardMode)).width(half * 2 + 4 - 8 - 2 * third)
+                .tooltip(Tooltip.create(Component.translatable("keybindprofilesplus.keyboard.tooltip"))).build());
         // Placeholder line: the summary text is drawn here by render().
         header.addChild(new SpacerElement(1, font.lineHeight));
 
@@ -240,10 +255,89 @@ public class KeyOverviewScreen extends ResizingScreen {
         return waiting != null || waitingExternal != null;
     }
 
+    private Component keyboardLabel() {
+        return Component.translatable(keyboardMode ? "keybindprofilesplus.keyboard.list" : "keybindprofilesplus.keyboard.open");
+    }
+
+    /** Shows the keyboard picture instead of the list, or the list again. */
+    public void setKeyboardMode(boolean on) {
+        keyboardMode = on;
+        filterOpen = false;
+        if (list != null) {
+            list.visible = !on;
+        }
+        if (keyboardButton != null) {
+            keyboardButton.setMessage(keyboardLabel());
+        }
+    }
+
+    public boolean keyboardMode() {
+        return keyboardMode;
+    }
+
+    /** For the self-test: the screen point of a key on the keyboard picture (InputConstants name), or null. */
+    public int[] keyboardPoint(String key) {
+        layoutKeyboard();
+        for (int y = 0; y < height; y += 2) {
+            for (int x = 0; x < width; x += 2) {
+                if (key.equals(keyboard.keyAt(x, y))) {
+                    return new int[]{x + 3, y + 3};
+                }
+            }
+        }
+        return null;
+    }
+
+    /** For the self-test: how many bindings the picture puts on a key, and the key the list is limited to. */
+    public int keyboardUses(String key) {
+        return keyboard.usesOf(key).size();
+    }
+
+    public String keyFilter() {
+        return keyFilter;
+    }
+
+    /** Shows only the bindings that end on this key (a click on the keyboard picture). */
+    public void showKey(String key) {
+        keyFilter = key;
+        keyFilterText = KeyboardMap.label(key);
+        setKeyboardMode(false);
+        if (searchField != null) {
+            searchField.setValue(keyFilterText);
+        }
+        query = keyFilterText;
+        refreshList(false);
+    }
+
+    private void layoutKeyboard() {
+        int top = filterButton.getY() + 24 + font.lineHeight + 4;
+        int bottom = height - 33 - 2;
+        keyboard.layout(8, top, width - 16, Math.max(40, bottom - top));
+    }
+
+    private static KeyTrigger triggerOf(Row row) {
+        return row.binding() != null ? KeyTrigger.of(row.binding()) : row.external().trigger();
+    }
+
     @Override
     public void render(GuiGraphics context, int mouseX, int mouseY, float deltaTicks) {
         hoveredRow = null;
         super.render(context, mouseX, mouseY, deltaTicks);
+        if (keyboardMode) {
+            layoutKeyboard();
+            keyboard.render(context, font, mouseX, mouseY);
+            String hoveredKey = keyboard.keyAt(mouseX, mouseY);
+            if (hoveredKey != null && !filterOpen) {
+                List<FormattedCharSequence> lines = new ArrayList<>();
+                for (Component line : keyboard.tooltip(hoveredKey)) {
+                    lines.addAll(font.split(line, Math.max(120, Math.min(width - 24, 320))));
+                }
+                //? if >=1.21.6 {
+                context.setTooltipForNextFrame(font, lines, mouseX, mouseY);
+                //?} else
+                /*setTooltipForNextRenderPass(lines);*/
+            }
+        }
 
         int summaryY = filterButton.getY() + 24;
         Component status = statusMessage.getVisibleText();
@@ -336,6 +430,14 @@ public class KeyOverviewScreen extends ResizingScreen {
 
     @Override
     public boolean mouseClicked(MouseButtonEvent click, boolean doubled) {
+        if (keyboardMode && !filterOpen && !isWaiting()) {
+            layoutKeyboard();
+            String key = keyboard.keyAt(click.x(), click.y());
+            if (key != null) {
+                showKey(key);
+                return true;
+            }
+        }
         if (filterOpen && !isWaiting()) {
             if (overFilterList(click.x(), click.y())) {
                 int index = filterScroll + (int) ((click.y() - filterListTop()) / FILTER_ROW);
@@ -734,7 +836,8 @@ public class KeyOverviewScreen extends ResizingScreen {
                     soft++;
                 }
             }
-            if (accepts(row) && row.matches(needle)) {
+            boolean shown = keyFilter != null ? KeyboardMap.keysOf(triggerOf(row)).contains(keyFilter) : row.matches(needle);
+            if (accepts(row) && shown) {
                 if (!conflictsOnly) {
                     visible.add(row);
                 } else if (row.level() != KeyConflicts.Level.NONE) {
@@ -744,6 +847,17 @@ public class KeyOverviewScreen extends ResizingScreen {
                     visible.add(row);
                 }
             }
+        }
+
+        keyboard.clear();
+        for (Row row : rows) {
+            if (row.unbound() || row.binding() == null && !row.external().active()) {
+                continue;
+            }
+            keyboard.add(triggerOf(row), new KeyboardMap.Use(Component.translatable("keybindprofilesplus.keyboard.use",
+                    Component.literal(row.source().description().getString()).withStyle(ChatFormatting.GRAY), row.name(), row.keyText())
+                    .withStyle(row.level() == KeyConflicts.Level.HARD ? ChatFormatting.RED : row.level() == KeyConflicts.Level.SOFT ? ChatFormatting.GOLD : ChatFormatting.WHITE),
+                    row.level()));
         }
 
         double scroll = keepScroll ? list.scrollAmount() : 0;
