@@ -80,6 +80,42 @@ final class ScreenChecks {
      * Rebinding on the mod's Key Binds screen the way a player does it: a real mouse click on the
      * key button, then key events through the game's own key handler.
      */
+    /** With Accurate Hotkeys: a binding turned over to its long-press key records that key, the normal key stays. */
+    void holdBindOnKeyBindsScreen() {
+        if (!io.github.autyism.keybindprofilesplus.compat.HoldBindsBridge.available()) {
+            t.check("long press: Accurate Hotkeys not in this test client (skipped)", true);
+            return;
+        }
+        String id = "key.socialInteractions";
+        String[] normal = new String[1];
+        t.open("key binds screen (long press)", () -> new KeyBindsScreen(t.homeScreen, client().options));
+        t.step("long press: turn the binding over", 6, () -> {
+            KeyOverviewScreen keys = t.screen(KeyOverviewScreen.class);
+            keys.setQuery("social");
+            normal[0] = KeyCombos.valueOf(SelfTestRunner.binding(id));
+            io.github.autyism.keybindprofilesplus.compat.HoldBindsBridge.set(id, null);
+            io.github.autyism.keybindprofilesplus.compat.HoldBindsBridge.flip(id);
+        });
+        t.step("long press: click the key button", 2, () -> {
+            KeyOverviewScreen keys = t.screen(KeyOverviewScreen.class);
+            t.mouseClick(keys.keyButtonPoint(id), 0);
+            t.check("long press: the turned-over binding waits for its long-press key", id.equals(keys.waitingFor()));
+        });
+        t.step("long press: Ctrl + F14", 2, () -> {
+            t.sendKey(InputConstants.KEY_LCONTROL, true, KeyCombo.CTRL);
+            t.sendKey(InputConstants.KEY_F14, true, KeyCombo.CTRL);
+            t.sendKey(InputConstants.KEY_F14, false, KeyCombo.CTRL);
+            t.sendKey(InputConstants.KEY_LCONTROL, false, 0);
+            t.check("long press: Ctrl + F14 became the long-press key", "ctrl+key.keyboard.f14".equals(io.github.autyism.keybindprofilesplus.compat.HoldBindsBridge.get(id)));
+            t.check("long press: the normal key did not change", KeyCombos.valueOf(SelfTestRunner.binding(id)).equals(normal[0]));
+        });
+        t.shot("en_keybinds_long_press_side");
+        t.step("long press: clean up", 2, () -> {
+            io.github.autyism.keybindprofilesplus.compat.HoldBindsBridge.set(id, null);
+            io.github.autyism.keybindprofilesplus.compat.HoldBindsBridge.flip(id);
+        });
+    }
+
     void rebindOnKeyBindsScreen() {
         String id = "key.socialInteractions";
         String[] original = new String[1];

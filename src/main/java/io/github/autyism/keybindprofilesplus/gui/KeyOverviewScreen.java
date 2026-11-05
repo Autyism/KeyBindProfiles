@@ -120,6 +120,8 @@ public class KeyOverviewScreen extends ResizingScreen {
 
     /** The binding that is waiting for its new key, or null. */
     private KeyMapping waiting;
+    /** The waiting binding is turned over to its long-press key (Accurate Hotkeys): the key goes there */
+    private boolean waitingHold;
     /** The hotkey of another mod that is waiting for its new key, or null (at most one of the two is set). */
     private ExternalBinding waitingExternal;
     private final ScreenStatusMessage statusMessage = new ScreenStatusMessage();
@@ -551,6 +553,18 @@ public class KeyOverviewScreen extends ResizingScreen {
     }
 
     private void finishRebind(InputConstants.Key key, int modifiers) {
+        if (waitingHold && waiting != null) {
+            // the back of the card: the long-press key of Accurate Hotkeys; the normal key stays as it is
+            String control = waiting.getName();
+            io.github.autyism.keybindprofilesplus.compat.HoldBindsBridge.set(control,
+                    key == null || key == InputConstants.UNKNOWN ? null : KeyCombo.encode(modifiers & KeyCombo.ALL, key.getName()));
+            waitingHold = false;
+            waiting = null;
+            pendingModifiers = 0;
+            swallowTypedCharacter = true;
+            list.updateLabels();
+            return;
+        }
         KeyMapping binding = waiting;
         ExternalBinding external = waitingExternal;
         waiting = null;
@@ -569,6 +583,7 @@ public class KeyOverviewScreen extends ResizingScreen {
     }
 
     private void cancelRebind() {
+        waitingHold = false;
         waiting = null;
         waitingExternal = null;
         pendingModifiers = 0;
@@ -1165,6 +1180,8 @@ public class KeyOverviewScreen extends ResizingScreen {
             /** Null for the read-only hotkeys of other mods. */
             private final Button keyButton;
             private final Button resetButton;
+            /** Turns the binding over to its long-press key (only with Accurate Hotkeys) */
+            private final Button flipButton;
             private final List<Button> buttons;
 
             BindingEntry(Row row) {
@@ -1175,6 +1192,7 @@ public class KeyOverviewScreen extends ResizingScreen {
                 if (binding == null && !external.editable()) {
                     keyButton = null;
                     resetButton = null;
+                    flipButton = null;
                     buttons = List.of();
                     return;
                 }
@@ -1182,6 +1200,7 @@ public class KeyOverviewScreen extends ResizingScreen {
                             cancelRebind();
                             if (binding != null) {
                                 waiting = binding;
+                                waitingHold = io.github.autyism.keybindprofilesplus.compat.HoldBindsBridge.isFlipped(binding.getName());
                             } else {
                                 waitingExternal = external;
                             }
@@ -1193,7 +1212,11 @@ public class KeyOverviewScreen extends ResizingScreen {
                                 : Component.translatable("narrator.controls.bound", row.name(), text.get()))
                         .build();
                 resetButton = Button.builder(RESET_TEXT, button -> {
-                            if (binding != null) {
+                            if (binding != null && io.github.autyism.keybindprofilesplus.compat.HoldBindsBridge.isFlipped(binding.getName())) {
+                                // on the back face: removes the long-press key
+                                io.github.autyism.keybindprofilesplus.compat.HoldBindsBridge.set(binding.getName(), null);
+                                updateLabels();
+                            } else if (binding != null) {
                                 reset(binding.getName());
                             } else {
                                 resetExternal(external.hotkeyId());
@@ -1203,8 +1226,48 @@ public class KeyOverviewScreen extends ResizingScreen {
                         .createNarration(text -> Component.translatable("narrator.controls.reset", row.name()))
                         .build();
                 resetButton.active = row.changed();
-                buttons = List.of(keyButton, resetButton);
+                if (binding != null && io.github.autyism.keybindprofilesplus.compat.HoldBindsBridge.available()) {
+                    String control = binding.getName();
+                    flipButton = Button.builder(Component.literal("⇄"), button -> {
+                                io.github.autyism.keybindprofilesplus.compat.HoldBindsBridge.flip(control);
+                                updateLabel();
+                            })
+                            .bounds(0, 0, 14, 20)
+                            .tooltip(net.minecraft.client.gui.components.Tooltip.create(Component.translatable("keybindprofilesplus.hold.flip")))
+                            .build();
+                    buttons = List.of(keyButton, resetButton, flipButton);
+                } else {
+                    flipButton = null;
+                    buttons = List.of(keyButton, resetButton);
+                }
                 updateLabel();
+            }
+
+            /** The back of the card (the long-press key, amber), and the card turning while it is flipped over. */
+            private void drawBackFace(GuiGraphics context, Font font, KeyMapping binding, int x, int y, int w, int h) {
+                String control = binding.getName();
+                float t = io.github.autyism.keybindprofilesplus.compat.HoldBindsBridge.turning(control);
+                boolean back = io.github.autyism.keybindprofilesplus.compat.HoldBindsBridge.isFlipped(control);
+                if (t >= 0F) {
+                    boolean showingBack = t < 0.5F ? !back : back;
+                    int half = Math.max(1, Math.round(w * Math.abs((float) Math.cos(Math.PI * t)) / 2F));
+                    int cx = x + w / 2;
+                    context.fill(x, y, x + w, y + h, 0xFF101010);
+                    context.fill(cx - half, y, cx + half, y + h, showingBack ? io.github.autyism.keybindprofilesplus.compat.HoldBindsBridge.BACK : 0xFF6F6F6F);
+                    context.fill(cx - half, y, cx + half, y + 1, 0xFFFFFFFF);
+                    return;
+                }
+                if (!back) {
+                    return;
+                }
+                boolean recording = waiting == binding && waitingHold;
+                context.fill(x, y, x + w, y + h, io.github.autyism.keybindprofilesplus.compat.HoldBindsBridge.BACK_DARK);
+                context.fill(x + 1, y + 1, x + w - 1, y + h - 1, io.github.autyism.keybindprofilesplus.compat.HoldBindsBridge.BACK);
+                Component label = recording
+                        ? Component.literal("> ").append(pendingModifiers == 0 ? Component.translatable("keybindprofilesplus.hold.press")
+                        : KeyCombo.withModifiers(pendingModifiers, Component.literal("..."))).append(" <")
+                        : io.github.autyism.keybindprofilesplus.compat.HoldBindsBridge.label(control);
+                context.drawCenteredString(font, GuiUtil.ellipsize(font, label.getString(), w - 6), x + w / 2, y + (h - 8) / 2, recording ? 0xFFFFFF55 : 0xFFFFFFFF);
             }
 
             /** The key button's text: the key, marked when it conflicts, or the "waiting for a key" decoration. */
@@ -1275,10 +1338,20 @@ public class KeyOverviewScreen extends ResizingScreen {
 
                 KeyConflicts.Level level = row.level();
                 if (keyButton != null) {
+                    boolean back = flipButton != null && io.github.autyism.keybindprofilesplus.compat.HoldBindsBridge.isFlipped(row.binding().getName());
+                    if (flipButton != null) {
+                        resetButton.setMessage(back ? Component.literal("✕") : RESET_TEXT);
+                        resetButton.active = back ? io.github.autyism.keybindprofilesplus.compat.HoldBindsBridge.get(row.binding().getName()) != null : row.changed();
+                    }
                     resetButton.setPosition(right - resetWidth, top);
                     resetButton.render(context, mouseX, mouseY, deltaTicks);
                     keyButton.setPosition(keyLeft, top);
                     keyButton.render(context, mouseX, mouseY, deltaTicks);
+                    if (flipButton != null) {
+                        flipButton.setPosition(keyLeft - 22, top);
+                        flipButton.render(context, mouseX, mouseY, deltaTicks);
+                        drawBackFace(context, font, row.binding(), keyLeft, top, KEY_BUTTON_WIDTH, 20);
+                    }
                 } else {
                     // Read-only: a flat box where the two buttons would be.
                     context.fill(keyLeft, top + 1, right, bottom - 1, GuiUtil.VALUE_BOX);
@@ -1292,7 +1365,7 @@ public class KeyOverviewScreen extends ResizingScreen {
                     context.fill(keyLeft - 5, top + 1, keyLeft - 2, bottom - 1, GuiUtil.GREEN);
                 }
 
-                int sourceRight = keyLeft - 9;
+                int sourceRight = keyLeft - (flipButton != null ? 27 : 9);
                 int available = sourceRight - left;
                 // Grouped by source, the heading already says where the keys come from.
                 String sourceText = groupBySource ? "" : GuiUtil.ellipsize(font, row.source().label().getString(), Math.min(MAX_SOURCE_WIDTH, available / 2));

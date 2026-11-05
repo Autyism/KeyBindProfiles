@@ -11,7 +11,6 @@
   "keybindprofilesplus.rename": "Rename",
   "keybindprofilesplus.import": "Import",
   "keybindprofilesplus.open_folder": "Open Profiles Folder",
-
   "keybindprofilesplus.list.empty": "No profiles yet. \"New Profile...\" saves your current keys as one.",
   "keybindprofilesplus.list.no_match": "No profile matches the search",
   "keybindprofilesplus.list.contents": "Keys: %s, other settings: %s",
@@ -20,7 +19,6 @@
   "keybindprofilesplus.list.badge.applied": "applied",
   "keybindprofilesplus.list.badge.default": "default",
   "keybindprofilesplus.list.badge.compare": "compare",
-
   "keybindprofilesplus.status.select_profile": "Select a profile first",
   "keybindprofilesplus.status.profile_name_required": "Enter a profile name",
   "keybindprofilesplus.status.profile_name_too_long": "The profile name is too long",
@@ -42,10 +40,8 @@
   "keybindprofilesplus.status.folder_open_failed": "Could not open the profiles folder",
   "keybindprofilesplus.status.contents_saved": "Saved what \"%s\" contains",
   "keybindprofilesplus.status.share_copied": "Share code of \"%s\" copied (%s characters)",
-
   "keybindprofilesplus.delete.confirm.title": "Delete profile \"%s\"?",
   "keybindprofilesplus.delete.confirm.message": "Its file is removed. Your current key bindings stay as they are.",
-
   "keybindprofilesplus.edit.title": "Edit Profile",
   "keybindprofilesplus.edit.section.name": "Name",
   "keybindprofilesplus.edit.section.hotkey": "Hotkey",
@@ -58,7 +54,6 @@
   "keybindprofilesplus.hotkey.clear": "Clear",
   "keybindprofilesplus.hotkey.explain": "Pressing the hotkey in game switches to this profile",
   "keybindprofilesplus.hotkey_hint": "Press 1 or 2 keys, then Enter to save. Backspace clears, Esc cancels.",
-
   "keybindprofilesplus.new.title": "New Profile",
   "keybindprofilesplus.new.create": "Create Profile",
   "keybindprofilesplus.contents.open": "Saved Contents...",
@@ -83,7 +78,6 @@
   "keybindprofilesplus.option.hideServerAddress": "Hide Server Address",
   "keybindprofilesplus.option.advancedItemTooltips": "Advanced Item Tooltips (F3 + H)",
   "keybindprofilesplus.option.pauseOnLostFocus": "Pause When Window Loses Focus (F3 + P)",
-
   "keybindprofilesplus.confirm.title": "Apply profile \"%s\"?",
   "keybindprofilesplus.confirm.subtitle": "This will change (%s):",
   "keybindprofilesplus.confirm.group.keys": "Key bindings (%s)",
@@ -93,7 +87,6 @@
   "keybindprofilesplus.confirm.apply": "Apply",
   "keybindprofilesplus.confirm.toggle": "Ask before applying",
   "keybindprofilesplus.confirm.toggle.tooltip": "Show what will change and ask before the Apply button applies a profile. Hotkeys and auto-switch never ask.",
-
   "keybindprofilesplus.compare.open": "Compare",
   "keybindprofilesplus.compare.open_two": "Compare 2",
   "keybindprofilesplus.compare.open_short": "Compare Profiles",
@@ -106,7 +99,6 @@
   "keybindprofilesplus.compare.summary": "%s of %s differ - %s saved on one side only",
   "keybindprofilesplus.compare.no_differences": "No differences",
   "keybindprofilesplus.compare.group_differs": " (%s differ)",
-
   "keybindprofilesplus.overview.open": "Key Binds",
   "keybindprofilesplus.overview.title": "Key Binds",
   "keybindprofilesplus.overview.search": "Search name, key or mod",
@@ -136,7 +128,6 @@
   "keybindprofilesplus.source.vanilla": "Minecraft",
   "keybindprofilesplus.source.unknown": "Unknown mod",
   "keybindprofilesplus.source.unknown_hint": "%s?",
-
   "keybindprofilesplus.context.world": "in the world",
   "keybindprofilesplus.context.containers": "in inventory screens",
   "keybindprofilesplus.context.screens": "in any screen",
@@ -169,13 +160,12 @@
   "keybindprofilesplus.context.situational.diagnostics": "only while a diagnostics scan is shown, never a conflict",
   "keybindprofilesplus.context.debug_base": "as the F3 key",
   "keybindprofilesplus.context.debug_combo": "only together with F3",
-
   "keybindprofilesplus.conflict.hard": "Conflicts with:",
   "keybindprofilesplus.conflict.soft": "May conflict with:",
   "keybindprofilesplus.conflict.line": " - %s (%s)",
   "keybindprofilesplus.conflict.summary": "Conflicts: %s, possible: %s",
   "keybindprofilesplus.conflict.shared": "On the same key, but never at the same time:",
-  "keybindprofilesplus.conflict.shared_line": " - %s \u2014 acts %s",
+  "keybindprofilesplus.conflict.shared_line": " - %s — acts %s",
   "keybindprofilesplus.conflict.reason.place": "both act %s",
   "keybindprofilesplus.conflict.reason.debug": "both are F3 combinations on this key",
   "keybindprofilesplus.conflict.reason.creative": "they only meet in Creative mode",
@@ -189,7 +179,6 @@
   "keybindprofilesplus.modifier.ctrl": "Ctrl",
   "keybindprofilesplus.modifier.shift": "Shift",
   "keybindprofilesplus.modifier.alt": "Alt",
-
   "keybindprofilesplus.external.meteor": "Meteor",
   "keybindprofilesplus.external.meteor_profile": "Meteor profile: %s",
   "keybindprofilesplus.external.readonly": "Read-only: read from %s. Change it in that mod.",
@@ -197,7 +186,6 @@
   "keybindprofilesplus.external.editable": "Managed by that mod; saved by it in %s",
   "keybindprofilesplus.external.meteor_addon": "Meteor: %s",
   "keybindprofilesplus.external.meteor_macros": "Meteor macros",
-
   "keybindprofilesplus.auto_switch_servers": "Applied automatically in",
   "keybindprofilesplus.server_address": "Server address or rule",
   "keybindprofilesplus.add_server": "Add",
@@ -223,7 +211,6 @@
   "keybindprofilesplus.server.rule.exact": "Exactly this address and port",
   "keybindprofilesplus.server.rule.host": "This host on any port, and its subdomains",
   "keybindprofilesplus.server.rule.shared": "Profile %s has the same rule",
-
   "keybindprofilesplus.rules.open": "Rules",
   "keybindprofilesplus.rules.title": "Auto-Switch Rules",
   "keybindprofilesplus.rules.section.add": "Add a rule",
@@ -232,7 +219,6 @@
   "keybindprofilesplus.rules.row": "%s  ->  %s",
   "keybindprofilesplus.rules.none": "No rules yet",
   "keybindprofilesplus.rules.priority": "When several rules match, the most specific one wins",
-
   "keybindprofilesplus.settings.open": "Settings",
   "keybindprofilesplus.settings.title": "KeyBind Profiles+ Settings",
   "keybindprofilesplus.settings.section.apply": "Applying profiles",
@@ -246,7 +232,6 @@
   "keybindprofilesplus.settings.default_profile.tooltip": "The profile to go back to when you leave a world or server, if \"Back to default when leaving\" is on.",
   "keybindprofilesplus.settings.return_to_default": "Back to default when leaving",
   "keybindprofilesplus.settings.return_to_default.tooltip": "When you leave a world or server, apply the default profile again.",
-
   "keybindprofilesplus.share.copy": "Copy Code",
   "keybindprofilesplus.share.copy.tooltip": "Copies the selected profile to the clipboard as one line of text (a share code). Anyone can turn it back into the profile with Import. Hotkey and server rules are not included.",
   "keybindprofilesplus.share.code": "Share code",
@@ -260,10 +245,8 @@
   "keybindprofilesplus.share.error.invalid_content": "The share code does not contain a usable profile",
   "keybindprofilesplus.import.title": "Import a Profile",
   "keybindprofilesplus.import.confirm": "Import",
-
   "keybindprofilesplus.hud.profile_applied": "Profile \"%s\" applied",
   "keybindprofilesplus.key.keypad": "Num %s",
-
   "keybindprofilesplus.configs.section": "Mod configs",
   "keybindprofilesplus.configs.open": "Export / Import Mod Configs...",
   "keybindprofilesplus.configs.open.tooltip": "Save the settings files of all your mods into one file, or load such a file. Separate from profiles and share codes.",
@@ -343,9 +326,7 @@
   "keybindprofilesplus.configs.status.nothing_pending": "There is no import waiting",
   "keybindprofilesplus.configs.status.folder_opened": "Exports folder opened",
   "keybindprofilesplus.configs.status.folder_failed": "Could not open the exports folder",
-
   "modmenu.descriptionTranslation.keybindprofilesplus": "Save, compare, share and instantly switch whole sets of key bindings, optionally together with chosen game settings. Its Key Binds screen shows which mod every key comes from, marks real conflicts, supports Ctrl/Shift/Alt combinations and also edits the hotkeys of Meteor Client, MaLiLib mods and Inventory Profiles Next. Based on KeyBindProfiles by sawiq_.",
-
   "keybindprofilesplus.server.rule.situation_in": "While in this dimension (then back to the profile before)",
   "keybindprofilesplus.server.rule.situation_flying": "While gliding with an elytra (then back to the profile before)",
   "keybindprofilesplus.server.rule.situation_wearing": "While this item is worn (then back to the profile before)",
@@ -373,5 +354,8 @@
   "keybindprofilesplus.history.many": "%s changes",
   "keybindprofilesplus.history.applied": "Applied profile %s",
   "keybindprofilesplus.settings.keyboard_view": "Key Binds opens on the keyboard",
-  "keybindprofilesplus.settings.keyboard_view.tooltip": "The Key Binds screen starts with the keyboard picture instead of the list. The button at the top switches either way."
+  "keybindprofilesplus.settings.keyboard_view.tooltip": "The Key Binds screen starts with the keyboard picture instead of the list. The button at the top switches either way.",
+  "keybindprofilesplus.hold.button": "⏱ %s s: %s",
+  "keybindprofilesplus.hold.press": "hold keys",
+  "keybindprofilesplus.hold.flip": "Turn over: normal key / long-press key (Accurate Hotkeys)"
 }

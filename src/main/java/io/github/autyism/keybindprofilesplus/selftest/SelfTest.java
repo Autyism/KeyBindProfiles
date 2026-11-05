@@ -219,6 +219,7 @@ public final class SelfTest extends SelfTestRunner {
 
         // Screens.
         screens.rebindOnKeyBindsScreen();
+        screens.holdBindOnKeyBindsScreen();
         screens.recordCombinationsOnVanillaScreen();
         // Meteor's and malilib's own hotkeys, changed for real in the running mods.
         live.register();

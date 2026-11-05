@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.4.1 — 2026-11-05
+
+For Minecraft 1.21.5–26.3.
+
+- With Accurate Hotkeys 1.1.0 installed: the ⇄ button beside a binding turns it over to its long-press key (amber); set it there like any key. ✕ removes it. The normal key stays as it is.
+
+### 中文
+
+适用于 Minecraft 1.21.5–26.3。
+
+- 装了 Accurate Hotkeys 1.1.0 时：按键旁边的 ⇄ 按钮把它翻到长按那一面（琥珀色），像平常一样设键；✕ 删掉长按键。普通按键不受影响。
+
 ## 0.4.0 — 2026-11-05
 
 For Minecraft 1.21.5–26.3.
