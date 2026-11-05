@@ -15,6 +15,7 @@ import io.github.autyism.keybindprofilesplus.profile.ProfileService;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -73,7 +74,10 @@ public class KeyOverviewScreen extends ResizingScreen {
     private final List<Row> rows = new ArrayList<>();
 
     private EditBox searchField;
-    private CycleButton<String> filterButton;
+    /** Opens the list of sources below it (a click picks one) instead of stepping through them one by one. */
+    private Button filterButton;
+    private boolean filterOpen;
+    private int filterScroll;
     private CycleButton<Boolean> groupButton;
     private CycleButton<Boolean> conflictsButton;
     private Button resetAllButton;
@@ -82,6 +86,11 @@ public class KeyOverviewScreen extends ResizingScreen {
     private String filter = FILTER_ALL;
     private boolean groupBySource;
     private boolean conflictsOnly;
+    /**
+     * Rows shown since "conflicts only" was turned on. One whose conflict is solved meanwhile (a click on its row,
+     * a new key) stays in the list, in green, until "conflicts only" is switched again or the screen is opened anew.
+     */
+    private final Set<String> conflictRowsShown = new HashSet<>();
     private String query = "";
     private Component summary = Component.empty();
     private KeyConflicts.Summary conflictSummary = new KeyConflicts.Summary(0, 0);
@@ -148,6 +157,7 @@ public class KeyOverviewScreen extends ResizingScreen {
         conflictsButton = first.addChild(CycleButton.onOffBuilder(conflictsOnly)
                 .create(0, 0, half, 20, Component.translatable("keybindprofilesplus.overview.conflicts_only"), (button, value) -> {
                     conflictsOnly = value;
+                    conflictRowsShown.clear();
                     refreshList(false);
                 }));
 
@@ -155,12 +165,10 @@ public class KeyOverviewScreen extends ResizingScreen {
         if (!filterValues.contains(filter)) {
             filter = FILTER_ALL;
         }
-        filterButton = second.addChild(CycleButton.<String>builder(KeyOverviewScreen::filterLabel, filter)
-                .withValues(filterValues)
-                .create(0, 0, half, 20, Component.translatable("keybindprofilesplus.overview.filter"), (button, value) -> {
-                    filter = value;
-                    refreshList(false);
-                }));
+        filterButton = second.addChild(Button.builder(filterMessage(), button -> {
+                    filterOpen = !filterOpen;
+                    filterScroll = Math.max(0, filterValues.indexOf(filter) - 2);
+                }).width(half).build());
         groupButton = second.addChild(CycleButton.<Boolean>builder(bySource -> Component.translatable(
                         //? if >=1.21.11 {
                         bySource ? "keybindprofilesplus.overview.group.source" : "keybindprofilesplus.overview.group.category"), groupBySource)
@@ -270,6 +278,11 @@ public class KeyOverviewScreen extends ResizingScreen {
             tooltipX = point == null ? 0 : overKey ? point[0] : list.getRowLeft() + 20;
             tooltipY = point == null ? 0 : point[1];
         }
+        if (filterOpen) {
+            // Drawn last, over the list; no row tooltip on top of it.
+            renderFilterList(context, mouseX, mouseY);
+            tooltipRow = null;
+        }
         if (tooltipRow != null && !isWaiting()) {
             List<FormattedCharSequence> wrapped = wrappedTooltip(tooltipRow, overKey);
             if (!wrapped.isEmpty()) {
@@ -323,6 +336,17 @@ public class KeyOverviewScreen extends ResizingScreen {
 
     @Override
     public boolean mouseClicked(MouseButtonEvent click, boolean doubled) {
+        if (filterOpen && !isWaiting()) {
+            if (overFilterList(click.x(), click.y())) {
+                int index = filterScroll + (int) ((click.y() - filterListTop()) / FILTER_ROW);
+                if (index >= 0 && index < filterValues.size()) {
+                    setSourceFilter(filterValues.get(index));
+                }
+            }
+            // Any click closes the list; one beside it (also on the source button) does nothing else.
+            filterOpen = false;
+            return true;
+        }
         if (isWaiting()) {
             finishRebind(InputConstants.Type.MOUSE.getOrCreate(click.button()), click.modifiers());
             return true;
@@ -331,7 +355,22 @@ public class KeyOverviewScreen extends ResizingScreen {
     }
 
     @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount) {
+        if (filterOpen) {
+            if (overFilterList(mouseX, mouseY)) {
+                filterScroll = Math.max(0, Math.min(filterScroll - (int) Math.signum(verticalAmount), filterValues.size() - filterVisibleRows()));
+            }
+            return true;
+        }
+        return super.mouseScrolled(mouseX, mouseY, horizontalAmount, verticalAmount);
+    }
+
+    @Override
     public boolean keyPressed(KeyEvent input) {
+        if (filterOpen && !isWaiting() && input.isEscape()) {
+            filterOpen = false;
+            return true;
+        }
         if (!isWaiting()) {
             return super.keyPressed(input);
         }
@@ -507,9 +546,40 @@ public class KeyOverviewScreen extends ResizingScreen {
     public void setSourceFilter(String filter) {
         if (filterValues.contains(filter)) {
             this.filter = filter;
-            filterButton.setValue(filter);
+            filterOpen = false;
+            filterButton.setMessage(filterMessage());
             refreshList(false);
         }
+    }
+
+    /** For the self-test: opens or closes the list of sources under the source button. */
+    public void setSourceListOpen(boolean open) {
+        filterOpen = open;
+        filterScroll = 0;
+    }
+
+    public boolean sourceListOpen() {
+        return filterOpen;
+    }
+
+    /** For the self-test: the screen point of an entry in the open source list, or null when it is not shown. */
+    public int[] sourceListPoint(String value) {
+        int index = filterValues.indexOf(value) - filterScroll;
+        if (!filterOpen || index < 0 || index >= filterVisibleRows()) {
+            return null;
+        }
+        return new int[]{filterButton.getX() + filterButton.getWidth() / 2, filterListTop() + index * FILTER_ROW + FILTER_ROW / 2};
+    }
+
+    /** Ids of the rows shown in green: their conflict was solved while "conflicts only" was on. */
+    public List<String> solvedConflictRows() {
+        List<String> solved = new ArrayList<>();
+        for (KeyList.Entry entry : list.children()) {
+            if (entry instanceof KeyList.BindingEntry binding && binding.solved) {
+                solved.add(rowId(binding.row));
+            }
+        }
+        return solved;
     }
 
     public List<String> sourceFilterValues() {
@@ -524,6 +594,7 @@ public class KeyOverviewScreen extends ResizingScreen {
 
     public void setConflictsOnly(boolean conflictsOnly) {
         this.conflictsOnly = conflictsOnly;
+        conflictRowsShown.clear();
         conflictsButton.setValue(conflictsOnly);
         refreshList(false);
     }
@@ -663,8 +734,15 @@ public class KeyOverviewScreen extends ResizingScreen {
                     soft++;
                 }
             }
-            if (accepts(row) && row.matches(needle) && (!conflictsOnly || row.level() != KeyConflicts.Level.NONE)) {
-                visible.add(row);
+            if (accepts(row) && row.matches(needle)) {
+                if (!conflictsOnly) {
+                    visible.add(row);
+                } else if (row.level() != KeyConflicts.Level.NONE) {
+                    conflictRowsShown.add(rowId(row));
+                    visible.add(row);
+                } else if (conflictRowsShown.contains(rowId(row))) {
+                    visible.add(row);
+                }
             }
         }
 
@@ -677,6 +755,12 @@ public class KeyOverviewScreen extends ResizingScreen {
         resetAllButton.active = anyChanged;
     }
 
+    /** Stable id of a row: "key:" + the binding's name, or "ext:" + the other mod's hotkey name. */
+    private static String rowId(Row row) {
+        // the same hotkey can be listed twice (the loaded Meteor profile and a saved one), so the group is part of it
+        return row.binding() != null ? "key:" + row.binding().getName() : "ext:" + row.external().group().getString() + "/" + KeyConflicts.overrideKey(row.external());
+    }
+
     private boolean accepts(Row row) {
         return switch (filter) {
             case FILTER_ALL -> true;
@@ -684,6 +768,57 @@ public class KeyOverviewScreen extends ResizingScreen {
             case FILTER_MODS -> !row.source().isVanilla();
             default -> row.source().label().getString().equals(filter);
         };
+    }
+
+    private Component filterMessage() {
+        return Component.translatable("keybindprofilesplus.overview.filter.button", filterLabel(filter));
+    }
+
+    // ------------------------------------------------------------------ the source list under the source button
+
+    private static final int FILTER_ROW = 14;
+
+    private int filterListTop() {
+        return filterButton.getY() + filterButton.getHeight() + 1;
+    }
+
+    /** Rows of the open list: as many sources as fit down to the bottom of the screen (at least 3). */
+    private int filterVisibleRows() {
+        int fit = filterButton == null ? 10 : (height - 6 - filterListTop()) / FILTER_ROW;
+        return Math.max(1, Math.min(filterValues.size(), Math.max(3, fit)));
+    }
+
+    private boolean overFilterList(double mouseX, double mouseY) {
+        int top = filterListTop();
+        return mouseX >= filterButton.getX() && mouseX < filterButton.getX() + filterButton.getWidth()
+                && mouseY >= top && mouseY < top + filterVisibleRows() * FILTER_ROW;
+    }
+
+    private void renderFilterList(GuiGraphics context, int mouseX, int mouseY) {
+        int rowsShown = filterVisibleRows();
+        filterScroll = Math.max(0, Math.min(filterScroll, filterValues.size() - rowsShown));
+        int left = filterButton.getX();
+        int right = left + filterButton.getWidth();
+        int top = filterListTop();
+        int bottom = top + rowsShown * FILTER_ROW;
+        context.fill(left - 1, top - 1, right + 1, bottom + 1, GuiUtil.GRAY);
+        context.fill(left, top, right, bottom, 0xF0101010);
+        boolean scrolls = filterValues.size() > rowsShown;
+        int textRight = scrolls ? right - 6 : right - 4;
+        for (int i = 0; i < rowsShown; i++) {
+            String value = filterValues.get(filterScroll + i);
+            int y = top + i * FILTER_ROW;
+            if (mouseX >= left && mouseX < right && mouseY >= y && mouseY < y + FILTER_ROW) {
+                context.fill(left, y, right, y + FILTER_ROW, 0x40FFFFFF);
+            }
+            String text = GuiUtil.ellipsize(font, filterLabel(value).getString(), textRight - left - 6);
+            context.drawString(font, text, left + 5, y + (FILTER_ROW - font.lineHeight) / 2 + 1, value.equals(filter) ? GuiUtil.YELLOW : GuiUtil.WHITE);
+        }
+        if (scrolls) {
+            int barHeight = Math.max(8, (bottom - top) * rowsShown / filterValues.size());
+            int barTop = top + (bottom - top - barHeight) * filterScroll / (filterValues.size() - rowsShown);
+            context.fill(right - 4, barTop, right - 1, barTop + barHeight, 0xFFC0C0C0);
+        }
     }
 
     private static Component filterLabel(String value) {
@@ -872,6 +1007,8 @@ public class KeyOverviewScreen extends ResizingScreen {
 
         private final class BindingEntry extends Entry {
             private final Row row;
+            /** Shown only because it was in the "conflicts only" list before its conflict was solved: drawn green. */
+            private final boolean solved;
             /** Null for the read-only hotkeys of other mods. */
             private final Button keyButton;
             private final Button resetButton;
@@ -879,6 +1016,7 @@ public class KeyOverviewScreen extends ResizingScreen {
 
             BindingEntry(Row row) {
                 this.row = row;
+                this.solved = conflictsOnly && row.level() == KeyConflicts.Level.NONE;
                 KeyMapping binding = row.binding();
                 ExternalBinding external = row.external();
                 if (binding == null && !external.editable()) {
@@ -931,6 +1069,8 @@ public class KeyOverviewScreen extends ResizingScreen {
                     label = Component.literal("> ").append(shown.copy().withStyle(ChatFormatting.WHITE, ChatFormatting.UNDERLINE)).append(" <").withStyle(ChatFormatting.YELLOW);
                 } else if (level != KeyConflicts.Level.NONE) {
                     label = Component.literal("[ ").append(key.copy().withStyle(ChatFormatting.WHITE)).append(" ]").withStyle(level.formatting());
+                } else if (solved) {
+                    label = key.copy().withStyle(ChatFormatting.GREEN);
                 } else {
                     label = row.unbound() ? key.copy().withStyle(ChatFormatting.GRAY) : key.copy();
                 }
@@ -990,11 +1130,13 @@ public class KeyOverviewScreen extends ResizingScreen {
                     // Read-only: a flat box where the two buttons would be.
                     context.fill(keyLeft, top + 1, right, bottom - 1, GuiUtil.VALUE_BOX);
                     String keyText = GuiUtil.ellipsize(font, row.keyText().getString(), right - keyLeft - 6);
-                    int keyColor = level != KeyConflicts.Level.NONE ? level.color() : row.external().active() ? GuiUtil.WHITE : GuiUtil.GRAY;
+                    int keyColor = level != KeyConflicts.Level.NONE ? level.color() : solved ? GuiUtil.GREEN : row.external().active() ? GuiUtil.WHITE : GuiUtil.GRAY;
                     context.drawCenteredString(font, keyText, (keyLeft + right) / 2, textY, keyColor);
                 }
                 if (level != KeyConflicts.Level.NONE) {
                     context.fill(keyLeft - 5, top + 1, keyLeft - 2, bottom - 1, level.color());
+                } else if (solved) {
+                    context.fill(keyLeft - 5, top + 1, keyLeft - 2, bottom - 1, GuiUtil.GREEN);
                 }
 
                 int sourceRight = keyLeft - 9;
@@ -1005,7 +1147,7 @@ public class KeyOverviewScreen extends ResizingScreen {
                 context.drawString(font, sourceText, sourceRight - sourceWidth, textY, row.source().color());
 
                 String nameText = GuiUtil.ellipsize(font, row.name().getString(), available - sourceWidth - 8);
-                context.drawString(font, nameText, left, textY, GuiUtil.WHITE);
+                context.drawString(font, nameText, left, textY, solved ? GuiUtil.GREEN : GuiUtil.WHITE);
             }
         }
     }

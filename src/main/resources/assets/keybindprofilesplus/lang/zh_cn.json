@@ -111,6 +111,7 @@
   "keybindprofilesplus.overview.title": "按键绑定",
   "keybindprofilesplus.overview.search": "搜索名称、按键或模组",
   "keybindprofilesplus.overview.filter": "来源",
+  "keybindprofilesplus.overview.filter.button": "来源：%s ▼",
   "keybindprofilesplus.overview.filter.all": "全部",
   "keybindprofilesplus.overview.filter.vanilla": "Minecraft",
   "keybindprofilesplus.overview.filter.mods": "所有模组",

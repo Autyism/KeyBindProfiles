@@ -456,6 +456,57 @@ final class ScreenChecks {
                         overview.visibleBindingCount() >= 6 && overview.visibleBindingCount() < 30);
             });
             t.shot(tag + "_overview_conflicts_only");
+            t.step("overview: a solved conflict stays, in green", 3, () -> {
+                KeyOverviewScreen overview = t.screen(KeyOverviewScreen.class);
+                // Litematica's tool key on the attack button: in the world it clashes with attack, in inventory screens not
+                boolean world = KeyConflicts.OVERRIDE_WORLD.equals(overview.cycleExternalScope("Litematica", "Tool Place Corner 1"));
+                int withConflict = overview.visibleBindingCount();
+                boolean containers = KeyConflicts.OVERRIDE_CONTAINERS.equals(overview.cycleExternalScope("Litematica", "Tool Place Corner 1"));
+                List<String> solved = overview.solvedConflictRows();
+                t.check("overview: conflicts only, a row whose conflict was solved by a click stays (green) " + solved,
+                        world && containers && overview.visibleBindingCount() == withConflict
+                                && solved.stream().anyMatch(id -> id.endsWith("Tool Place Corner 1")) && solved.contains("key:key.attack"));
+                overview.setQuery(SelfTestRunner.keyLabel("key.attack"));
+            });
+            t.shot(tag + "_overview_conflicts_solved_green");
+            t.step("overview: solved rows go when conflicts only is opened again", 3, () -> {
+                KeyOverviewScreen overview = t.screen(KeyOverviewScreen.class);
+                overview.setQuery("");
+                int before = overview.visibleBindingCount();
+                overview.setConflictsOnly(false);
+                overview.setConflictsOnly(true);
+                t.check("overview: switching conflicts only again drops the solved rows (" + before + " -> " + overview.visibleBindingCount() + ")",
+                        overview.solvedConflictRows().isEmpty() && overview.visibleBindingCount() < before);
+                // back to automatic: containers -> screens -> anywhere -> situational -> automatic
+                String last = "";
+                for (int i = 0; i < 4; i++) {
+                    last = overview.cycleExternalScope("Litematica", "Tool Place Corner 1");
+                }
+                t.check("overview: Litematica's tool key is automatic again", last == null);
+                overview.setConflictsOnly(false);
+            });
+            t.step("overview: source list opens", 3, () -> {
+                KeyOverviewScreen overview = t.screen(KeyOverviewScreen.class);
+                t.click(translated("keybindprofilesplus.overview.filter.button", translated("keybindprofilesplus.overview.filter.all")));
+                t.check("overview: the source button opens a list of all sources", overview.sourceListOpen());
+            });
+            t.shot(tag + "_overview_source_list");
+            t.step("overview: pick a source from the list", 3, () -> {
+                KeyOverviewScreen overview = t.screen(KeyOverviewScreen.class);
+                int[] point = overview.sourceListPoint(KeyOverviewScreen.FILTER_VANILLA);
+                t.check("overview: Minecraft is in the open list", point != null);
+                if (point != null) {
+                    t.mouseClick(point, 0);
+                }
+                int vanilla = overview.visibleBindingCount();
+                t.check("overview: a click on Minecraft picks it and closes the list (" + vanilla + " keys)",
+                        !overview.sourceListOpen() && vanilla > 30
+                                && t.hasWidget(translated("keybindprofilesplus.overview.filter.button", translated("keybindprofilesplus.overview.filter.vanilla"))));
+                overview.setSourceListOpen(true);
+                t.mouseClick(new int[]{2, 2}, 0);
+                t.check("overview: a click beside the list only closes it", !overview.sourceListOpen() && overview.visibleBindingCount() == vanilla);
+                overview.setSourceFilter(KeyOverviewScreen.FILTER_ALL);
+            });
             t.step("overview: search", 3, () -> {
                 KeyOverviewScreen overview = t.screen(KeyOverviewScreen.class);
                 overview.setConflictsOnly(false);

@@ -111,6 +111,7 @@
   "keybindprofilesplus.overview.title": "Key Binds",
   "keybindprofilesplus.overview.search": "Search name, key or mod",
   "keybindprofilesplus.overview.filter": "Source",
+  "keybindprofilesplus.overview.filter.button": "Source: %s ▼",
   "keybindprofilesplus.overview.filter.all": "All",
   "keybindprofilesplus.overview.filter.vanilla": "Minecraft",
   "keybindprofilesplus.overview.filter.mods": "All mods",

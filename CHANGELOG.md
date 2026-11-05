@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.3.1 — 2026-11-05
+
+For Minecraft 1.21.5–26.3.
+
+- Key Binds screen: the Source button opens a list of all sources; click one to pick it (no more clicking through them one by one).
+- "Conflicts only": a key whose conflict you solve (by clicking its row or giving it a new key) no longer vanishes at once. It stays in the list in green until you switch "Conflicts only" again.
+
+### 中文
+
+适用于 Minecraft 1.21.5–26.3。
+
+- 按键设置界面：「来源」按钮点开是一个完整列表，直接点要的那一项，不用再一下下循环点。
+- 「只看冲突」：手动解除冲突的键（点它那一行，或者给它换个键）不会马上消失，而是变成绿字留在列表里，直到重新切换「只看冲突」才去掉。
+
 ## 0.3.0 — 2026-10-22
 
 Conflict marks that know where each key acts. For Minecraft 1.21.5–26.3.
